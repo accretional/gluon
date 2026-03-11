@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+package loader;
+
+option go_package = "github.com/accretional/gluon/go";
+
+// IMPORTANT
+// We're wrapping the go compiler in a slightly unusual way because
+// 1. We have the ability/plans and some progress on Go AST manipulation, regular codegen, and agent-driven onboarding of Go to proto, and vice versa. We need to use the compiler to do that
+// 2. The compiler is one of the few Go ecosystem tools we can't easily automate doing that with via AST manipulation/reflection because it's not a package. So we have to do something like this anyway, and it's a good opportunity to see how well this works.
+// 3. We want to be able to write self-modifying/extending binaries in Go, but in conjunction with our proto tooling ecosystem, so we can write fully/partially automated workflows and put LLMs in the loop
+// 4. The structure legitimately makes a lot of the Golang tooling easier to understand, discover, and use
+// 5. We'll need to use that tooling a lot if we're making a lot of Go coding changes.
+
+// TODO: clean up typos, make this compile, implement Command on top of Commander.proto
+
+// First class architectures: darwin/amd64, darwin/arm64, linux/386, linux/amd64, linux/arm, linux/arm64, windows/386, windows/amd64
+// Full list of supported os/architecture pairs can be found at https://go.dev/doc/install/source
+// Each default to being unset, which in golang triggers a general build
+message GoCompilerTarget {
+  enum GOOS {
+    UNKNOWN = 0,
+    linux = 1,
+    darwin = 2,
+    windows = 3
+  }
+  enum GOARCH {
+    UNKNOWN = 0,
+    amd64 = 1,
+    _386 = 2,
+    arm = 3
+  }
+  GOOS os = 1;
+  GOARCH arch = 2;
+}
+
+message GoDocQuery {
+  // If not provided, look in current package.
+  string pkg = 1;
+  // exported package-level symbol
+  string symbol = 2;
+  repeated string method_or_field = 3;
+  enum GoDocQueryFlags {
+    UNKNOWN = 0,
+    all = 1, // show all in package
+    case_sensitive = 2,
+    include_main_cmd = 3, // by default, main is excluded
+    http = 4, // return html docs over http. Note: will cause the following to be downloaded. golang.org/x/pkgsite, golang.org/x/mod, github.com/google/safehtml, golang.org/x/tools, github.com/google/licensecheck, rsc.io/markdown
+    Short = 5, // one-line representation for each symbol
+    full_source = 6, // full source per symbol, declaration, definition and impl, type declaration/enclosing costs
+    include_unexported = 7 // also show docs over unexpected symbols, methods, and fields
+  }
+  repeated GoDocQueryFlags flags = 4;
+}
+
+message GoFixQuery {
+  string package = 1;
+  string path = 2;
+  bool diff = 3; 
+  // If left empty, run all fixers
+  repeated string analyzers = 4;
+  GoCompilerTarget target = 5;
+} 
+
+
+message GoFormatRequest {
+  oneof input {
+     repeated string packages = 1;
+     string go_expression = 2;
+  }
+  enum PrintOptions {
+    Unknown = 0,
+    Replace = 1,
+    Diffs = 2,
+    Filenames = 3
+  }
+  message RewriteRule {
+    string source_expression = 1;
+    string target_expression = 2;
+  }
+  bool print_all_errors = 3;
+  PrintOptions print_options = 4;
+  RewriteRule rewrite_rule = 5;
+  bool simplify = 6;
+ }
+
+
+message GoGetREquest {
+  repeated string packages = 1;
+  bool upgrade = 2;
+  bool include_tests = 3;
+  // Never implement -d as it's deprecated since Go 1.17
+}
+
+message GoInstallRequest {
+  repeated string packages = 1;
+}
+
+message GoInstallRequest {
+  bool modules = 1;
+  bool upgrade_info = 2;
+  bool retracted = 3;
+  bool versions = 4;
+  // TODO: eventually add other special handling for this into a proper protocol
+  bool json = 5;
+  // TODO: add flags
+}
+
+message GoEnvironmentVariable {
+  string name = 1;
+  string value = 2;
+}
+
+message GoEnvRequest {
+  bool json = 1;
+  repeated string unset = 2;
+  repeated GoEnvironmentVariable set = 3;
+  bool changed = 4;
+}
+
+// Wrapper for https://pkg.go.dev/cmd/go for programmatic, remote, or reflective interaction with the Go compiler and development ecosystem
+// Go intentionally doesn't expose this stuff as a package, which makes it harder to automate or use with tool-calling agents or remote development environments
+// We can embed the binary in a Go package, provide more structured access via an API, internally translate that into commands, and invoke it via a loader, subprocess, etc :) 
+service Go {
+  // IMPORTANT - MUST IMPLEMENT THIS FIRST, USE IT AS THE BASIS FOR THE REST OF THE IMPLEMENTATION AND GENERAL ESCAPE HATCH
+  // wrap the Commander from https://github.com/accretional/runrpc
+  rpc Command(Text) returns (Text);
+
+  // We'll implement these first. But still commented out for now. We might decide to consolidate things or split them up differently
+  // rpc Docs(GoDocRequest) returns (Text);
+  // rpc Fix(GoFixQuery) returns (Text);
+  // rpc ListFixAnalyzers(Nothing) returns (Text); // technically under Tool
+  // rpc DescribeFixAnalyzer(Text) returns (Text); // technically under Tool
+  // rpc Format(GoFormatRequest) returns (Text);
+  // rpc Get(GoGetRequest) returns (Text);
+  // rpc Install(GoInstallRequest) returns (Text);
+  // rpc List(GoListRequest) returns (Text);
+  // rpc Env(GoEnvRequest) returns (Text);
+  
+  // Not Implementing these yet, they're the hard ones
+  // rpc Build(GoBuildRequest) returns (Text);
+  // rpc Env(GoEnvRequest) returns (Text);
+  // rpc Run(GoRunRequest) returns (Text);
+  // rpc Test(GoTestRequest) returns (Text);
+
+  // Not implementing these yet because they're also a bit tricky but less important than above
+  // rpc Generate(GoGenerateRequest) returns (Text); 
+  // rpc Tool
+  // rpc Vet
+  // rpc Help
+  // rpc Version (we're on 1.26)
+
+  // https://go.dev/ref/mod
+  // Maybe implement go module vs package stuff in separate services
+  // service GoMod {
+  // download    // download modules to local cache
+  //  edit        // edit go.mod from tools or scripts
+  //  graph       // print module requirement graph
+  //  init        // initialize new module in current directory
+  //  tidy        // add missing and remove unused modules
+  //  vendor      // make vendored copy of dependencies
+  //  verify      // verify dependencies have expected content
+  //  why         // explain why packages or modules are needed
+  // }
+
+  // Not implementing these potentially ever because they're not important to us: go work, go telemetry (default is off), go bug
+}
