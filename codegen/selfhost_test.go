@@ -275,7 +275,9 @@ type GoModManager interface {
 	expectedFiles := []string{
 		"pb/gluon.proto",
 		"go_compiler_server.go",
+		"go_compiler_client.go",
 		"go_mod_manager_server.go",
+		"go_mod_manager_client.go",
 		"main.go",
 		"go.mod",
 	}
@@ -348,36 +350,32 @@ type GoModManager interface {
 		}
 	}
 
-	// --- Verify round-trip ---
+	// --- Verify client files have all methods ---
+	goCompilerClientGo := pkg.Files["go_compiler_client.go"]
+	for _, m := range goCompilerMethods {
+		if !strings.Contains(goCompilerClientGo, "func (c *GoCompilerClient) "+m+"(") {
+			t.Errorf("GoCompilerClient missing method: %s", m)
+		}
+	}
+	goModClientGo := pkg.Files["go_mod_manager_client.go"]
+	for _, m := range goModMethods {
+		if !strings.Contains(goModClientGo, "func (c *GoModManagerClient) "+m+"(") {
+			t.Errorf("GoModManagerClient missing method: %s", m)
+		}
+	}
+
+	// --- Verify round-trip with detailed report ---
 	if !result.RoundTripOK {
 		t.Error("round-trip verification failed")
+		if result.RoundTripReport != nil {
+			for _, f := range result.RoundTripReport.Failures {
+				t.Errorf("  round-trip: %s", f)
+			}
+		}
 	}
 	if result.RoundTrip != nil {
 		t.Logf("round-trip found %d structs, %d functions",
 			len(result.RoundTrip.Structs), len(result.RoundTrip.Functions))
-
-		// Verify round-trip found both server types
-		rtStructs := make(map[string]bool)
-		for _, s := range result.RoundTrip.Structs {
-			rtStructs[s.Name] = true
-		}
-		for _, want := range []string{"GoCompilerServer", "GoModManagerServer"} {
-			if !rtStructs[want] {
-				t.Errorf("round-trip missing struct: %s", want)
-			}
-		}
-
-		// Verify round-trip found all method names
-		rtFuncs := make(map[string]bool)
-		for _, f := range result.RoundTrip.Functions {
-			rtFuncs[f.Name] = true
-		}
-		allMethods := append(goCompilerMethods, goModMethods...)
-		for _, m := range allMethods {
-			if !rtFuncs[m] {
-				t.Errorf("round-trip missing method: %s", m)
-			}
-		}
 	}
 
 	t.Logf("PASS: self-host validation complete — %d files, %d services, %d total methods",

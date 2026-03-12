@@ -61,6 +61,12 @@ func WritePackage(module, pkgName string, info *PackageInfo, bundles []*ServiceB
 		pkg.Files[name+"_server.go"] = generatePbServerFile(module, bundle)
 	}
 
+	// Per-service client files (package main, using pb types)
+	for _, bundle := range bundles {
+		name := toSnakeCase(bundle.Name)
+		pkg.Files[name+"_client.go"] = generateClientFile(module, bundle)
+	}
+
 	// main.go — wires up all services
 	pkg.Files["main.go"] = generateMainFile(module, bundles)
 
@@ -119,6 +125,62 @@ func generatePbServerFile(module string, bundle *ServiceBundle) string {
 		b.WriteString(fmt.Sprintf("func (s *%s) %s(ctx context.Context, req *pb.%s) (*pb.%s, error) {\n",
 			serverName, m.Name, reqType, respType))
 		b.WriteString(fmt.Sprintf("\treturn nil, status.Errorf(codes.Unimplemented, %q)\n", m.Name+" not implemented"))
+		b.WriteString("}\n\n")
+	}
+
+	return b.String()
+}
+
+// generateClientFile generates a typed client wrapper around the pb-generated
+// gRPC client. It provides a constructor that dials the server and a method
+// for each RPC that delegates to the underlying pb client.
+func generateClientFile(module string, bundle *ServiceBundle) string {
+	var b strings.Builder
+	b.WriteString("package main\n\n")
+
+	clientName := bundle.Name + "Client"
+
+	b.WriteString("import (\n")
+	b.WriteString("\t\"context\"\n\n")
+	b.WriteString(fmt.Sprintf("\tpb %q\n", module+"/pb"))
+	b.WriteString("\t\"google.golang.org/grpc\"\n")
+	b.WriteString("\t\"google.golang.org/grpc/credentials/insecure\"\n")
+	b.WriteString(")\n\n")
+
+	// Client struct wrapping the pb client
+	b.WriteString(fmt.Sprintf("// %s wraps pb.%sClient with a managed connection.\n", clientName, bundle.Name))
+	b.WriteString(fmt.Sprintf("type %s struct {\n", clientName))
+	b.WriteString(fmt.Sprintf("\tclient pb.%sClient\n", bundle.Name))
+	b.WriteString("\tconn   *grpc.ClientConn\n")
+	b.WriteString("}\n\n")
+
+	// Constructor — dials the server
+	b.WriteString(fmt.Sprintf("// New%s connects to addr and returns a %s.\n", clientName, clientName))
+	b.WriteString(fmt.Sprintf("func New%s(addr string) (*%s, error) {\n", clientName, clientName))
+	b.WriteString("\tconn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))\n")
+	b.WriteString("\tif err != nil {\n")
+	b.WriteString("\t\treturn nil, err\n")
+	b.WriteString("\t}\n")
+	b.WriteString(fmt.Sprintf("\treturn &%s{\n", clientName))
+	b.WriteString(fmt.Sprintf("\t\tclient: pb.New%sClient(conn),\n", bundle.Name))
+	b.WriteString("\t\tconn:   conn,\n")
+	b.WriteString("\t}, nil\n")
+	b.WriteString("}\n\n")
+
+	// Close method
+	b.WriteString(fmt.Sprintf("// Close closes the underlying connection.\n"))
+	b.WriteString(fmt.Sprintf("func (c *%s) Close() error {\n", clientName))
+	b.WriteString("\treturn c.conn.Close()\n")
+	b.WriteString("}\n\n")
+
+	// Method wrappers — each delegates to the pb client
+	for _, m := range bundle.NormalizedInterface.Methods {
+		reqType := pbTypeName(m.Params[1].TypeStr)
+		respType := pbTypeName(m.Results[0].TypeStr)
+
+		b.WriteString(fmt.Sprintf("func (c *%s) %s(ctx context.Context, req *pb.%s) (*pb.%s, error) {\n",
+			clientName, m.Name, reqType, respType))
+		b.WriteString(fmt.Sprintf("\treturn c.client.%s(ctx, req)\n", m.Name))
 		b.WriteString("}\n\n")
 	}
 
@@ -202,6 +264,9 @@ type BootstrapResult struct {
 
 	// RoundTripOK is true if re-analysis found the expected structure.
 	RoundTripOK bool
+
+	// RoundTripReport has detailed pass/fail info for each check.
+	RoundTripReport *RoundTripReport
 }
 
 // Bootstrap runs the full bootstrap pipeline:
@@ -321,7 +386,9 @@ func Bootstrap(module, src string) (*BootstrapResult, error) {
 	result.RoundTrip = roundTrip
 
 	// Step 7: Verify round-trip
-	result.RoundTripOK = verifyRoundTrip(info, bundles, roundTrip)
+	report := verifyRoundTrip(info, bundles, roundTrip)
+	result.RoundTripOK = report.OK
+	result.RoundTripReport = report
 
 	return result, nil
 }
@@ -370,34 +437,94 @@ func BootstrapDir(module, dir string) (*BootstrapResult, error) {
 	return nil, fmt.Errorf("no Go files found in %s", dir)
 }
 
-func verifyRoundTrip(original *PackageInfo, bundles []*ServiceBundle, roundTrip *PackageInfo) bool {
-	// Check that server types exist
-	rtStructs := make(map[string]bool)
-	for _, s := range roundTrip.Structs {
-		rtStructs[s.Name] = true
+// RoundTripReport describes what passed and what failed during round-trip
+// verification. It replaces the old bool-only check with structured feedback.
+type RoundTripReport struct {
+	OK       bool
+	Failures []string
+}
+
+func verifyRoundTrip(original *PackageInfo, bundles []*ServiceBundle, roundTrip *PackageInfo) *RoundTripReport {
+	report := &RoundTripReport{OK: true}
+	fail := func(msg string) {
+		report.OK = false
+		report.Failures = append(report.Failures, msg)
+	}
+
+	// Index round-trip structs by name
+	rtStructs := make(map[string]*StructInfo)
+	for i := range roundTrip.Structs {
+		s := &roundTrip.Structs[i]
+		rtStructs[s.Name] = s
+	}
+
+	// Index round-trip functions by name+receiver
+	type funcKey struct{ Name, Recv string }
+	rtFuncs := make(map[funcKey]*FuncInfo)
+	for i := range roundTrip.Functions {
+		f := &roundTrip.Functions[i]
+		rtFuncs[funcKey{f.Name, f.RecvType}] = f
 	}
 
 	for _, bundle := range bundles {
 		serverName := bundle.Name + "Server"
-		if !rtStructs[serverName] {
-			return false
+		clientName := bundle.Name + "Client"
+
+		// 1. Server struct must exist
+		if rtStructs[serverName] == nil {
+			fail(fmt.Sprintf("missing server struct: %s", serverName))
+		}
+
+		// 2. Client struct must exist
+		if rtStructs[clientName] == nil {
+			fail(fmt.Sprintf("missing client struct: %s", clientName))
+		}
+
+		// 3. Constructors must exist
+		serverCtor := "New" + serverName
+		if rtFuncs[funcKey{serverCtor, ""}] == nil {
+			fail(fmt.Sprintf("missing constructor: %s", serverCtor))
+		}
+		clientCtor := "New" + clientName
+		if rtFuncs[funcKey{clientCtor, ""}] == nil {
+			fail(fmt.Sprintf("missing constructor: %s", clientCtor))
+		}
+
+		// 4. Close method on client
+		if rtFuncs[funcKey{"Close", "*" + clientName}] == nil {
+			fail(fmt.Sprintf("missing method: %s.Close", clientName))
+		}
+
+		// 5. Each RPC method must exist on both server and client
+		// with correct signature shape
+		for _, typeName := range []string{serverName, clientName} {
+			recv := "*" + typeName
+			for _, m := range bundle.NormalizedInterface.Methods {
+				fn := rtFuncs[funcKey{m.Name, recv}]
+				if fn == nil {
+					fail(fmt.Sprintf("%s.%s: method not found", typeName, m.Name))
+					continue
+				}
+
+				if !fn.HasContext {
+					fail(fmt.Sprintf("%s.%s: missing context.Context parameter", typeName, m.Name))
+				}
+				if !fn.HasError {
+					fail(fmt.Sprintf("%s.%s: missing error return", typeName, m.Name))
+				}
+				if len(fn.Params) != len(m.Params) {
+					fail(fmt.Sprintf("%s.%s: param count %d, want %d",
+						typeName, m.Name, len(fn.Params), len(m.Params)))
+				}
+				if len(fn.Results) != len(m.Results) {
+					fail(fmt.Sprintf("%s.%s: result count %d, want %d",
+						typeName, m.Name, len(fn.Results), len(m.Results)))
+				}
+			}
 		}
 	}
 
-	// Check that generated functions exist
-	rtFuncs := make(map[string]bool)
-	for _, f := range roundTrip.Functions {
-		rtFuncs[f.Name] = true
-	}
-
-	for _, bundle := range bundles {
-		constructor := "New" + bundle.Name + "Server"
-		if !rtFuncs[constructor] {
-			return false
-		}
-	}
-
-	return true
+	return report
 }
 
 // FormatGeneratedFile runs gofmt on a generated file string.

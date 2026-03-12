@@ -68,6 +68,7 @@ type KVStore interface {
 	expectFiles := []string{
 		"pb/kvstore.proto",
 		"kv_store_server.go",
+		"kv_store_client.go",
 		"main.go",
 		"go.mod",
 	}
@@ -103,15 +104,26 @@ type KVStore interface {
 		}
 	}
 
-	// Verify round-trip
+	// Verify client uses pb types
+	clientGo := result.Package.Files["kv_store_client.go"]
+	for _, want := range []string{
+		"pb.KVStoreClient",
+		"pb.NewKVStoreClient",
+		"grpc.NewClient",
+		"func (c *KVStoreClient) Get(",
+		"func (c *KVStoreClient) Close()",
+	} {
+		if !strings.Contains(clientGo, want) {
+			t.Errorf("client should contain %q", want)
+		}
+	}
+
+	// Verify round-trip with detailed report
 	if !result.RoundTripOK {
 		t.Error("round-trip verification failed")
-		if result.RoundTrip != nil {
-			for _, s := range result.RoundTrip.Structs {
-				t.Logf("  struct: %s", s.Name)
-			}
-			for _, f := range result.RoundTrip.Functions {
-				t.Logf("  func: %s", f.Name)
+		if result.RoundTripReport != nil {
+			for _, f := range result.RoundTripReport.Failures {
+				t.Errorf("  round-trip: %s", f)
 			}
 		}
 	}
@@ -181,44 +193,16 @@ type UserService interface {
 
 	if !result.RoundTripOK {
 		t.Error("round-trip verification failed")
-	}
-
-	// Verify specific expectations
-	rt := result.RoundTrip
-	if rt == nil {
-		t.Fatal("round-trip is nil")
-	}
-
-	// Should find the server struct and constructor
-	foundServer := false
-	foundConstructor := false
-	for _, s := range rt.Structs {
-		if s.Name == "UserServiceServer" {
-			foundServer = true
-		}
-	}
-	for _, f := range rt.Functions {
-		if f.Name == "NewUserServiceServer" {
-			foundConstructor = true
+		if result.RoundTripReport != nil {
+			for _, f := range result.RoundTripReport.Failures {
+				t.Errorf("  round-trip: %s", f)
+			}
 		}
 	}
 
-	if !foundServer {
-		t.Error("round-trip should find UserServiceServer struct")
-	}
-	if !foundConstructor {
-		t.Error("round-trip should find NewUserServiceServer constructor")
-	}
-
-	// Verify all methods are present
-	methodNames := make(map[string]bool)
-	for _, f := range rt.Functions {
-		methodNames[f.Name] = true
-	}
-	for _, want := range []string{"CreateUser", "GetUser", "UpdateUser", "DeleteUser", "ListUsers", "Health"} {
-		if !methodNames[want] {
-			t.Errorf("round-trip missing method: %s", want)
-		}
+	// Verify client file exists
+	if _, ok := result.Package.Files["user_service_client.go"]; !ok {
+		t.Error("missing user_service_client.go")
 	}
 }
 
@@ -267,11 +251,15 @@ type SearchService interface {
 
 	// Should have generated files for both services
 	pkg := result.Package
-	if _, ok := pkg.Files["item_service_server.go"]; !ok {
-		t.Error("missing item_service_server.go")
-	}
-	if _, ok := pkg.Files["search_service_server.go"]; !ok {
-		t.Error("missing search_service_server.go")
+	for _, f := range []string{
+		"item_service_server.go",
+		"item_service_client.go",
+		"search_service_server.go",
+		"search_service_client.go",
+	} {
+		if _, ok := pkg.Files[f]; !ok {
+			t.Errorf("missing %s", f)
+		}
 	}
 
 	// Both should be registered in main.go
@@ -325,7 +313,7 @@ type EchoService interface {
 		t.Fatal("round-trip is nil")
 	}
 
-	// Should find the server struct
+	// Should find both server and client structs
 	structNames := make(map[string]bool)
 	for _, s := range rt.Structs {
 		structNames[s.Name] = true
@@ -333,18 +321,26 @@ type EchoService interface {
 
 	for _, want := range []string{
 		"EchoServiceServer",
+		"EchoServiceClient",
 	} {
 		if !structNames[want] {
 			t.Errorf("round-trip missing struct: %s (have: %v)", want, structNames)
 		}
 	}
 
-	// Verify the Echo method exists on the server
-	for _, f := range rt.Functions {
-		if f.Name == "Echo" && f.RecvType != "" {
-			if !f.HasContext {
-				t.Error("Echo method should have context")
+	// Verify the Echo method exists on both server and client
+	for _, recv := range []string{"*EchoServiceServer", "*EchoServiceClient"} {
+		found := false
+		for _, f := range rt.Functions {
+			if f.Name == "Echo" && f.RecvType == recv {
+				found = true
+				if !f.HasContext {
+					t.Errorf("Echo on %s should have context", recv)
+				}
 			}
+		}
+		if !found {
+			t.Errorf("round-trip missing Echo method on %s", recv)
 		}
 	}
 }
@@ -429,6 +425,7 @@ type Svc interface {
 	expectedFiles := []string{
 		"pb/example.proto",
 		"svc_server.go",
+		"svc_client.go",
 		"main.go",
 		"go.mod",
 	}
