@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package loader;
+package gluon;
 
-option go_package = "github.com/accretional/gluon/go";
+option go_package = "github.com/accretional/gluon/pb";
 
 // IMPORTANT
 // We're wrapping the go compiler in a slightly unusual way because
@@ -12,23 +12,22 @@ option go_package = "github.com/accretional/gluon/go";
 // 4. The structure legitimately makes a lot of the Golang tooling easier to understand, discover, and use
 // 5. We'll need to use that tooling a lot if we're making a lot of Go coding changes.
 
-// TODO: clean up typos, make this compile, implement Command on top of Commander.proto
-
 // First class architectures: darwin/amd64, darwin/arm64, linux/386, linux/amd64, linux/arm, linux/arm64, windows/386, windows/amd64
 // Full list of supported os/architecture pairs can be found at https://go.dev/doc/install/source
 // Each default to being unset, which in golang triggers a general build
 message GoCompilerTarget {
   enum GOOS {
-    UNKNOWN = 0,
-    linux = 1,
-    darwin = 2,
-    windows = 3
+    GOOS_UNKNOWN = 0;
+    linux = 1;
+    darwin = 2;
+    windows = 3;
   }
   enum GOARCH {
-    UNKNOWN = 0,
-    amd64 = 1,
-    _386 = 2,
-    arm = 3
+    GOARCH_UNKNOWN = 0;
+    amd64 = 1;
+    _386 = 2;
+    arm = 3;
+    arm64 = 4;
   }
   GOOS os = 1;
   GOARCH arch = 2;
@@ -41,38 +40,35 @@ message GoDocQuery {
   string symbol = 2;
   repeated string method_or_field = 3;
   enum GoDocQueryFlags {
-    UNKNOWN = 0,
-    all = 1, // show all in package
-    case_sensitive = 2,
-    include_main_cmd = 3, // by default, main is excluded
-    http = 4, // return html docs over http. Note: will cause the following to be downloaded. golang.org/x/pkgsite, golang.org/x/mod, github.com/google/safehtml, golang.org/x/tools, github.com/google/licensecheck, rsc.io/markdown
-    Short = 5, // one-line representation for each symbol
-    full_source = 6, // full source per symbol, declaration, definition and impl, type declaration/enclosing costs
-    include_unexported = 7 // also show docs over unexpected symbols, methods, and fields
+    GODOC_UNKNOWN = 0;
+    all = 1; // show all in package
+    case_sensitive = 2;
+    include_main_cmd = 3; // by default, main is excluded
+    http = 4; // return html docs over http. Note: will cause the following to be downloaded. golang.org/x/pkgsite, golang.org/x/mod, github.com/google/safehtml, golang.org/x/tools, github.com/google/licensecheck, rsc.io/markdown
+    short = 5; // one-line representation for each symbol
+    full_source = 6; // full source per symbol, declaration, definition and impl, type declaration/enclosing costs
+    include_unexported = 7; // also show docs over unexpected symbols, methods, and fields
   }
   repeated GoDocQueryFlags flags = 4;
 }
 
 message GoFixQuery {
-  string package = 1;
+  string pkg = 1;
   string path = 2;
-  bool diff = 3; 
+  bool diff = 3;
   // If left empty, run all fixers
   repeated string analyzers = 4;
   GoCompilerTarget target = 5;
-} 
-
+}
 
 message GoFormatRequest {
-  oneof input {
-     repeated string packages = 1;
-     string go_expression = 2;
-  }
+  repeated string packages = 1;
+  string go_expression = 2;
   enum PrintOptions {
-    Unknown = 0,
-    Replace = 1,
-    Diffs = 2,
-    Filenames = 3
+    PRINT_UNKNOWN = 0;
+    Replace = 1;
+    Diffs = 2;
+    Filenames = 3;
   }
   message RewriteRule {
     string source_expression = 1;
@@ -82,10 +78,9 @@ message GoFormatRequest {
   PrintOptions print_options = 4;
   RewriteRule rewrite_rule = 5;
   bool simplify = 6;
- }
+}
 
-
-message GoGetREquest {
+message GoGetRequest {
   repeated string packages = 1;
   bool upgrade = 2;
   bool include_tests = 3;
@@ -96,14 +91,14 @@ message GoInstallRequest {
   repeated string packages = 1;
 }
 
-message GoInstallRequest {
+message GoListRequest {
   bool modules = 1;
   bool upgrade_info = 2;
   bool retracted = 3;
   bool versions = 4;
   // TODO: eventually add other special handling for this into a proper protocol
   bool json = 5;
-  // TODO: add flags
+  repeated string packages = 6;
 }
 
 message GoEnvironmentVariable {
@@ -116,52 +111,262 @@ message GoEnvRequest {
   repeated string unset = 2;
   repeated GoEnvironmentVariable set = 3;
   bool changed = 4;
+  // Variable names to query (positional args to `go env`)
+  repeated string vars = 5;
 }
+
+// go build [-o output] [-v] [-race] [-ldflags] [-tags] [-trimpath] [-gcflags] [-asmflags] [packages]
+message GoBuildRequest {
+  repeated string packages = 1;
+  // -o: output file or directory
+  string output = 2;
+  // -v: print package names as compiled
+  bool verbose = 3;
+  // -race: enable race detector
+  bool race = 4;
+  // -ldflags: arguments to pass on each go tool link invocation
+  string ldflags = 5;
+  // -tags: build constraint tags
+  repeated string tags = 6;
+  // -trimpath: remove all file system paths from the resulting executable
+  bool trimpath = 7;
+  // -gcflags: arguments to pass on each go tool compile invocation
+  string gcflags = 8;
+  // -asmflags: arguments to pass on each go tool asm invocation
+  string asmflags = 9;
+  // Cross-compilation target
+  GoCompilerTarget target = 10;
+  // -work: print the name of the temporary work directory and do not delete it when exiting
+  bool work = 11;
+}
+
+// go run [-race] [-v] [-tags] [-exec xprog] package [arguments...]
+message GoRunRequest {
+  // Package or .go files to run
+  string package = 1;
+  // Arguments passed to the built binary
+  repeated string args = 2;
+  bool verbose = 3;
+  bool race = 4;
+  repeated string tags = 5;
+  // -exec: invoke the binary using xprog
+  string exec_cmd = 6;
+  // -work: print the name of the temporary work directory and do not delete it when exiting
+  bool work = 7;
+  GoCompilerTarget target = 8;
+}
+
+// go test [-v] [-race] [-run regexp] [-bench regexp] [-count n] [-timeout d]
+//         [-short] [-cover] [-coverprofile file] [-json] [-tags] [packages] [testflags]
+message GoTestRequest {
+  repeated string packages = 1;
+  bool verbose = 2;
+  bool race = 3;
+  // -run: regexp to select tests/examples to run
+  string run = 4;
+  // -bench: regexp to select benchmarks to run; use "." for all
+  string bench = 5;
+  // -count: number of times to run each test
+  int32 count = 6;
+  // -timeout: panic if test binary runs longer than duration (e.g. "10m")
+  string timeout = 7;
+  // -short: tell long-running tests to shorten their run time
+  bool short = 8;
+  // -cover: enable coverage analysis
+  bool cover = 9;
+  // -coverprofile: write coverage profile to file
+  string coverprofile = 10;
+  // -json: output in JSON format (for machine consumption)
+  bool json = 11;
+  repeated string tags = 12;
+  // -failfast: do not start new tests after the first test failure
+  bool failfast = 13;
+  // -benchmem: print memory allocation statistics for benchmarks
+  bool benchmem = 14;
+  // -benchtime: run enough iterations of each benchmark to take approximately d (e.g. "5s", "100x")
+  string benchtime = 15;
+  GoCompilerTarget target = 16;
+}
+
+// go generate [-v] [-n] [-x] [-run regexp] [packages]
+message GoGenerateRequest {
+  repeated string packages = 1;
+  bool verbose = 2;
+  // -n: print commands that would be executed
+  bool dry_run = 3;
+  // -x: print commands as they are executed
+  bool print_commands = 4;
+  // -run: regexp to restrict generate directives
+  string run = 5;
+}
+
+// go vet [-v] [-json] [-tags] [packages]
+message GoVetRequest {
+  repeated string packages = 1;
+  bool verbose = 2;
+  bool json = 3;
+  repeated string tags = 4;
+}
+
+// go tool [-n] [command] [args...]
+message GoToolRequest {
+  string name = 1;
+  repeated string args = 2;
+  // -n: print command that would be executed
+  bool dry_run = 3;
+}
+
+// Simple text message for the Command RPC
+message Text {
+  string text = 1;
+}
+
+// Empty message for RPCs that take no input
+message Nothing {}
 
 // Wrapper for https://pkg.go.dev/cmd/go for programmatic, remote, or reflective interaction with the Go compiler and development ecosystem
 // Go intentionally doesn't expose this stuff as a package, which makes it harder to automate or use with tool-calling agents or remote development environments
-// We can embed the binary in a Go package, provide more structured access via an API, internally translate that into commands, and invoke it via a loader, subprocess, etc :) 
+// We can embed the binary in a Go package, provide more structured access via an API, internally translate that into commands, and invoke it via a loader, subprocess, etc :)
 service Go {
-  // IMPORTANT - MUST IMPLEMENT THIS FIRST, USE IT AS THE BASIS FOR THE REST OF THE IMPLEMENTATION AND GENERAL ESCAPE HATCH
+  // IMPORTANT - general escape hatch that runs arbitrary go subcommands
   // wrap the Commander from https://github.com/accretional/runrpc
   rpc Command(Text) returns (Text);
 
-  // We'll implement these first. But still commented out for now. We might decide to consolidate things or split them up differently
-  // rpc Docs(GoDocRequest) returns (Text);
-  // rpc Fix(GoFixQuery) returns (Text);
-  // rpc ListFixAnalyzers(Nothing) returns (Text); // technically under Tool
-  // rpc DescribeFixAnalyzer(Text) returns (Text); // technically under Tool
-  // rpc Format(GoFormatRequest) returns (Text);
-  // rpc Get(GoGetRequest) returns (Text);
-  // rpc Install(GoInstallRequest) returns (Text);
-  // rpc List(GoListRequest) returns (Text);
-  // rpc Env(GoEnvRequest) returns (Text);
-  
-  // Not Implementing these yet, they're the hard ones
-  // rpc Build(GoBuildRequest) returns (Text);
-  // rpc Env(GoEnvRequest) returns (Text);
-  // rpc Run(GoRunRequest) returns (Text);
-  // rpc Test(GoTestRequest) returns (Text);
+  // go doc
+  rpc Doc(GoDocQuery) returns (Text);
+  // go fix
+  rpc Fix(GoFixQuery) returns (Text);
+  // go tool fix -list (list available fix analyzers)
+  rpc ListFixAnalyzers(Nothing) returns (Text);
+  // go tool fix -describe <analyzer>
+  rpc DescribeFixAnalyzer(Text) returns (Text);
+  // go fmt / gofmt
+  rpc Format(GoFormatRequest) returns (Text);
+  // go get
+  rpc Get(GoGetRequest) returns (Text);
+  // go install
+  rpc Install(GoInstallRequest) returns (Text);
+  // go list
+  rpc List(GoListRequest) returns (Text);
+  // go env
+  rpc Env(GoEnvRequest) returns (Text);
 
-  // Not implementing these yet because they're also a bit tricky but less important than above
-  // rpc Generate(GoGenerateRequest) returns (Text); 
-  // rpc Tool
-  // rpc Vet
-  // rpc Help
-  // rpc Version (we're on 1.26)
+  // go build
+  rpc Build(GoBuildRequest) returns (Text);
+  // go run
+  rpc Run(GoRunRequest) returns (Text);
+  // go test
+  rpc Test(GoTestRequest) returns (Text);
 
-  // https://go.dev/ref/mod
-  // Maybe implement go module vs package stuff in separate services
-  // service GoMod {
-  // download    // download modules to local cache
-  //  edit        // edit go.mod from tools or scripts
-  //  graph       // print module requirement graph
-  //  init        // initialize new module in current directory
-  //  tidy        // add missing and remove unused modules
-  //  vendor      // make vendored copy of dependencies
-  //  verify      // verify dependencies have expected content
-  //  why         // explain why packages or modules are needed
-  // }
+  // go generate
+  rpc Generate(GoGenerateRequest) returns (Text);
+  // go vet
+  rpc Vet(GoVetRequest) returns (Text);
+  // go tool
+  rpc Tool(GoToolRequest) returns (Text);
+  // go help [topic]
+  rpc Help(Text) returns (Text);
+  // go version
+  rpc Version(Nothing) returns (Text);
 
   // Not implementing these potentially ever because they're not important to us: go work, go telemetry (default is off), go bug
+}
+
+// go mod download [-json] [-x] [modules]
+message GoModDownloadRequest {
+  repeated string modules = 1;
+  bool json = 2;
+  // -x: print commands as they are executed
+  bool print_commands = 3;
+}
+
+// go mod edit — structured edits to go.mod
+// Flags are modeled as repeated operations so multiple can be applied in one call.
+message GoModEditRequest {
+  // -module: change the module path
+  string module = 1;
+  // -go: set the expected Go language version
+  string go_version = 2;
+  // -require: add a requirement (module@version)
+  repeated string require = 3;
+  // -droprequire: drop a requirement (module path)
+  repeated string drop_require = 4;
+  // -replace: add a replacement (old[@v]=new[@v])
+  repeated string replace = 5;
+  // -dropreplace: drop a replacement (old[@v])
+  repeated string drop_replace = 6;
+  // -exclude: add an exclusion (module@version)
+  repeated string exclude = 7;
+  // -dropexclude: drop an exclusion (module@version)
+  repeated string drop_exclude = 8;
+  // -retract: add a retraction (version or [low,high])
+  repeated string retract = 9;
+  // -dropretract: drop a retraction
+  repeated string drop_retract = 10;
+  // -json: print the final go.mod in JSON format
+  bool json = 11;
+  // -print: print the final go.mod (default behavior when no -json)
+  bool print = 12;
+  // -fmt: reformats go.mod without making other changes
+  bool fmt = 13;
+}
+
+// go mod graph
+message GoModGraphRequest {
+  // -go: report the graph as seen by the given Go version
+  string go_version = 1;
+}
+
+// go mod init [module-path]
+message GoModInitRequest {
+  string module_path = 1;
+}
+
+// go mod tidy [-v] [-go version] [-diff]
+message GoModTidyRequest {
+  bool verbose = 1;
+  // -go: set the expected Go language version
+  string go_version = 2;
+  // -diff: instead of modifying, print the diff and exit with non-zero status if changes needed
+  bool diff = 3;
+}
+
+// go mod vendor [-v] [-o outdir]
+message GoModVendorRequest {
+  bool verbose = 1;
+  // -o: create the vendor directory at the given path instead of "vendor"
+  string output_dir = 2;
+}
+
+// go mod verify
+// No flags — just verifies that dependencies in the module cache match go.sum
+message GoModVerifyRequest {}
+
+// go mod why [-m] [-vendor] [packages/modules...]
+message GoModWhyRequest {
+  // -m: treat arguments as modules, not packages
+  bool modules = 1;
+  // -vendor: exclude tests of dependencies outside the main module
+  bool vendor = 2;
+  repeated string packages = 3;
+}
+
+// https://go.dev/ref/mod
+service GoMod {
+  // go mod download
+  rpc Download(GoModDownloadRequest) returns (Text);
+  // go mod edit
+  rpc Edit(GoModEditRequest) returns (Text);
+  // go mod graph
+  rpc Graph(GoModGraphRequest) returns (Text);
+  // go mod init
+  rpc Init(GoModInitRequest) returns (Text);
+  // go mod tidy
+  rpc Tidy(GoModTidyRequest) returns (Text);
+  // go mod vendor
+  rpc Vendor(GoModVendorRequest) returns (Text);
+  // go mod verify
+  rpc Verify(GoModVerifyRequest) returns (Text);
+  // go mod why
+  rpc Why(GoModWhyRequest) returns (Text);
 }
