@@ -177,17 +177,34 @@ func buildServerFile(goPkg string, bundle *ServiceBundle) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("package %s\n\n", goPkg))
 
-	// Generate message struct declarations
-	if len(bundle.Messages) > 0 {
-		for _, msg := range bundle.Messages {
-			decl := astkit.StructDecl(msg.Name, buildFieldList(msg.Fields))
-			out, err := astkit.Format(nil, decl)
-			if err == nil {
-				b.WriteString(out)
-				b.WriteString("\n\n")
-			}
+	// Collect imports needed by the server code
+	imports := collectImports(bundle.NormalizedInterface)
+	if len(imports) > 0 {
+		b.WriteString("import (\n")
+		for _, imp := range imports {
+			b.WriteString(fmt.Sprintf("\t%q\n", imp))
+		}
+		b.WriteString(")\n\n")
+	}
+
+	// Generate message struct declarations (deduplicated)
+	seen := make(map[string]bool)
+	for _, msg := range bundle.Messages {
+		if seen[msg.Name] {
+			continue
+		}
+		seen[msg.Name] = true
+		decl := astkit.StructDecl(msg.Name, buildFieldList(msg.Fields))
+		out, err := astkit.Format(nil, decl)
+		if err == nil {
+			b.WriteString(out)
+			b.WriteString("\n\n")
 		}
 	}
+
+	// Unimplemented server type (needed for forward compatibility)
+	serverName := bundle.Name + "Server"
+	b.WriteString(fmt.Sprintf("type Unimplemented%s struct{}\n\n", serverName))
 
 	b.WriteString(bundle.ServerCode)
 	b.WriteString("\n")
@@ -197,9 +214,113 @@ func buildServerFile(goPkg string, bundle *ServiceBundle) string {
 func buildClientFile(goPkg string, bundle *ServiceBundle) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("package %s\n\n", goPkg))
+
+	// Collect imports needed by the client code
+	imports := collectImports(bundle.NormalizedInterface)
+	// Client always needs grpc
+	hasGRPC := false
+	for _, imp := range imports {
+		if imp == "google.golang.org/grpc" {
+			hasGRPC = true
+		}
+	}
+	if !hasGRPC {
+		imports = append(imports, "google.golang.org/grpc")
+	}
+
+	if len(imports) > 0 {
+		b.WriteString("import (\n")
+		for _, imp := range imports {
+			b.WriteString(fmt.Sprintf("\t%q\n", imp))
+		}
+		b.WriteString(")\n\n")
+	}
+
 	b.WriteString(bundle.ClientCode)
 	b.WriteString("\n")
 	return b.String()
+}
+
+// collectImports scans an interface's method signatures and returns the
+// import paths needed. It recognizes common Go packages by their qualifier.
+func collectImports(iface InterfaceInfo) []string {
+	seen := make(map[string]bool)
+	for _, m := range iface.Methods {
+		for _, p := range m.Params {
+			collectTypeImports(p.TypeStr, seen)
+		}
+		for _, r := range m.Results {
+			collectTypeImports(r.TypeStr, seen)
+		}
+	}
+
+	var imports []string
+	for imp := range seen {
+		imports = append(imports, imp)
+	}
+	// Sort for deterministic output
+	sortStrings(imports)
+	return imports
+}
+
+func collectTypeImports(typeStr string, seen map[string]bool) {
+	// Strip pointer/slice prefixes
+	t := typeStr
+	for strings.HasPrefix(t, "*") || strings.HasPrefix(t, "[]") {
+		if strings.HasPrefix(t, "*") {
+			t = t[1:]
+		} else {
+			t = t[2:]
+		}
+	}
+
+	// Check for qualified types (pkg.Type)
+	if i := strings.LastIndex(t, "."); i > 0 {
+		qualifier := t[:i]
+		if imp, ok := knownPackages[qualifier]; ok {
+			seen[imp] = true
+		}
+	}
+}
+
+// knownPackages maps Go package qualifiers to their import paths.
+var knownPackages = map[string]string{
+	"context":  "context",
+	"fmt":      "fmt",
+	"io":       "io",
+	"os":       "os",
+	"time":     "time",
+	"sync":     "sync",
+	"errors":   "errors",
+	"strings":  "strings",
+	"bytes":    "bytes",
+	"net":      "net",
+	"http":     "net/http",
+	"json":     "encoding/json",
+	"xml":      "encoding/xml",
+	"ast":      "go/ast",
+	"token":    "go/token",
+	"parser":   "go/parser",
+	"grpc":     "google.golang.org/grpc",
+	"codes":    "google.golang.org/grpc/codes",
+	"status":   "google.golang.org/grpc/status",
+	"proto":    "google.golang.org/protobuf/proto",
+	"pb":       "google.golang.org/protobuf",
+	"sql":      "database/sql",
+	"math":     "math",
+	"sort":     "sort",
+	"filepath": "path/filepath",
+	"regexp":   "regexp",
+	"log":      "log",
+	"reflect":  "reflect",
+}
+
+func sortStrings(s []string) {
+	for i := 1; i < len(s); i++ {
+		for j := i; j > 0 && s[j] < s[j-1]; j-- {
+			s[j], s[j-1] = s[j-1], s[j]
+		}
+	}
 }
 
 func buildFieldList(fields []FieldInfo) *ast.FieldList {

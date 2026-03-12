@@ -62,6 +62,9 @@ func transformMethod(m FuncInfo, existing map[string]bool) (FuncInfo, []StructIn
 
 	reqName, respName := rpcTypes(m)
 
+	// Track names generated within this method to avoid duplicates
+	generated := make(map[string]bool)
+
 	if len(params) == 1 && astkit.IsStructType(params[0].TypeExpr) {
 		// Already a struct param — keep it
 		nm.Params = []FieldInfo{
@@ -70,8 +73,9 @@ func transformMethod(m FuncInfo, existing map[string]bool) (FuncInfo, []StructIn
 		}
 	} else if len(params) == 0 {
 		// No params — use empty request
-		if !existing[reqName] {
+		if !existing[reqName] && !generated[reqName] {
 			messages = append(messages, StructInfo{Name: reqName})
+			generated[reqName] = true
 		}
 		nm.Params = []FieldInfo{
 			contextField(),
@@ -87,8 +91,9 @@ func transformMethod(m FuncInfo, existing map[string]bool) (FuncInfo, []StructIn
 				TypeStr:  p.TypeStr,
 			})
 		}
-		if !existing[reqName] {
+		if !existing[reqName] && !generated[reqName] {
 			messages = append(messages, reqStruct)
+			generated[reqName] = true
 		}
 		nm.Params = []FieldInfo{
 			contextField(),
@@ -110,8 +115,9 @@ func transformMethod(m FuncInfo, existing map[string]bool) (FuncInfo, []StructIn
 		}
 	} else if len(results) == 0 {
 		// No results — use empty response
-		if !existing[respName] {
+		if !existing[respName] && !generated[respName] {
 			messages = append(messages, StructInfo{Name: respName})
+			generated[respName] = true
 		}
 		nm.Results = []FieldInfo{
 			{Name: "", TypeExpr: astkit.Star(astkit.NewIdent(respName)), TypeStr: "*" + respName},
@@ -131,8 +137,9 @@ func transformMethod(m FuncInfo, existing map[string]bool) (FuncInfo, []StructIn
 				TypeStr:  r.TypeStr,
 			})
 		}
-		if !existing[respName] {
+		if !existing[respName] && !generated[respName] {
 			messages = append(messages, respStruct)
+			generated[respName] = true
 		}
 		nm.Results = []FieldInfo{
 			{Name: "", TypeExpr: astkit.Star(astkit.NewIdent(respName)), TypeStr: "*" + respName},

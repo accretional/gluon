@@ -11,6 +11,9 @@ type Visitor func(node ast.Node) bool
 
 // Walk traverses the AST calling visit for each node.
 func Walk(node ast.Node, visit Visitor) {
+	if node == nil {
+		return
+	}
 	astutil.Apply(node, func(c *astutil.Cursor) bool {
 		return visit(c.Node())
 	}, nil)
