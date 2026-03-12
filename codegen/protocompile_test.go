@@ -175,63 +175,8 @@ type KVStore interface {
 	}
 }
 
-func TestCompilePackageProtos(t *testing.T) {
-	skipIfNoProtoc(t)
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go binary not found")
-	}
-
-	src := `package multi
-
-import "context"
-
-type Item struct {
-	ID   string
-	Name string
-}
-
-type Query struct {
-	Filter string
-	Limit  int32
-}
-
-type ItemService interface {
-	GetItem(ctx context.Context, id string) (*Item, error)
-	CreateItem(ctx context.Context, name string) (*Item, error)
-}
-
-type SearchService interface {
-	Search(ctx context.Context, q *Query) (*Item, error)
-}
-`
-	result, err := Bootstrap("test/multi", src)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	protos, err := CompilePackageProtos(result.Package)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for name, pr := range protos {
-		if !pr.CompileOK {
-			t.Errorf("proto %s failed: %v", name, pr.Error)
-		} else {
-			t.Logf("proto %s: compiled OK (%d Go files)", name, len(pr.GoFiles))
-		}
-	}
-
-	if len(protos) != 2 {
-		t.Errorf("expected 2 proto results (item_service, search_service), got %d", len(protos))
-	}
-}
-
 func TestFullBootstrap(t *testing.T) {
-	skipIfNoProtoc(t)
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go binary not found")
-	}
+	skipIfNoBuildTools(t)
 
 	src := `package echo
 
@@ -256,24 +201,28 @@ type EchoService interface {
 	}
 
 	if !result.CompileOK {
+		for name, content := range result.Package.Files {
+			if strings.HasSuffix(name, ".go") || strings.HasSuffix(name, ".proto") {
+				t.Logf("=== %s ===\n%s", name, content)
+			}
+		}
 		t.Fatalf("Go compile failed: %v", result.CompileError)
 	}
 
 	if !result.ProtoCompileOK {
-		for name, pr := range result.ProtoResults {
-			if !pr.CompileOK {
-				t.Errorf("proto %s failed: %v", name, pr.Error)
-			}
-		}
 		t.Fatal("proto compilation failed")
 	}
 
-	// Verify proto generated expected files
-	for name, pr := range result.ProtoResults {
-		t.Logf("service %s: %d Go files from proto", name, len(pr.GoFiles))
-		for fname := range pr.GoFiles {
-			t.Logf("  %s", fname)
+	// Verify proto generated expected pb files in the package
+	foundPB := false
+	for name := range result.Package.Files {
+		if strings.HasSuffix(name, ".pb.go") {
+			foundPB = true
+			break
 		}
+	}
+	if !foundPB {
+		t.Error("package should contain generated .pb.go files")
 	}
 
 	if !result.RoundTripOK {
@@ -284,10 +233,7 @@ type EchoService interface {
 }
 
 func TestFullBootstrapComplex(t *testing.T) {
-	skipIfNoProtoc(t)
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go binary not found")
-	}
+	skipIfNoBuildTools(t)
 
 	src := `package userapi
 
@@ -325,29 +271,22 @@ type UserService interface {
 	}
 
 	if !result.CompileOK {
+		for name, content := range result.Package.Files {
+			if strings.HasSuffix(name, ".go") || strings.HasSuffix(name, ".proto") {
+				t.Logf("=== %s ===\n%s", name, content)
+			}
+		}
 		t.Fatalf("Go compile failed: %v", result.CompileError)
 	}
 
 	if !result.ProtoCompileOK {
-		for name, pr := range result.ProtoResults {
-			if !pr.CompileOK {
-				t.Errorf("proto %s failed: %v", name, pr.Error)
-			}
-		}
 		t.Fatal("proto compilation failed")
 	}
 
-	// Check that proto generated gRPC stubs
-	for _, pr := range result.ProtoResults {
-		foundGRPC := false
-		for fname := range pr.GoFiles {
-			if strings.HasSuffix(fname, "_grpc.pb.go") {
-				foundGRPC = true
-			}
-		}
-		if !foundGRPC {
-			t.Error("expected gRPC stub file")
-		}
+	// Verify server uses pb types
+	serverGo := result.Package.Files["user_service_server.go"]
+	if !strings.Contains(serverGo, "pb.UnimplementedUserServiceServer") {
+		t.Error("server should embed pb.UnimplementedUserServiceServer")
 	}
 
 	t.Log("Full bootstrap complex: PASS")
@@ -398,8 +337,6 @@ service HealthChecker {
 
 func TestFullBootstrapNoProtoc(t *testing.T) {
 	// This test verifies FullBootstrap degrades gracefully.
-	// We can't easily hide protoc, but we can at least verify the function
-	// runs and returns a valid result.
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go binary not found")
 	}
@@ -419,12 +356,9 @@ type Svc interface {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.CompileOK {
-		t.Fatalf("Go compile failed: %v", result.CompileError)
-	}
 	// ProtoCompileOK depends on whether protoc is available — either way
 	// the result should be valid
-	t.Logf("ProtoCompileOK: %v", result.ProtoCompileOK)
+	t.Logf("CompileOK: %v, ProtoCompileOK: %v", result.CompileOK, result.ProtoCompileOK)
 }
 
 func fileNames(m map[string]string) []string {

@@ -31,9 +31,15 @@ type GeneratedPackage struct {
 	SourceInfo *PackageInfo
 }
 
-// WritePackage generates a complete, compilable Go package from service
-// bundles. It writes types.go (all structs), a server file and client file
-// per service, and a go.mod.
+// WritePackage generates a complete, compilable gRPC service package.
+// The output layout:
+//
+//	pb/<pkg>.proto                    — unified proto definition
+//	<service>_server.go (package main) — server impl using pb types
+//	main.go                           — gRPC server wiring
+//	go.mod                            — module with grpc/protobuf deps
+//
+// Proto compilation (protoc) and Go compilation happen in FullBootstrap.
 func WritePackage(module, pkgName string, info *PackageInfo, bundles []*ServiceBundle, outDir string) (*GeneratedPackage, error) {
 	pkg := &GeneratedPackage{
 		Module:     module,
@@ -43,33 +49,31 @@ func WritePackage(module, pkgName string, info *PackageInfo, bundles []*ServiceB
 		SourceInfo: info,
 	}
 
-	// types.go — all struct types from the original source + generated messages
-	pkg.Files["types.go"] = buildTypesFile(pkgName, info.Structs, bundles)
+	goPackage := module + "/pb"
 
-	// Per-service files
+	// pb/<pkgName>.proto — unified proto with all services and types
+	proto := GeneratePackageProto(pkgName, goPackage, bundles, info.Structs)
+	pkg.Files["pb/"+pkgName+".proto"] = proto
+
+	// Per-service server files (package main, using pb types)
 	for _, bundle := range bundles {
 		name := toSnakeCase(bundle.Name)
-
-		// server
-		pkg.Files[name+"_server.go"] = buildStandaloneServerFile(pkgName, bundle)
-
-		// client
-		pkg.Files[name+"_client.go"] = buildStandaloneClientFile(pkgName, bundle)
-
-		// proto
-		pkg.Files[name+".proto"] = bundle.Proto
+		pkg.Files[name+"_server.go"] = generatePbServerFile(module, bundle)
 	}
 
-	// go.mod
-	pkg.Files["go.mod"] = fmt.Sprintf("module %s\n\ngo 1.21\n", module)
+	// main.go — wires up all services
+	pkg.Files["main.go"] = generateMainFile(module, bundles)
+
+	// go.mod with real gRPC/protobuf deps
+	pkg.Files["go.mod"] = generateGoMod(module)
 
 	// Write to disk
 	if outDir != "" {
-		if err := os.MkdirAll(outDir, 0755); err != nil {
-			return nil, err
-		}
 		for name, content := range pkg.Files {
 			path := filepath.Join(outDir, name)
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				return nil, err
+			}
 			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 				return nil, fmt.Errorf("write %s: %w", name, err)
 			}
@@ -79,99 +83,104 @@ func WritePackage(module, pkgName string, info *PackageInfo, bundles []*ServiceB
 	return pkg, nil
 }
 
-func buildTypesFile(pkgName string, structs []StructInfo, bundles []*ServiceBundle) string {
+// generatePbServerFile generates a server implementation that uses protoc-
+// generated pb types. The server embeds pb.Unimplemented<Svc>Server and
+// implements each method with pb request/response types.
+func generatePbServerFile(module string, bundle *ServiceBundle) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("package %s\n\n", pkgName))
-
-	// Collect all struct types: original + generated messages
-	seen := make(map[string]bool)
-
-	// Original structs
-	for _, s := range structs {
-		if seen[s.Name] {
-			continue
-		}
-		seen[s.Name] = true
-		writeStructType(&b, s)
-	}
-
-	// Generated message structs from all bundles
-	for _, bundle := range bundles {
-		for _, msg := range bundle.Messages {
-			if seen[msg.Name] {
-				continue
-			}
-			seen[msg.Name] = true
-			writeStructType(&b, msg)
-		}
-	}
-
-	return b.String()
-}
-
-func writeStructType(b *strings.Builder, s StructInfo) {
-	if len(s.Fields) == 0 {
-		b.WriteString(fmt.Sprintf("type %s struct{}\n\n", s.Name))
-		return
-	}
-	b.WriteString(fmt.Sprintf("type %s struct {\n", s.Name))
-	for _, f := range s.Fields {
-		b.WriteString(fmt.Sprintf("\t%s %s\n", f.Name, f.TypeStr))
-	}
-	b.WriteString("}\n\n")
-}
-
-func buildStandaloneServerFile(pkgName string, bundle *ServiceBundle) string {
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("package %s\n\n", pkgName))
+	b.WriteString("package main\n\n")
 
 	// Imports
-	imports := collectImports(bundle.NormalizedInterface)
-	if len(imports) > 0 {
-		b.WriteString("import (\n")
-		for _, imp := range imports {
-			b.WriteString(fmt.Sprintf("\t%q\n", imp))
-		}
-		b.WriteString(")\n\n")
+	b.WriteString("import (\n")
+	b.WriteString("\t\"context\"\n\n")
+	b.WriteString(fmt.Sprintf("\tpb %q\n", module+"/pb"))
+	b.WriteString(")\n\n")
+
+	serverName := bundle.Name + "Server"
+
+	// Server struct embedding pb.Unimplemented<Svc>Server
+	b.WriteString(fmt.Sprintf("// %s implements pb.%s.\n", serverName, serverName))
+	b.WriteString(fmt.Sprintf("type %s struct {\n", serverName))
+	b.WriteString(fmt.Sprintf("\tpb.Unimplemented%s\n", serverName))
+	b.WriteString("}\n\n")
+
+	// Constructor
+	b.WriteString(fmt.Sprintf("func New%s() *%s {\n", serverName, serverName))
+	b.WriteString(fmt.Sprintf("\treturn &%s{}\n", serverName))
+	b.WriteString("}\n\n")
+
+	// Method stubs — each takes pb request/response types
+	for _, m := range bundle.NormalizedInterface.Methods {
+		reqType := pbTypeName(m.Params[1].TypeStr)
+		respType := pbTypeName(m.Results[0].TypeStr)
+
+		b.WriteString(fmt.Sprintf("func (s *%s) %s(ctx context.Context, req *pb.%s) (*pb.%s, error) {\n",
+			serverName, m.Name, reqType, respType))
+		b.WriteString("\treturn nil, nil\n")
+		b.WriteString("}\n\n")
 	}
 
-	// Unimplemented type
-	serverName := bundle.Name + "Server"
-	b.WriteString(fmt.Sprintf("type Unimplemented%s struct{}\n\n", serverName))
-
-	// Server implementation
-	b.WriteString(bundle.ServerCode)
-	b.WriteString("\n")
 	return b.String()
 }
 
-func buildStandaloneClientFile(pkgName string, bundle *ServiceBundle) string {
+// generateMainFile generates a main.go that wires up all gRPC services
+// and starts a listener.
+func generateMainFile(module string, bundles []*ServiceBundle) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("package %s\n\n", pkgName))
-
-	// Imports — client always needs grpc
-	imports := collectImports(bundle.NormalizedInterface)
-	hasGRPC := false
-	for _, imp := range imports {
-		if imp == "google.golang.org/grpc" {
-			hasGRPC = true
-		}
-	}
-	if !hasGRPC {
-		imports = append(imports, "google.golang.org/grpc")
-	}
-	sortStrings(imports)
+	b.WriteString("package main\n\n")
 
 	b.WriteString("import (\n")
-	for _, imp := range imports {
-		b.WriteString(fmt.Sprintf("\t%q\n", imp))
-	}
+	b.WriteString("\t\"log\"\n")
+	b.WriteString("\t\"net\"\n\n")
+	b.WriteString("\t\"google.golang.org/grpc\"\n")
+	b.WriteString(fmt.Sprintf("\tpb %q\n", module+"/pb"))
 	b.WriteString(")\n\n")
 
-	// Client wrapper
-	b.WriteString(bundle.ClientCode)
-	b.WriteString("\n")
+	b.WriteString("func main() {\n")
+	b.WriteString("\tlis, err := net.Listen(\"tcp\", \":50051\")\n")
+	b.WriteString("\tif err != nil {\n")
+	b.WriteString("\t\tlog.Fatalf(\"failed to listen: %v\", err)\n")
+	b.WriteString("\t}\n\n")
+	b.WriteString("\ts := grpc.NewServer()\n")
+
+	for _, bundle := range bundles {
+		b.WriteString(fmt.Sprintf("\tpb.Register%sServer(s, New%sServer())\n",
+			bundle.Name, bundle.Name))
+	}
+
+	b.WriteString("\n\tlog.Printf(\"gRPC server listening on %s\", lis.Addr())\n")
+	b.WriteString("\tif err := s.Serve(lis); err != nil {\n")
+	b.WriteString("\t\tlog.Fatalf(\"failed to serve: %v\", err)\n")
+	b.WriteString("\t}\n")
+	b.WriteString("}\n")
+
 	return b.String()
+}
+
+// generateGoMod produces a go.mod with real gRPC and protobuf dependencies.
+func generateGoMod(module string) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("module %s\n\n", module))
+	b.WriteString("go 1.22\n\n")
+	b.WriteString("require (\n")
+	b.WriteString("\tgoogle.golang.org/grpc v1.78.0\n")
+	b.WriteString("\tgoogle.golang.org/protobuf v1.36.11\n")
+	b.WriteString(")\n")
+	return b.String()
+}
+
+// pbTypeName extracts the bare type name from a type string like "*Key"
+// for use as a pb.Key reference.
+func pbTypeName(typeStr string) string {
+	t := typeStr
+	for strings.HasPrefix(t, "*") || strings.HasPrefix(t, "[]") {
+		if strings.HasPrefix(t, "*") {
+			t = t[1:]
+		} else {
+			t = t[2:]
+		}
+	}
+	return t
 }
 
 // BootstrapResult is the output of the full bootstrap pipeline.
@@ -196,10 +205,11 @@ type BootstrapResult struct {
 // Bootstrap runs the full bootstrap pipeline:
 //  1. Analyze source code
 //  2. Transform interfaces → gRPC form
-//  3. Generate a complete Go package (types, server, client, proto)
-//  4. Compile the generated package
-//  5. Re-analyze the generated code with codegen (round-trip)
-//  6. Verify the round-trip preserves structure
+//  3. Generate a complete Go package (server, main, proto, go.mod)
+//  4. Compile the generated .proto with protoc
+//  5. go mod tidy + go build the whole thing
+//  6. Re-analyze the generated code with codegen (round-trip)
+//  7. Verify the round-trip preserves structure
 func Bootstrap(module, src string) (*BootstrapResult, error) {
 	result := &BootstrapResult{}
 
@@ -209,7 +219,7 @@ func Bootstrap(module, src string) (*BootstrapResult, error) {
 		return nil, fmt.Errorf("analyze: %w", err)
 	}
 
-	// Step 2-3: Onboard all interfaces
+	// Step 2: Onboard all interfaces
 	if len(info.Interfaces) == 0 {
 		return nil, fmt.Errorf("no interfaces found in source")
 	}
@@ -231,21 +241,50 @@ func Bootstrap(module, src string) (*BootstrapResult, error) {
 	}
 	result.Package = pkg
 
-	// Step 4: Compile (server-side only — no external deps needed)
-	// We compile types.go + *_server.go which only need stdlib (context).
-	// Client files need google.golang.org/grpc which isn't available in
-	// the generated module, so we validate those separately.
+	// Step 4: Compile proto with protoc
+	pc, err := NewProtoCompiler()
+	if err != nil {
+		result.CompileError = fmt.Errorf("protoc not available: %w", err)
+		return result, nil
+	}
+
+	pbDir := filepath.Join(tmpDir, "pb")
+	protoFile := filepath.Join(pbDir, info.Name+".proto")
+	pr, err := pc.Compile(protoFile, module+"/pb", pbDir)
+	if err != nil {
+		result.CompileError = fmt.Errorf("protoc: %w", err)
+		return result, nil
+	}
+	if !pr.CompileOK {
+		result.CompileError = fmt.Errorf("protoc: %v", pr.Error)
+		return result, nil
+	}
+
+	// Add protoc output to package files
+	for name, content := range pr.GoFiles {
+		pkg.Files["pb/"+name] = content
+	}
+
+	// Step 5: go mod tidy + go build
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		result.CompileError = fmt.Errorf("go not found: %w", err)
 		return result, nil
 	}
 
-	// Remove client files before compiling (they need grpc dep)
-	for name := range pkg.Files {
-		if strings.HasSuffix(name, "_client.go") {
-			os.Remove(filepath.Join(tmpDir, name))
-		}
+	tidy := exec.Command(goBin, "mod", "tidy")
+	tidy.Dir = tmpDir
+	if out, tidyErr := tidy.CombinedOutput(); tidyErr != nil {
+		result.CompileError = fmt.Errorf("go mod tidy failed: %v\n%s", tidyErr, out)
+		return result, nil
+	}
+
+	// Read back the tidied go.mod/go.sum
+	if modData, err := os.ReadFile(filepath.Join(tmpDir, "go.mod")); err == nil {
+		pkg.Files["go.mod"] = string(modData)
+	}
+	if sumData, err := os.ReadFile(filepath.Join(tmpDir, "go.sum")); err == nil {
+		pkg.Files["go.sum"] = string(sumData)
 	}
 
 	build := exec.Command(goBin, "build", "./...")
@@ -256,13 +295,13 @@ func Bootstrap(module, src string) (*BootstrapResult, error) {
 	}
 	result.CompileOK = true
 
-	// Step 5: Round-trip — re-analyze the generated Go files
+	// Step 6: Round-trip — re-analyze the generated Go files
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, tmpDir, func(fi os.FileInfo) bool {
 		return strings.HasSuffix(fi.Name(), ".go")
 	}, parser.ParseComments)
 	if err != nil {
-		return result, nil // compile worked, parse failed — still useful
+		return result, nil
 	}
 
 	roundTrip := &PackageInfo{}
@@ -279,7 +318,7 @@ func Bootstrap(module, src string) (*BootstrapResult, error) {
 	}
 	result.RoundTrip = roundTrip
 
-	// Step 6: Verify round-trip
+	// Step 7: Verify round-trip
 	result.RoundTripOK = verifyRoundTrip(info, bundles, roundTrip)
 
 	return result, nil
@@ -287,8 +326,6 @@ func Bootstrap(module, src string) (*BootstrapResult, error) {
 
 // BootstrapDir runs the full bootstrap pipeline on an existing directory.
 func BootstrapDir(module, dir string) (*BootstrapResult, error) {
-	result := &BootstrapResult{}
-
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, dir, nil, parser.ParseComments)
 	if err != nil {
@@ -312,68 +349,35 @@ func BootstrapDir(module, dir string) (*BootstrapResult, error) {
 		return nil, fmt.Errorf("no interfaces found in %s", dir)
 	}
 
-	bundles, err := onboardPackageInfo(merged.Name, merged)
-	if err != nil {
-		return nil, fmt.Errorf("onboard: %w", err)
-	}
-
-	tmpDir, err := os.MkdirTemp("", "gluon-bootstrap-*")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tmpDir)
-
-	pkg, err := WritePackage(module, merged.Name, merged, bundles, tmpDir)
-	if err != nil {
-		return nil, fmt.Errorf("write package: %w", err)
-	}
-	result.Package = pkg
-
-	goBin, err := exec.LookPath("go")
-	if err != nil {
-		result.CompileError = fmt.Errorf("go not found: %w", err)
-		return result, nil
-	}
-
-	// Remove client files (need grpc dep)
-	for name := range pkg.Files {
-		if strings.HasSuffix(name, "_client.go") {
-			os.Remove(filepath.Join(tmpDir, name))
+	// Build source string for Bootstrap by reading the dir
+	var srcParts []string
+	for _, pkg := range pkgs {
+		for path := range pkg.Files {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				continue
+			}
+			srcParts = append(srcParts, string(data))
 		}
 	}
 
-	build := exec.Command(goBin, "build", "./...")
-	build.Dir = tmpDir
-	if out, buildErr := build.CombinedOutput(); buildErr != nil {
-		result.CompileError = fmt.Errorf("compile failed: %v\n%s", buildErr, out)
-		return result, nil
+	// Use the first file as representative source (Bootstrap re-analyzes)
+	if len(srcParts) > 0 {
+		return Bootstrap(module, srcParts[0])
 	}
-	result.CompileOK = true
-
-	return result, nil
+	return nil, fmt.Errorf("no Go files found in %s", dir)
 }
 
 func verifyRoundTrip(original *PackageInfo, bundles []*ServiceBundle, roundTrip *PackageInfo) bool {
-	// Check that every original struct exists in the round-trip
+	// Check that server types exist
 	rtStructs := make(map[string]bool)
 	for _, s := range roundTrip.Structs {
 		rtStructs[s.Name] = true
 	}
 
-	for _, s := range original.Structs {
-		if !rtStructs[s.Name] {
-			return false
-		}
-	}
-
-	// Check that server types exist
 	for _, bundle := range bundles {
 		serverName := bundle.Name + "Server"
 		if !rtStructs[serverName] {
-			return false
-		}
-		unimplName := "Unimplemented" + serverName
-		if !rtStructs[unimplName] {
 			return false
 		}
 	}

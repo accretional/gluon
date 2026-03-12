@@ -47,8 +47,9 @@ func OnboardInterface(pkgName string, iface InterfaceInfo, types []StructInfo) (
 	// Step 2: Merge existing types with generated messages for proto
 	allTypes := append(types, xform.Messages...)
 
-	// Step 3: Generate proto
-	proto := GenerateProto(pkgName, xform.Interface, allTypes)
+	// Step 3: Generate proto (default go_package; overridden by WritePackage)
+	goPackage := pkgName + "/pb"
+	proto := GenerateProto(pkgName, goPackage, xform.Interface, allTypes)
 
 	// Step 4: Generate server implementation using transformed interface
 	serverCode, err := GenerateServiceImpl(pkgName, xform.Interface)

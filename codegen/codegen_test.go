@@ -169,7 +169,7 @@ type SearchService interface {
 		t.Fatal(err)
 	}
 
-	proto := GenerateProto("example", info.Interfaces[0], info.Structs)
+	proto := GenerateProto("example", "example/pb", info.Interfaces[0], info.Structs)
 	t.Log(proto)
 
 	// Verify proto contains expected elements
@@ -332,7 +332,7 @@ type KVStore interface {
 	}
 
 	// Generate proto definition
-	proto := GenerateProto("kvstore", info.Interfaces[0], info.Structs)
+	proto := GenerateProto("kvstore", "kvstore/pb", info.Interfaces[0], info.Structs)
 	t.Logf("Generated proto:\n%s", proto)
 
 	// Generate server implementation
@@ -452,7 +452,7 @@ func TestBootstrapFromAstkit(t *testing.T) {
 	}
 
 	// Generate proto definition
-	proto := GenerateProto("structsvc", iface, nil)
+	proto := GenerateProto("structsvc", "structsvc/pb", iface, nil)
 	t.Logf("Generated proto from astkit.Struct:\n%s", proto)
 
 	// Generate server implementation

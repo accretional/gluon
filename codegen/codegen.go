@@ -147,21 +147,16 @@ func analyzeFuncType(name string, ft *ast.FuncType) FuncInfo {
 
 // GenerateProto generates a .proto service definition from analyzed Go types.
 // It maps Go structs to proto messages and interface methods to RPCs.
-func GenerateProto(pkg string, iface InterfaceInfo, types []StructInfo) string {
+// The goPackage parameter sets the go_package option in the proto file.
+func GenerateProto(pkg, goPackage string, iface InterfaceInfo, types []StructInfo) string {
 	var b strings.Builder
 	b.WriteString("syntax = \"proto3\";\n\n")
 	b.WriteString(fmt.Sprintf("package %s;\n\n", pkg))
-	b.WriteString(fmt.Sprintf("option go_package = \"github.com/accretional/gluon/pb\";\n\n"))
+	b.WriteString(fmt.Sprintf("option go_package = %q;\n\n", goPackage))
 
 	// Generate messages for each struct
 	for _, s := range types {
-		b.WriteString(fmt.Sprintf("message %s {\n", s.Name))
-		for i, f := range s.Fields {
-			protoType := goTypeToProto(f.TypeStr)
-			fieldName := toSnakeCase(f.Name)
-			b.WriteString(fmt.Sprintf("  %s %s = %d;\n", protoType, fieldName, i+1))
-		}
-		b.WriteString("}\n\n")
+		writeProtoMessage(&b, s)
 	}
 
 	// Generate service from interface
@@ -173,6 +168,65 @@ func GenerateProto(pkg string, iface InterfaceInfo, types []StructInfo) string {
 	b.WriteString("}\n")
 
 	return b.String()
+}
+
+// GeneratePackageProto generates a single .proto file containing all services
+// and all message types from a set of service bundles. This produces one proto
+// file per package, avoiding message name conflicts across services.
+func GeneratePackageProto(pkgName, goPackage string, bundles []*ServiceBundle, types []StructInfo) string {
+	var b strings.Builder
+	b.WriteString("syntax = \"proto3\";\n\n")
+	b.WriteString(fmt.Sprintf("package %s;\n\n", pkgName))
+	b.WriteString(fmt.Sprintf("option go_package = %q;\n\n", goPackage))
+
+	// Collect all unique message types
+	seen := make(map[string]bool)
+
+	// Original types first
+	for _, s := range types {
+		if seen[s.Name] {
+			continue
+		}
+		seen[s.Name] = true
+		writeProtoMessage(&b, s)
+	}
+
+	// Generated messages from all bundles
+	for _, bundle := range bundles {
+		for _, msg := range bundle.Messages {
+			if seen[msg.Name] {
+				continue
+			}
+			seen[msg.Name] = true
+			writeProtoMessage(&b, msg)
+		}
+	}
+
+	// Services
+	for _, bundle := range bundles {
+		b.WriteString(fmt.Sprintf("service %s {\n", bundle.Name))
+		for _, m := range bundle.NormalizedInterface.Methods {
+			reqType, respType := rpcTypes(m)
+			b.WriteString(fmt.Sprintf("  rpc %s(%s) returns (%s);\n", m.Name, reqType, respType))
+		}
+		b.WriteString("}\n\n")
+	}
+
+	return b.String()
+}
+
+func writeProtoMessage(b *strings.Builder, s StructInfo) {
+	if len(s.Fields) == 0 {
+		b.WriteString(fmt.Sprintf("message %s {}\n\n", s.Name))
+		return
+	}
+	b.WriteString(fmt.Sprintf("message %s {\n", s.Name))
+	for i, f := range s.Fields {
+		protoType := goTypeToProto(f.TypeStr)
+		fieldName := toSnakeCase(f.Name)
+		b.WriteString(fmt.Sprintf("  %s %s = %d;\n", protoType, fieldName, i+1))
+	}
+	b.WriteString("}\n\n")
 }
 
 // GenerateServiceImpl generates a Go server implementation for an interface

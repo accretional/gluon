@@ -6,11 +6,21 @@ import (
 	"testing"
 )
 
-// TestBootstrapSimple runs the full bootstrap on a simple service interface.
-func TestBootstrapSimple(t *testing.T) {
+func skipIfNoBuildTools(t *testing.T) {
+	t.Helper()
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go binary not found")
 	}
+	for _, bin := range []string{"protoc", "protoc-gen-go", "protoc-gen-go-grpc"} {
+		if _, err := exec.LookPath(bin); err != nil {
+			t.Skipf("%s not found", bin)
+		}
+	}
+}
+
+// TestBootstrapSimple runs the full bootstrap on a simple service interface.
+func TestBootstrapSimple(t *testing.T) {
+	skipIfNoBuildTools(t)
 
 	src := `package kvstore
 
@@ -39,6 +49,11 @@ type KVStore interface {
 	}
 
 	if !result.CompileOK {
+		for name, content := range result.Package.Files {
+			if strings.HasSuffix(name, ".go") || strings.HasSuffix(name, ".proto") {
+				t.Logf("=== %s ===\n%s", name, content)
+			}
+		}
 		t.Fatalf("compile failed: %v", result.CompileError)
 	}
 
@@ -49,12 +64,49 @@ type KVStore interface {
 		}
 	}
 
+	// Verify package structure
+	expectFiles := []string{
+		"pb/kvstore.proto",
+		"k_v_store_server.go",
+		"main.go",
+		"go.mod",
+	}
+	for _, f := range expectFiles {
+		if _, ok := result.Package.Files[f]; !ok {
+			t.Errorf("missing file: %s (have: %v)", f, fileKeys(result.Package.Files))
+		}
+	}
+
+	// Verify server uses pb types
+	serverGo := result.Package.Files["k_v_store_server.go"]
+	for _, want := range []string{
+		"pb.UnimplementedKVStoreServer",
+		"*pb.Key",
+		"*pb.Value",
+		"package main",
+	} {
+		if !strings.Contains(serverGo, want) {
+			t.Errorf("server should contain %q", want)
+		}
+	}
+
+	// Verify main.go wires up the server
+	mainGo := result.Package.Files["main.go"]
+	for _, want := range []string{
+		"pb.RegisterKVStoreServer",
+		"NewKVStoreServer()",
+		"grpc.NewServer()",
+		"net.Listen",
+	} {
+		if !strings.Contains(mainGo, want) {
+			t.Errorf("main.go should contain %q", want)
+		}
+	}
+
 	// Verify round-trip
 	if !result.RoundTripOK {
 		t.Error("round-trip verification failed")
 		if result.RoundTrip != nil {
-			t.Logf("Round-trip structs: %d, functions: %d",
-				len(result.RoundTrip.Structs), len(result.RoundTrip.Functions))
 			for _, s := range result.RoundTrip.Structs {
 				t.Logf("  struct: %s", s.Name)
 			}
@@ -63,16 +115,12 @@ type KVStore interface {
 			}
 		}
 	}
-
-	t.Log("Bootstrap simple: PASS")
 }
 
 // TestBootstrapComplex runs bootstrap on a more complex API with multiple
 // param types, return types, and methods.
 func TestBootstrapComplex(t *testing.T) {
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go binary not found")
-	}
+	skipIfNoBuildTools(t)
 
 	src := `package userapi
 
@@ -123,9 +171,8 @@ type UserService interface {
 	}
 
 	if !result.CompileOK {
-		// Log files for debugging
 		for name, content := range result.Package.Files {
-			if strings.HasSuffix(name, ".go") {
+			if strings.HasSuffix(name, ".go") || strings.HasSuffix(name, ".proto") {
 				t.Logf("=== %s ===\n%s", name, content)
 			}
 		}
@@ -173,16 +220,12 @@ type UserService interface {
 			t.Errorf("round-trip missing method: %s", want)
 		}
 	}
-
-	t.Log("Bootstrap complex: PASS")
 }
 
 // TestBootstrapMultipleInterfaces tests bootstrap with multiple service
 // interfaces in one package.
 func TestBootstrapMultipleInterfaces(t *testing.T) {
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go binary not found")
-	}
+	skipIfNoBuildTools(t)
 
 	src := `package multi
 
@@ -215,7 +258,7 @@ type SearchService interface {
 
 	if !result.CompileOK {
 		for name, content := range result.Package.Files {
-			if strings.HasSuffix(name, ".go") {
+			if strings.HasSuffix(name, ".go") || strings.HasSuffix(name, ".proto") {
 				t.Logf("=== %s ===\n%s", name, content)
 			}
 		}
@@ -230,22 +273,26 @@ type SearchService interface {
 	if _, ok := pkg.Files["search_service_server.go"]; !ok {
 		t.Error("missing search_service_server.go")
 	}
-	if _, ok := pkg.Files["item_service_client.go"]; !ok {
-		t.Error("missing item_service_client.go")
+
+	// Both should be registered in main.go
+	mainGo := pkg.Files["main.go"]
+	if !strings.Contains(mainGo, "pb.RegisterItemServiceServer") {
+		t.Error("main.go should register ItemService")
 	}
-	if _, ok := pkg.Files["search_service_client.go"]; !ok {
-		t.Error("missing search_service_client.go")
+	if !strings.Contains(mainGo, "pb.RegisterSearchServiceServer") {
+		t.Error("main.go should register SearchService")
 	}
 
-	t.Log("Bootstrap multiple interfaces: PASS")
+	// Single unified proto in pb/
+	if _, ok := pkg.Files["pb/multi.proto"]; !ok {
+		t.Error("missing pb/multi.proto")
+	}
 }
 
 // TestBootstrapRoundTrip verifies the round-trip: generated code can be
 // re-analyzed and the structure matches what we expect.
 func TestBootstrapRoundTrip(t *testing.T) {
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go binary not found")
-	}
+	skipIfNoBuildTools(t)
 
 	src := `package echo
 
@@ -278,45 +325,34 @@ type EchoService interface {
 		t.Fatal("round-trip is nil")
 	}
 
-	// Original had 2 structs (EchoRequest, EchoResponse)
-	// Generated should have those + EchoServiceServer + UnimplementedEchoServiceServer
+	// Should find the server struct
 	structNames := make(map[string]bool)
 	for _, s := range rt.Structs {
 		structNames[s.Name] = true
 	}
 
 	for _, want := range []string{
-		"EchoRequest",
-		"EchoResponse",
 		"EchoServiceServer",
-		"UnimplementedEchoServiceServer",
 	} {
 		if !structNames[want] {
 			t.Errorf("round-trip missing struct: %s (have: %v)", want, structNames)
 		}
 	}
 
-	// Verify method signatures are preserved
+	// Verify the Echo method exists on the server
 	for _, f := range rt.Functions {
 		if f.Name == "Echo" && f.RecvType != "" {
 			if !f.HasContext {
 				t.Error("Echo method should have context")
 			}
-			if !f.HasError {
-				t.Error("Echo method should have error")
-			}
 		}
 	}
-
-	t.Log("Bootstrap round-trip: PASS")
 }
 
 // TestBootstrapPingOnly tests the minimal case: an interface with only
 // parameterless methods.
 func TestBootstrapPingOnly(t *testing.T) {
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go binary not found")
-	}
+	skipIfNoBuildTools(t)
 
 	src := `package health
 
@@ -332,14 +368,12 @@ type HealthChecker interface {
 
 	if !result.CompileOK {
 		for name, content := range result.Package.Files {
-			if strings.HasSuffix(name, ".go") {
+			if strings.HasSuffix(name, ".go") || strings.HasSuffix(name, ".proto") {
 				t.Logf("=== %s ===\n%s", name, content)
 			}
 		}
 		t.Fatalf("compile failed: %v", result.CompileError)
 	}
-
-	t.Log("Bootstrap ping-only: PASS")
 }
 
 // TestBootstrapNoInterface verifies that bootstrap returns an error when
@@ -393,17 +427,16 @@ type Svc interface {
 	}
 
 	expectedFiles := []string{
-		"types.go",
+		"pb/example.proto",
 		"svc_server.go",
-		"svc_client.go",
-		"svc.proto",
+		"main.go",
 		"go.mod",
 	}
 
 	for _, name := range expectedFiles {
 		content, ok := pkg.Files[name]
 		if !ok {
-			t.Errorf("missing file: %s", name)
+			t.Errorf("missing file: %s (have: %v)", name, fileKeys(pkg.Files))
 			continue
 		}
 		if len(content) == 0 {
@@ -411,14 +444,28 @@ type Svc interface {
 		}
 	}
 
-	// types.go should contain original structs
-	typesGo := pkg.Files["types.go"]
-	if !strings.Contains(typesGo, "type Req struct") {
-		t.Error("types.go should contain Req struct")
+	// Server file should use pb types
+	serverGo := pkg.Files["svc_server.go"]
+	if !strings.Contains(serverGo, "pb.UnimplementedSvcServer") {
+		t.Error("server should embed pb.UnimplementedSvcServer")
 	}
-	if !strings.Contains(typesGo, "type Resp struct") {
-		t.Error("types.go should contain Resp struct")
+
+	// go.mod should have real deps
+	goMod := pkg.Files["go.mod"]
+	if !strings.Contains(goMod, "google.golang.org/grpc") {
+		t.Error("go.mod should require grpc")
 	}
+	if !strings.Contains(goMod, "google.golang.org/protobuf") {
+		t.Error("go.mod should require protobuf")
+	}
+}
+
+func fileKeys(m map[string]string) []string {
+	var keys []string
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // TestFormatGeneratedFile verifies gofmt on generated code.

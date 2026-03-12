@@ -136,6 +136,8 @@ func (pc *ProtoCompiler) CompileBundle(bundle *ServiceBundle) (*ProtoCompileResu
 }
 
 // FullBootstrapResult extends BootstrapResult with proto compilation output.
+// In the unified pipeline, proto compilation is part of Bootstrap itself,
+// so this type provides backward-compatible access to the same result.
 type FullBootstrapResult struct {
 	*BootstrapResult
 
@@ -146,16 +148,10 @@ type FullBootstrapResult struct {
 	ProtoCompileOK bool
 }
 
-// FullBootstrap runs the complete pipeline including proto compilation:
-//  1. Analyze source code
-//  2. Transform interfaces → gRPC form
-//  3. Generate Go package (types, server, client, proto)
-//  4. Compile the generated Go code
-//  5. Compile the generated .proto files with protoc
-//  6. Re-analyze generated code (round-trip)
-//  7. Verify round-trip preserves structure
+// FullBootstrap runs the complete pipeline: analyze → onboard → write package
+// → protoc → go mod tidy → go build. This is the unified entry point that
+// produces a complete, runnable gRPC service.
 func FullBootstrap(module, src string) (*FullBootstrapResult, error) {
-	// Run the standard bootstrap first
 	base, err := Bootstrap(module, src)
 	if err != nil {
 		return nil, err
@@ -164,38 +160,32 @@ func FullBootstrap(module, src string) (*FullBootstrapResult, error) {
 	result := &FullBootstrapResult{
 		BootstrapResult: base,
 		ProtoResults:    make(map[string]*ProtoCompileResult),
+		ProtoCompileOK:  base.CompileOK, // proto compilation is part of Bootstrap now
 	}
 
-	// Try to get a proto compiler
-	pc, err := NewProtoCompiler()
-	if err != nil {
-		// No protoc available — skip proto compilation but don't fail
-		return result, nil
-	}
-
-	// Compile each service's proto
-	allOK := true
-	for _, bundle := range base.Package.Bundles {
-		pr, err := pc.CompileBundle(bundle)
-		if err != nil {
-			result.ProtoResults[bundle.Name] = &ProtoCompileResult{
-				Error: err,
+	// Populate ProtoResults from the package files for backward compat
+	if base.Package != nil {
+		for name, content := range base.Package.Files {
+			if strings.HasSuffix(name, ".pb.go") || strings.HasSuffix(name, "_grpc.pb.go") {
+				// Find which service this belongs to
+				for _, bundle := range base.Package.Bundles {
+					if result.ProtoResults[bundle.Name] == nil {
+						result.ProtoResults[bundle.Name] = &ProtoCompileResult{
+							CompileOK: true,
+							GoFiles:   make(map[string]string),
+						}
+					}
+					result.ProtoResults[bundle.Name].GoFiles[name] = content
+				}
 			}
-			allOK = false
-			continue
-		}
-		result.ProtoResults[bundle.Name] = pr
-		if !pr.CompileOK {
-			allOK = false
 		}
 	}
-	result.ProtoCompileOK = allOK
 
 	return result, nil
 }
 
 // CompilePackageProtos compiles all .proto files in a GeneratedPackage.
-// Returns a map of service name → ProtoCompileResult.
+// Returns a map of proto filename → ProtoCompileResult.
 func CompilePackageProtos(pkg *GeneratedPackage) (map[string]*ProtoCompileResult, error) {
 	pc, err := NewProtoCompiler()
 	if err != nil {
@@ -207,7 +197,7 @@ func CompilePackageProtos(pkg *GeneratedPackage) (map[string]*ProtoCompileResult
 		if !strings.HasSuffix(name, ".proto") {
 			continue
 		}
-		svcName := strings.TrimSuffix(name, ".proto")
+		svcName := strings.TrimSuffix(filepath.Base(name), ".proto")
 		pr, err := pc.CompileProtoString(content, pkg.Module+"/pb")
 		if err != nil {
 			results[svcName] = &ProtoCompileResult{Error: err}
