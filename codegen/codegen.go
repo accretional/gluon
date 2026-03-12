@@ -294,14 +294,23 @@ func rpcTypes(m FuncInfo) (req, resp string) {
 
 func toSnakeCase(s string) string {
 	var result []byte
-	for i, r := range s {
-		if r >= 'A' && r <= 'Z' {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
 			if i > 0 {
-				result = append(result, '_')
+				prev := s[i-1]
+				prevLower := prev >= 'a' && prev <= 'z'
+				// Insert _ if previous char is lowercase (e.g., "Store" in "KVStore")
+				// or if this starts a new word in a capitals run (e.g., "S" in "HTTPServer")
+				nextLower := i+1 < len(s) && s[i+1] >= 'a' && s[i+1] <= 'z'
+				prevUpper := prev >= 'A' && prev <= 'Z'
+				if prevLower || (prevUpper && nextLower) {
+					result = append(result, '_')
+				}
 			}
-			result = append(result, byte(r-'A'+'a'))
+			result = append(result, c-'A'+'a')
 		} else {
-			result = append(result, byte(r))
+			result = append(result, c)
 		}
 	}
 	return string(result)

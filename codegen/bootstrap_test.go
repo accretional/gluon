@@ -67,7 +67,7 @@ type KVStore interface {
 	// Verify package structure
 	expectFiles := []string{
 		"pb/kvstore.proto",
-		"k_v_store_server.go",
+		"kv_store_server.go",
 		"main.go",
 		"go.mod",
 	}
@@ -78,7 +78,7 @@ type KVStore interface {
 	}
 
 	// Verify server uses pb types
-	serverGo := result.Package.Files["k_v_store_server.go"]
+	serverGo := result.Package.Files["kv_store_server.go"]
 	for _, want := range []string{
 		"pb.UnimplementedKVStoreServer",
 		"*pb.Key",
