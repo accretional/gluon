@@ -1,4 +1,6 @@
 // Command gluon-server starts a gRPC server exposing the Go compiler service.
+// It also provides the codegen subcommand for generating gRPC services from
+// Go interfaces.
 package main
 
 import (
@@ -8,16 +10,24 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/accretional/gluon"
+	"github.com/accretional/gluon/codegen"
 	"github.com/accretional/gluon/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
+	// Check for subcommands before flag parsing
+	if len(os.Args) > 1 && os.Args[1] == "codegen" {
+		runCodegen(os.Args[2:])
+		return
+	}
+
 	addr := flag.String("addr", ":50051", "server listen address (server mode) or dial address (client mode)")
 	client := flag.Bool("client", false, "run in client mode")
 	flag.Parse()
@@ -27,6 +37,62 @@ func main() {
 		return
 	}
 	runServer(*addr)
+}
+
+// runCodegen generates a complete gRPC service from a Go source file.
+func runCodegen(args []string) {
+	fs := flag.NewFlagSet("codegen", flag.ExitOnError)
+	outDir := fs.String("o", "", "output directory (default: derived from module)")
+	module := fs.String("module", "", "Go module path (required)")
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: gluon codegen -module <path> [-o <dir>] <source.go>")
+		fmt.Fprintln(os.Stderr, "\nGenerates a complete, compilable gRPC service from Go interfaces.")
+		fmt.Fprintln(os.Stderr)
+		fs.PrintDefaults()
+	}
+	fs.Parse(args)
+
+	if *module == "" || fs.NArg() == 0 {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	sourceFile := fs.Arg(0)
+	src, err := os.ReadFile(sourceFile)
+	if err != nil {
+		log.Fatalf("read %s: %v", sourceFile, err)
+	}
+
+	// Default output dir: last element of module path
+	if *outDir == "" {
+		parts := strings.Split(*module, "/")
+		*outDir = parts[len(parts)-1]
+	}
+
+	log.Printf("generating gRPC service from %s", sourceFile)
+
+	result, err := codegen.FullBootstrap(*module, string(src))
+	if err != nil {
+		log.Fatalf("codegen failed: %v", err)
+	}
+
+	if !result.CompileOK {
+		log.Fatalf("generated code did not compile: %v", result.CompileError)
+	}
+
+	// Write all files to output directory
+	for name, content := range result.Package.Files {
+		path := filepath.Join(*outDir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			log.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			log.Fatalf("write %s: %v", path, err)
+		}
+		fmt.Printf("  %s\n", name)
+	}
+
+	fmt.Printf("\ngenerated %d files in %s/\n", len(result.Package.Files), *outDir)
 }
 
 func runServer(addr string) {

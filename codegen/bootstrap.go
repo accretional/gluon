@@ -93,6 +93,8 @@ func generatePbServerFile(module string, bundle *ServiceBundle) string {
 	// Imports
 	b.WriteString("import (\n")
 	b.WriteString("\t\"context\"\n\n")
+	b.WriteString("\t\"google.golang.org/grpc/codes\"\n")
+	b.WriteString("\t\"google.golang.org/grpc/status\"\n\n")
 	b.WriteString(fmt.Sprintf("\tpb %q\n", module+"/pb"))
 	b.WriteString(")\n\n")
 
@@ -116,7 +118,7 @@ func generatePbServerFile(module string, bundle *ServiceBundle) string {
 
 		b.WriteString(fmt.Sprintf("func (s *%s) %s(ctx context.Context, req *pb.%s) (*pb.%s, error) {\n",
 			serverName, m.Name, reqType, respType))
-		b.WriteString("\treturn nil, nil\n")
+		b.WriteString(fmt.Sprintf("\treturn nil, status.Errorf(codes.Unimplemented, %q)\n", m.Name+" not implemented"))
 		b.WriteString("}\n\n")
 	}
 
