@@ -557,7 +557,7 @@ func (s *unaryOutputStream) SetHeader(metadata.MD) error  { return nil }
 func (s *unaryOutputStream) SendHeader(metadata.MD) error { return nil }
 func (s *unaryOutputStream) SetTrailer(metadata.MD)       {}
 
-// RegisterServices registers the Go service and Commander on the given gRPC server
+// RegisterServices registers all gluon services on the given gRPC server
 // and enables reflection.
 func RegisterServices(srv *grpc.Server) error {
 	goSrv, err := NewGoServer()
@@ -568,8 +568,13 @@ func RegisterServices(srv *grpc.Server) error {
 	if err != nil {
 		return err
 	}
+	callgraphSrv, err := NewCallGraphServer()
+	if err != nil {
+		return err
+	}
 	pb.RegisterGoServer(srv, goSrv)
 	pb.RegisterGoModServer(srv, modSrv)
+	pb.RegisterCallGraphServer(srv, callgraphSrv)
 	commander.RegisterCommanderServer(srv, commander.NewCommanderServer())
 	reflection.Register(srv)
 	return nil
