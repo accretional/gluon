@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package gluon;
+
+import "go.proto";
+
+option go_package = "github.com/accretional/gluon/pb";
+
+// callgraph [-algo=static|cha|rta|vta] [-test] package...
+message CallGraphRequest {
+  repeated string packages = 1;
+
+  enum Algorithm {
+    ALGORITHM_UNKNOWN = 0; // uses tool default (rta)
+    static = 1;            // static calls only (fastest, unsound for dynamic dispatch)
+    cha = 2;               // class hierarchy analysis
+    rta = 3;               // rapid type analysis
+    vta = 4;               // variable type analysis (most precise)
+  }
+  // -algo: call graph construction algorithm
+  Algorithm algo = 2;
+
+  // -test: include the package's test source files in the analysis
+  bool test = 3;
+}
+
+// A single directed edge in the call graph: caller --> callee.
+// Streamed as output from Run — one message per edge.
+message CallGraphEdge {
+  string caller = 1;
+  string callee = 2;
+}
+
+// Wrapper for https://pkg.go.dev/golang.org/x/tools/cmd/callgraph
+service CallGraph {
+  // General escape hatch that runs callgraph with arbitrary arguments
+  rpc Command(Text) returns (Text);
+  // Run call graph analysis on the given packages, streaming one edge per message
+  rpc Run(CallGraphRequest) returns (stream CallGraphEdge);
+}
