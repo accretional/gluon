@@ -19,17 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CallGraph_Run_FullMethodName = "/gluon.CallGraph/Run"
+	CallGraph_Run_FullMethodName       = "/gluon.CallGraph/Run"
+	CallGraph_RunFolded_FullMethodName = "/gluon.CallGraph/RunFolded"
 )
 
 // CallGraphClient is the client API for CallGraph service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// CallGraph builds a full callgraph for the requested packages
+// CallGraph builds a full callgraph for the requested packages and all
+// transitive dependencies using SSA-based analysis.
 type CallGraphClient interface {
-	// Run builds the callgraph and streams one CallGraphEdge per call edge found.
 	Run(ctx context.Context, in *CallGraphRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CallGraphEdge], error)
+	RunFolded(ctx context.Context, in *CallGraphFoldedRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Text], error)
 }
 
 type callGraphClient struct {
@@ -59,14 +61,34 @@ func (c *callGraphClient) Run(ctx context.Context, in *CallGraphRequest, opts ..
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type CallGraph_RunClient = grpc.ServerStreamingClient[CallGraphEdge]
 
+func (c *callGraphClient) RunFolded(ctx context.Context, in *CallGraphFoldedRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Text], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &CallGraph_ServiceDesc.Streams[1], CallGraph_RunFolded_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[CallGraphFoldedRequest, Text]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type CallGraph_RunFoldedClient = grpc.ServerStreamingClient[Text]
+
 // CallGraphServer is the server API for CallGraph service.
 // All implementations must embed UnimplementedCallGraphServer
 // for forward compatibility.
 //
-// CallGraph builds a full callgraph for the requested packages
+// CallGraph builds a full callgraph for the requested packages and all
+// transitive dependencies using SSA-based analysis.
 type CallGraphServer interface {
-	// Run builds the callgraph and streams one CallGraphEdge per call edge found.
 	Run(*CallGraphRequest, grpc.ServerStreamingServer[CallGraphEdge]) error
+	RunFolded(*CallGraphFoldedRequest, grpc.ServerStreamingServer[Text]) error
 	mustEmbedUnimplementedCallGraphServer()
 }
 
@@ -79,6 +101,9 @@ type UnimplementedCallGraphServer struct{}
 
 func (UnimplementedCallGraphServer) Run(*CallGraphRequest, grpc.ServerStreamingServer[CallGraphEdge]) error {
 	return status.Error(codes.Unimplemented, "method Run not implemented")
+}
+func (UnimplementedCallGraphServer) RunFolded(*CallGraphFoldedRequest, grpc.ServerStreamingServer[Text]) error {
+	return status.Error(codes.Unimplemented, "method RunFolded not implemented")
 }
 func (UnimplementedCallGraphServer) mustEmbedUnimplementedCallGraphServer() {}
 func (UnimplementedCallGraphServer) testEmbeddedByValue()                   {}
@@ -112,6 +137,17 @@ func _CallGraph_Run_Handler(srv interface{}, stream grpc.ServerStream) error {
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type CallGraph_RunServer = grpc.ServerStreamingServer[CallGraphEdge]
 
+func _CallGraph_RunFolded_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(CallGraphFoldedRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(CallGraphServer).RunFolded(m, &grpc.GenericServerStream[CallGraphFoldedRequest, Text]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type CallGraph_RunFoldedServer = grpc.ServerStreamingServer[Text]
+
 // CallGraph_ServiceDesc is the grpc.ServiceDesc for CallGraph service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -123,6 +159,11 @@ var CallGraph_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Run",
 			Handler:       _CallGraph_Run_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "RunFolded",
+			Handler:       _CallGraph_RunFolded_Handler,
 			ServerStreams: true,
 		},
 	},

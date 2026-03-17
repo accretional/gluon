@@ -24,7 +24,7 @@ const (
 type CallGraphRequest_Algorithm int32
 
 const (
-	CallGraphRequest_ALGORITHM_UNKNOWN CallGraphRequest_Algorithm = 0 // Default: rta
+	CallGraphRequest_ALGORITHM_UNKNOWN CallGraphRequest_Algorithm = 0 // Default: vta
 	CallGraphRequest_static            CallGraphRequest_Algorithm = 1 // static calls only (fastest, unsound for dynamic dispatch)
 	CallGraphRequest_cha               CallGraphRequest_Algorithm = 2 // class hierarchy analysis
 	CallGraphRequest_rta               CallGraphRequest_Algorithm = 3 // rapid type analysis
@@ -76,11 +76,10 @@ func (CallGraphRequest_Algorithm) EnumDescriptor() ([]byte, []int) {
 	return file_callgraph_proto_rawDescGZIP(), []int{0, 0}
 }
 
-// callgraph [-algo=static|cha|rta|vta] [-test] package...
 type CallGraphRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Packages []string               `protobuf:"bytes,1,rep,name=packages,proto3" json:"packages,omitempty"`
-	// -algo: call graph construction algorithm
+	// -algo: call graph construction algorithm (default: vta)
 	Algo CallGraphRequest_Algorithm `protobuf:"varint,2,opt,name=algo,proto3,enum=gluon.CallGraphRequest_Algorithm" json:"algo,omitempty"`
 	// -test: include the package's test source files in the analysis
 	Test          bool `protobuf:"varint,3,opt,name=test,proto3" json:"test,omitempty"`
@@ -139,6 +138,66 @@ func (x *CallGraphRequest) GetTest() bool {
 	return false
 }
 
+type CallGraphFoldedRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	CallgraphRequest *CallGraphRequest      `protobuf:"bytes,1,opt,name=callgraph_request,json=callgraphRequest,proto3" json:"callgraph_request,omitempty"`
+	RootFolder       string                 `protobuf:"bytes,2,opt,name=root_folder,json=rootFolder,proto3" json:"root_folder,omitempty"`
+	ExcludeStdlib    bool                   `protobuf:"varint,3,opt,name=exclude_stdlib,json=excludeStdlib,proto3" json:"exclude_stdlib,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CallGraphFoldedRequest) Reset() {
+	*x = CallGraphFoldedRequest{}
+	mi := &file_callgraph_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CallGraphFoldedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CallGraphFoldedRequest) ProtoMessage() {}
+
+func (x *CallGraphFoldedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_callgraph_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CallGraphFoldedRequest.ProtoReflect.Descriptor instead.
+func (*CallGraphFoldedRequest) Descriptor() ([]byte, []int) {
+	return file_callgraph_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CallGraphFoldedRequest) GetCallgraphRequest() *CallGraphRequest {
+	if x != nil {
+		return x.CallgraphRequest
+	}
+	return nil
+}
+
+func (x *CallGraphFoldedRequest) GetRootFolder() string {
+	if x != nil {
+		return x.RootFolder
+	}
+	return ""
+}
+
+func (x *CallGraphFoldedRequest) GetExcludeStdlib() bool {
+	if x != nil {
+		return x.ExcludeStdlib
+	}
+	return false
+}
+
 // A single directed edge in the call graph: caller -> callee.
 type CallGraphEdge struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -150,7 +209,7 @@ type CallGraphEdge struct {
 
 func (x *CallGraphEdge) Reset() {
 	*x = CallGraphEdge{}
-	mi := &file_callgraph_proto_msgTypes[1]
+	mi := &file_callgraph_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -162,7 +221,7 @@ func (x *CallGraphEdge) String() string {
 func (*CallGraphEdge) ProtoMessage() {}
 
 func (x *CallGraphEdge) ProtoReflect() protoreflect.Message {
-	mi := &file_callgraph_proto_msgTypes[1]
+	mi := &file_callgraph_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -175,7 +234,7 @@ func (x *CallGraphEdge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallGraphEdge.ProtoReflect.Descriptor instead.
 func (*CallGraphEdge) Descriptor() ([]byte, []int) {
-	return file_callgraph_proto_rawDescGZIP(), []int{1}
+	return file_callgraph_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CallGraphEdge) GetCaller() string {
@@ -207,12 +266,18 @@ const file_callgraph_proto_rawDesc = "" +
 	"\x06static\x10\x01\x12\a\n" +
 	"\x03cha\x10\x02\x12\a\n" +
 	"\x03rta\x10\x03\x12\a\n" +
-	"\x03vta\x10\x04\"?\n" +
+	"\x03vta\x10\x04\"\xa6\x01\n" +
+	"\x16CallGraphFoldedRequest\x12D\n" +
+	"\x11callgraph_request\x18\x01 \x01(\v2\x17.gluon.CallGraphRequestR\x10callgraphRequest\x12\x1f\n" +
+	"\vroot_folder\x18\x02 \x01(\tR\n" +
+	"rootFolder\x12%\n" +
+	"\x0eexclude_stdlib\x18\x03 \x01(\bR\rexcludeStdlib\"?\n" +
 	"\rCallGraphEdge\x12\x16\n" +
 	"\x06caller\x18\x01 \x01(\tR\x06caller\x12\x16\n" +
-	"\x06callee\x18\x02 \x01(\tR\x06callee2C\n" +
+	"\x06callee\x18\x02 \x01(\tR\x06callee2~\n" +
 	"\tCallGraph\x126\n" +
-	"\x03Run\x12\x17.gluon.CallGraphRequest\x1a\x14.gluon.CallGraphEdge0\x01B!Z\x1fgithub.com/accretional/gluon/pbb\x06proto3"
+	"\x03Run\x12\x17.gluon.CallGraphRequest\x1a\x14.gluon.CallGraphEdge0\x01\x129\n" +
+	"\tRunFolded\x12\x1d.gluon.CallGraphFoldedRequest\x1a\v.gluon.Text0\x01B!Z\x1fgithub.com/accretional/gluon/pbb\x06proto3"
 
 var (
 	file_callgraph_proto_rawDescOnce sync.Once
@@ -227,21 +292,26 @@ func file_callgraph_proto_rawDescGZIP() []byte {
 }
 
 var file_callgraph_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_callgraph_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_callgraph_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_callgraph_proto_goTypes = []any{
 	(CallGraphRequest_Algorithm)(0), // 0: gluon.CallGraphRequest.Algorithm
 	(*CallGraphRequest)(nil),        // 1: gluon.CallGraphRequest
-	(*CallGraphEdge)(nil),           // 2: gluon.CallGraphEdge
+	(*CallGraphFoldedRequest)(nil),  // 2: gluon.CallGraphFoldedRequest
+	(*CallGraphEdge)(nil),           // 3: gluon.CallGraphEdge
+	(*Text)(nil),                    // 4: gluon.Text
 }
 var file_callgraph_proto_depIdxs = []int32{
 	0, // 0: gluon.CallGraphRequest.algo:type_name -> gluon.CallGraphRequest.Algorithm
-	1, // 1: gluon.CallGraph.Run:input_type -> gluon.CallGraphRequest
-	2, // 2: gluon.CallGraph.Run:output_type -> gluon.CallGraphEdge
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 1: gluon.CallGraphFoldedRequest.callgraph_request:type_name -> gluon.CallGraphRequest
+	1, // 2: gluon.CallGraph.Run:input_type -> gluon.CallGraphRequest
+	2, // 3: gluon.CallGraph.RunFolded:input_type -> gluon.CallGraphFoldedRequest
+	3, // 4: gluon.CallGraph.Run:output_type -> gluon.CallGraphEdge
+	4, // 5: gluon.CallGraph.RunFolded:output_type -> gluon.Text
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_callgraph_proto_init() }
@@ -256,7 +326,7 @@ func file_callgraph_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_callgraph_proto_rawDesc), len(file_callgraph_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

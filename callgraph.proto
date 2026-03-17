@@ -6,22 +6,27 @@ import "go.proto";
 
 option go_package = "github.com/accretional/gluon/pb";
 
-// callgraph [-algo=static|cha|rta|vta] [-test] package...
 message CallGraphRequest {
   repeated string packages = 1;
 
   enum Algorithm {
-    ALGORITHM_UNKNOWN = 0; // Default: rta
+    ALGORITHM_UNKNOWN = 0; // Default: vta
     static = 1; // static calls only (fastest, unsound for dynamic dispatch)
     cha = 2; // class hierarchy analysis
     rta = 3; // rapid type analysis
     vta = 4; // variable type analysis (most precise)
   }
-  // -algo: call graph construction algorithm
+  // -algo: call graph construction algorithm (default: vta)
   Algorithm algo = 2;
 
   // -test: include the package's test source files in the analysis
   bool test = 3;
+}
+
+message CallGraphFoldedRequest {
+  CallGraphRequest callgraph_request = 1;
+  string root_folder = 2;
+  bool exclude_stdlib = 3;
 }
 
 // A single directed edge in the call graph: caller -> callee.
@@ -30,8 +35,10 @@ message CallGraphEdge {
   string callee = 2;
 }
 
-// CallGraph builds a full callgraph for the requested packages
+// CallGraph builds a full callgraph for the requested packages and all
+// transitive dependencies using SSA-based analysis.
 service CallGraph {
-  // Run builds the callgraph and streams one CallGraphEdge per call edge found.
+
   rpc Run(CallGraphRequest) returns (stream CallGraphEdge);
+  rpc RunFolded(CallGraphFoldedRequest) returns (stream Text);
 }

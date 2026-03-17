@@ -8,6 +8,11 @@ import (
 	"testing"
 
 	"github.com/accretional/gluon/pb"
+	callgraphPkg "golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/callgraph/static"
+	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 	"google.golang.org/grpc"
 )
 
@@ -362,4 +367,103 @@ func makeTempModule(t *testing.T) string {
 // grpcServer creates a bare gRPC server for registration tests.
 func grpcServer() *grpc.Server {
 	return grpc.NewServer()
+}
+
+// TestDfsFolded_Diamond verifies that the visited map prevents exponential
+// re-exploration of shared nodes in a diamond DAG.
+//
+// Graph: A→B, A→C, B→D, C→D, D→E, D→F (E and F are leaves)
+// Without visited: 4 lines (D's subtree explored twice, once from B, once from C)
+// With visited:    3 lines (D explored from B, then treated as leaf from C)
+func TestDfsFolded_Diamond(t *testing.T) {
+	_, byName := loadTestCallgraph(t, `package main
+func A() { B(); C() }
+func B() { D() }
+func C() { D() }
+func D() { E(); F() }
+func E() {}
+func F() {}
+func main() {}
+`)
+
+	nodeA := byName["A"]
+	if nodeA == nil {
+		t.Fatal("function A not found in callgraph")
+	}
+
+	var lines []string
+	onPath := make(map[int]bool)
+	visited := make(map[int]bool)
+	if err := dfsFolded(nodeA, nil, onPath, visited, false, func(line string) error {
+		lines = append(lines, line)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// After the B→D subtree is explored, D is marked visited.
+	// When C reaches D, D is emitted as a leaf rather than re-explored.
+	// So we expect exactly 3 lines, not 4.
+	if len(lines) != 3 {
+		t.Errorf("want 3 lines, got %d: %v", len(lines), lines)
+	}
+}
+
+// TestDfsFolded_Cycle verifies that a mutual-recursion cycle terminates.
+func TestDfsFolded_Cycle(t *testing.T) {
+	_, byName := loadTestCallgraph(t, `package main
+func Ping() { Pong() }
+func Pong() { Ping() }
+func main() {}
+`)
+
+	nodePing := byName["Ping"]
+	if nodePing == nil {
+		t.Fatal("function Ping not found in callgraph")
+	}
+
+	var lines []string
+	onPath := make(map[int]bool)
+	visited := make(map[int]bool)
+	if err := dfsFolded(nodePing, nil, onPath, visited, false, func(line string) error {
+		lines = append(lines, line)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) == 0 {
+		t.Error("expected at least one emitted line for a cycle")
+	}
+}
+
+// loadTestCallgraph builds an SSA static callgraph from inline Go source and
+// returns a map of short function name → callgraph node.
+func loadTestCallgraph(t *testing.T, src string) (*callgraphPkg.Graph, map[string]*callgraphPkg.Node) {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(dir+"/go.mod", []byte("module testcg\n\ngo 1.21\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir+"/main.go", []byte(src), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &packages.Config{Mode: packages.LoadAllSyntax, Dir: dir}
+	pkgs, err := packages.Load(cfg, "./...")
+	if err != nil || len(pkgs) == 0 {
+		t.Fatalf("packages.Load: %v", err)
+	}
+
+	prog, ssaPkgs := ssautil.AllPackages(pkgs, ssa.InstantiateGenerics)
+	prog.Build()
+	cg := static.CallGraph(prog)
+	_ = ssaPkgs
+
+	byName := make(map[string]*callgraphPkg.Node)
+	for fn, node := range cg.Nodes {
+		if fn != nil {
+			byName[fn.Name()] = node
+		}
+	}
+	return cg, byName
 }
