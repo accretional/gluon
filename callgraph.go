@@ -1,14 +1,20 @@
 package gluon
 
 import (
-	"bufio"
-	"context"
 	"fmt"
-	"os/exec"
+	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/accretional/gluon/pb"
-	"github.com/accretional/runrpc/commander"
+	"golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/callgraph/cha"
+	"golang.org/x/tools/go/callgraph/rta"
+	"golang.org/x/tools/go/callgraph/static"
+	"golang.org/x/tools/go/callgraph/vta"
+	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,140 +23,121 @@ import (
 // CallGraphServer implements the gluon.CallGraph gRPC service.
 type CallGraphServer struct {
 	pb.UnimplementedCallGraphServer
-	commander       commander.CommanderServer
-	callgraphBinary string
 }
 
-// NewCallGraphServer creates a new CallGraphServer. It locates the callgraph binary in PATH.
-func NewCallGraphServer() (*CallGraphServer, error) {
-	bin, err := exec.LookPath("callgraph")
-	if err != nil {
-		return nil, fmt.Errorf("callgraph binary not found in PATH: %w", err)
-	}
-	return &CallGraphServer{
-		commander:       commander.NewCommanderServer(),
-		callgraphBinary: bin,
-	}, nil
+// NewCallGraphServer creates a new CallGraphServer.
+func NewCallGraphServer() *CallGraphServer {
+	return &CallGraphServer{}
 }
 
-func (s *CallGraphServer) runCommandText(ctx context.Context, args ...string) (*pb.Text, error) {
-	cmd := &commander.Command{
-		Command: s.callgraphBinary,
-		Args:    args,
-	}
-	collector := &outputCollector{}
-	stream := &unaryOutputStream{ctx: ctx, collector: collector}
-	if err := s.commander.Shell(cmd, stream); err != nil {
-		return nil, status.Errorf(codes.Internal, "command execution failed: %v", err)
-	}
-	result := collector.stdout.String()
-	if collector.stderr.Len() > 0 {
-		if result != "" {
-			result += "\n"
-		}
-		result += collector.stderr.String()
-	}
-	return &pb.Text{Text: result}, nil
-}
-
-// Command runs callgraph with arbitrary arguments.
-func (s *CallGraphServer) Command(ctx context.Context, req *pb.Text) (*pb.Text, error) {
-	if req.GetText() == "" {
-		return nil, status.Error(codes.InvalidArgument, "command text cannot be empty")
-	}
-	return s.runCommandText(ctx, strings.Fields(req.GetText())...)
-}
-
-// Run runs callgraph in digraph mode and streams one CallGraphEdge per call edge found.
+// Run builds a full callgraph for the requested packages and all transitive
+// dependencies, then streams one CallGraphEdge per call edge found.
 func (s *CallGraphServer) Run(req *pb.CallGraphRequest, stream grpc.ServerStreamingServer[pb.CallGraphEdge]) error {
 	ctx := stream.Context()
-
-	args := []string{"-format=digraph"}
-
-	if algo := algoString(req.GetAlgo()); algo != "" {
-		args = append(args, "-algo="+algo)
-	}
-	if req.GetTest() {
-		args = append(args, "-test")
-	}
 
 	pkgs := req.GetPackages()
 	if len(pkgs) == 0 {
 		pkgs = []string{"."}
 	}
-	args = append(args, pkgs...)
 
-	cmd := exec.CommandContext(ctx, s.callgraphBinary, args...)
-	stdout, err := cmd.StdoutPipe()
+	cfg := &packages.Config{
+		Context: ctx,
+		Mode:    packages.LoadAllSyntax,
+		Tests:   req.GetTest(),
+		Dir:     dirForPatterns(pkgs),
+	}
+	initial, err := packages.Load(cfg, pkgs...)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed to get stdout pipe: %v", err)
+		return status.Errorf(codes.Internal, "failed to load packages: %v", err)
 	}
-	if err := cmd.Start(); err != nil {
-		return status.Errorf(codes.Internal, "failed to start callgraph: %v", err)
+	if len(initial) == 0 {
+		return status.Errorf(codes.InvalidArgument, "no packages found for patterns: %v", pkgs)
 	}
-
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		line := scanner.Text()
-		caller, callee, ok := parseDigraphEdge(line)
-		if !ok {
+	var clean []*packages.Package
+	for _, pkg := range initial {
+		if len(pkg.Errors) > 0 {
+			var errs []string
+			for _, e := range pkg.Errors {
+				errs = append(errs, e.Error())
+			}
+			log.Printf("warning: skipping package %q due to load errors: %s", pkg.PkgPath, fmt.Sprintf("%v", errs))
 			continue
 		}
-		if err := stream.Send(&pb.CallGraphEdge{Caller: caller, Callee: callee}); err != nil {
-			cmd.Process.Kill()
-			return err
-		}
+		clean = append(clean, pkg)
+
+	}
+	if len(clean) == 0 {
+		return status.Errorf(codes.InvalidArgument, "all packages failed to load for patterns: %v", pkgs)
+	}
+	initial = clean
+
+	prog, ssaPkgs := ssautil.AllPackages(initial, ssa.InstantiateGenerics)
+	prog.Build()
+
+	cg, err := buildCallGraph(req.GetAlgo(), prog, ssaPkgs)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to build callgraph: %v", err)
 	}
 
-	if err := cmd.Wait(); err != nil {
-		return status.Errorf(codes.Internal, "callgraph exited with error: %v", err)
-	}
-	return nil
+	return callgraph.GraphVisitEdges(cg, func(e *callgraph.Edge) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		return stream.Send(&pb.CallGraphEdge{
+			Caller: e.Caller.Func.String(),
+			Callee: e.Callee.Func.String(),
+		})
+	})
 }
 
-// parseDigraphEdge parses a digraph line of the form: "caller" "callee"
-func parseDigraphEdge(line string) (caller, callee string, ok bool) {
-	line = strings.TrimSpace(line)
-	if len(line) == 0 {
-		return "", "", false
-	}
-	// Both tokens are Go-quoted strings: "foo" "bar"
-	// Find the boundary between the two quoted tokens.
-	if line[0] != '"' {
-		return "", "", false
-	}
-	// Find end of first quoted string
-	end := 1
-	for end < len(line) {
-		if line[end] == '\\' {
-			end += 2
-			continue
+// dirForPatterns returns a working directory to use when any pattern is a
+// filesystem path (starts with ./ ../ or /). It resolves the base directory
+// of the first such pattern so that go/packages loads it in its own module
+// context. Returns "" (use process cwd) if all patterns are module paths.
+func dirForPatterns(patterns []string) string {
+	for _, p := range patterns {
+		if strings.HasPrefix(p, "./") || strings.HasPrefix(p, "../") || filepath.IsAbs(p) {
+			// Strip trailing /... to get the root directory
+			base := strings.TrimSuffix(p, "/...")
+			base = strings.TrimSuffix(base, "/.")
+			abs, err := filepath.Abs(base)
+			if err == nil {
+				return abs
+			}
 		}
-		if line[end] == '"' {
-			end++
-			break
-		}
-		end++
 	}
-	caller = strings.Trim(line[:end], `"`)
-	callee = strings.Trim(strings.TrimSpace(line[end:]), `"`)
-	if caller == "" || callee == "" {
-		return "", "", false
-	}
-	return caller, callee, true
+	return ""
 }
 
-func algoString(algo pb.CallGraphRequest_Algorithm) string {
+func buildCallGraph(algo pb.CallGraphRequest_Algorithm, prog *ssa.Program, roots []*ssa.Package) (*callgraph.Graph, error) {
 	switch algo {
 	case pb.CallGraphRequest_static:
-		return "static"
+		return static.CallGraph(prog), nil
 	case pb.CallGraphRequest_cha:
-		return "cha"
-	case pb.CallGraphRequest_rta:
-		return "rta"
+		return cha.CallGraph(prog), nil
 	case pb.CallGraphRequest_vta:
-		return "vta"
-	default:
-		return "" // let tool use its default (rta)
+		return vta.CallGraph(ssautil.AllFunctions(prog), cha.CallGraph(prog)), nil
+	default: // rta or ALGORITHM_UNKNOWN → rta
+		var entries []*ssa.Function
+		for _, pkg := range roots {
+			if pkg == nil {
+				continue
+			}
+			for _, mem := range pkg.Members {
+				if fn, ok := mem.(*ssa.Function); ok {
+					entries = append(entries, fn)
+				}
+			}
+		}
+		if len(entries) == 0 {
+			return &callgraph.Graph{}, nil
+		}
+		res := rta.Analyze(entries, true)
+		if res == nil || res.CallGraph == nil {
+			return &callgraph.Graph{}, nil
+		}
+		return res.CallGraph, nil
 	}
 }

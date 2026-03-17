@@ -24,7 +24,7 @@ const (
 type CallGraphRequest_Algorithm int32
 
 const (
-	CallGraphRequest_ALGORITHM_UNKNOWN CallGraphRequest_Algorithm = 0 // uses tool default (rta)
+	CallGraphRequest_ALGORITHM_UNKNOWN CallGraphRequest_Algorithm = 0 // Default: rta
 	CallGraphRequest_static            CallGraphRequest_Algorithm = 1 // static calls only (fastest, unsound for dynamic dispatch)
 	CallGraphRequest_cha               CallGraphRequest_Algorithm = 2 // class hierarchy analysis
 	CallGraphRequest_rta               CallGraphRequest_Algorithm = 3 // rapid type analysis
@@ -139,8 +139,7 @@ func (x *CallGraphRequest) GetTest() bool {
 	return false
 }
 
-// A single directed edge in the call graph: caller --> callee.
-// Streamed as output from Run — one message per edge.
+// A single directed edge in the call graph: caller -> callee.
 type CallGraphEdge struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Caller        string                 `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
@@ -211,9 +210,8 @@ const file_callgraph_proto_rawDesc = "" +
 	"\x03vta\x10\x04\"?\n" +
 	"\rCallGraphEdge\x12\x16\n" +
 	"\x06caller\x18\x01 \x01(\tR\x06caller\x12\x16\n" +
-	"\x06callee\x18\x02 \x01(\tR\x06callee2h\n" +
-	"\tCallGraph\x12#\n" +
-	"\aCommand\x12\v.gluon.Text\x1a\v.gluon.Text\x126\n" +
+	"\x06callee\x18\x02 \x01(\tR\x06callee2C\n" +
+	"\tCallGraph\x126\n" +
 	"\x03Run\x12\x17.gluon.CallGraphRequest\x1a\x14.gluon.CallGraphEdge0\x01B!Z\x1fgithub.com/accretional/gluon/pbb\x06proto3"
 
 var (
@@ -234,16 +232,13 @@ var file_callgraph_proto_goTypes = []any{
 	(CallGraphRequest_Algorithm)(0), // 0: gluon.CallGraphRequest.Algorithm
 	(*CallGraphRequest)(nil),        // 1: gluon.CallGraphRequest
 	(*CallGraphEdge)(nil),           // 2: gluon.CallGraphEdge
-	(*Text)(nil),                    // 3: gluon.Text
 }
 var file_callgraph_proto_depIdxs = []int32{
 	0, // 0: gluon.CallGraphRequest.algo:type_name -> gluon.CallGraphRequest.Algorithm
-	3, // 1: gluon.CallGraph.Command:input_type -> gluon.Text
-	1, // 2: gluon.CallGraph.Run:input_type -> gluon.CallGraphRequest
-	3, // 3: gluon.CallGraph.Command:output_type -> gluon.Text
-	2, // 4: gluon.CallGraph.Run:output_type -> gluon.CallGraphEdge
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
+	1, // 1: gluon.CallGraph.Run:input_type -> gluon.CallGraphRequest
+	2, // 2: gluon.CallGraph.Run:output_type -> gluon.CallGraphEdge
+	2, // [2:3] is the sub-list for method output_type
+	1, // [1:2] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name

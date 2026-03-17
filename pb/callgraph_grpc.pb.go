@@ -19,19 +19,16 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CallGraph_Command_FullMethodName = "/gluon.CallGraph/Command"
-	CallGraph_Run_FullMethodName     = "/gluon.CallGraph/Run"
+	CallGraph_Run_FullMethodName = "/gluon.CallGraph/Run"
 )
 
 // CallGraphClient is the client API for CallGraph service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Wrapper for https://pkg.go.dev/golang.org/x/tools/cmd/callgraph
+// CallGraph builds a full callgraph for the requested packages
 type CallGraphClient interface {
-	// General escape hatch that runs callgraph with arbitrary arguments
-	Command(ctx context.Context, in *Text, opts ...grpc.CallOption) (*Text, error)
-	// Run call graph analysis on the given packages, streaming one edge per message
+	// Run builds the callgraph and streams one CallGraphEdge per call edge found.
 	Run(ctx context.Context, in *CallGraphRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CallGraphEdge], error)
 }
 
@@ -41,16 +38,6 @@ type callGraphClient struct {
 
 func NewCallGraphClient(cc grpc.ClientConnInterface) CallGraphClient {
 	return &callGraphClient{cc}
-}
-
-func (c *callGraphClient) Command(ctx context.Context, in *Text, opts ...grpc.CallOption) (*Text, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Text)
-	err := c.cc.Invoke(ctx, CallGraph_Command_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *callGraphClient) Run(ctx context.Context, in *CallGraphRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CallGraphEdge], error) {
@@ -76,11 +63,9 @@ type CallGraph_RunClient = grpc.ServerStreamingClient[CallGraphEdge]
 // All implementations must embed UnimplementedCallGraphServer
 // for forward compatibility.
 //
-// Wrapper for https://pkg.go.dev/golang.org/x/tools/cmd/callgraph
+// CallGraph builds a full callgraph for the requested packages
 type CallGraphServer interface {
-	// General escape hatch that runs callgraph with arbitrary arguments
-	Command(context.Context, *Text) (*Text, error)
-	// Run call graph analysis on the given packages, streaming one edge per message
+	// Run builds the callgraph and streams one CallGraphEdge per call edge found.
 	Run(*CallGraphRequest, grpc.ServerStreamingServer[CallGraphEdge]) error
 	mustEmbedUnimplementedCallGraphServer()
 }
@@ -92,9 +77,6 @@ type CallGraphServer interface {
 // pointer dereference when methods are called.
 type UnimplementedCallGraphServer struct{}
 
-func (UnimplementedCallGraphServer) Command(context.Context, *Text) (*Text, error) {
-	return nil, status.Error(codes.Unimplemented, "method Command not implemented")
-}
 func (UnimplementedCallGraphServer) Run(*CallGraphRequest, grpc.ServerStreamingServer[CallGraphEdge]) error {
 	return status.Error(codes.Unimplemented, "method Run not implemented")
 }
@@ -119,24 +101,6 @@ func RegisterCallGraphServer(s grpc.ServiceRegistrar, srv CallGraphServer) {
 	s.RegisterService(&CallGraph_ServiceDesc, srv)
 }
 
-func _CallGraph_Command_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Text)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CallGraphServer).Command(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: CallGraph_Command_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CallGraphServer).Command(ctx, req.(*Text))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _CallGraph_Run_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(CallGraphRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -154,12 +118,7 @@ type CallGraph_RunServer = grpc.ServerStreamingServer[CallGraphEdge]
 var CallGraph_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gluon.CallGraph",
 	HandlerType: (*CallGraphServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Command",
-			Handler:    _CallGraph_Command_Handler,
-		},
-	},
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Run",
