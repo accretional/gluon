@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package gluon;
+
+option go_package = "github.com/accretional/gluon/pb";
+
+message TraceRequest {
+  string binary = 1;
+  repeated string args = 2;
+}
+
+message TraceEvent {
+  string caller = 1;
+  string callee = 2;
+  int64 goroutine_id = 3; // 0 if goroutine ID is not available. Mainly if Go version < 1.17
+  int64 timestamp_ns = 4;
+}
+
+service Ptrace {
+  rpc Run(TraceRequest) returns (stream TraceEvent);
+}
+
+service BPFTrace {
+  rpc Run(TraceRequest) returns (stream TraceEvent);
+}

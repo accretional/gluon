@@ -573,6 +573,7 @@ func RegisterServices(srv *grpc.Server) error {
 	pb.RegisterGoModServer(srv, modSrv)
 	pb.RegisterCallGraphServer(srv, callgraphSrv)
 	commander.RegisterCommanderServer(srv, commander.NewCommanderServer())
+	registerTraceServices(srv)
 	reflection.Register(srv)
 	return nil
 }
