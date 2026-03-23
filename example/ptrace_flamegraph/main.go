@@ -11,6 +11,7 @@
 // Usage:
 //
 //	ptrace_flamegraph -binary <path> [-addr <host:port>] [-output <file>] [-dot <file>] [-- binary-args...]
+//	ptrace_flamegraph -pid <pid>    [-addr <host:port>] [-output <file>] [-dot <file>]
 //
 // If flamegraph.pl is not present at -flamegraph-pl it is cloned automatically
 // from https://github.com/brendangregg/FlameGraph.
@@ -49,15 +50,21 @@ type traceData struct {
 
 func main() {
 	addr := flag.String("addr", "localhost:50051", "gluon server address")
-	binary := flag.String("binary", "", "path to the binary to trace (required)")
+	binary := flag.String("binary", "", "launch this binary as the trace target")
+	pid := flag.Int("pid", 0, "attach to this already-running PID as the trace target")
 	output := flag.String("output", "temp/ptrace_flamegraph.svg", `flame graph SVG output; "-" writes folded stacks to stdout, "" skips`)
 	dotOut := flag.String("dot", "temp/ptrace_callgraph.dot", `DOT digraph output; "-" writes to stdout, "" skips`)
 	fgpl := flag.String("flamegraph-pl", "/tmp/flamegraph/flamegraph.pl", "path to flamegraph.pl")
 	flag.Parse()
 	binaryArgs := flag.Args()
 
-	if *binary == "" {
-		fmt.Fprintln(os.Stderr, "error: -binary is required")
+	if *binary == "" && *pid == 0 {
+		fmt.Fprintln(os.Stderr, "error: one of -binary or -pid is required")
+		flag.Usage()
+		os.Exit(1)
+	}
+	if *binary != "" && *pid != 0 {
+		fmt.Fprintln(os.Stderr, "error: -binary and -pid are mutually exclusive")
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -68,10 +75,19 @@ func main() {
 	}
 	defer conn.Close()
 
-	stream, err := pb.NewPtraceClient(conn).Run(context.Background(), &pb.TraceRequest{
-		Binary: *binary,
-		Args:   binaryArgs,
-	})
+	req := &pb.TraceRequest{}
+	if *pid != 0 {
+		req.Target = &pb.TraceRequest_Pid{Pid: int32(*pid)}
+	} else {
+		req.Target = &pb.TraceRequest_Launch{
+			Launch: &pb.LaunchTarget{
+				Binary: *binary,
+				Args:   binaryArgs,
+			},
+		}
+	}
+
+	stream, err := pb.NewPtraceClient(conn).Run(context.Background(), req)
 	if err != nil {
 		fatalf("Ptrace.Run: %v", err)
 	}

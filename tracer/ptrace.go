@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 	"syscall"
@@ -28,17 +29,37 @@ type PtraceServer struct {
 // NewPtraceServer creates a new PtraceServer.
 func NewPtraceServer() *PtraceServer { return &PtraceServer{} }
 
-// Run launches the binary under ptrace, traces all function calls, and streams
-// TraceEvent messages until the process exits or the client cancels.
+// Run traces a process and streams TraceEvent messages until the process exits
+// or the client cancels. The target is either a new process to launch or an
+// existing PID to attach to.
 func (s *PtraceServer) Run(req *pb.TraceRequest, stream grpc.ServerStreamingServer[pb.TraceEvent]) error {
 	ctx := stream.Context()
 
-	binary := req.GetBinary()
-	if binary == "" {
-		return status.Error(codes.InvalidArgument, "binary path is required")
+	var binaryPath string
+	var attach bool
+
+	switch t := req.Target.(type) {
+	case *pb.TraceRequest_Launch:
+		if t.Launch.GetBinary() == "" {
+			return status.Error(codes.InvalidArgument, "launch.binary is required")
+		}
+		binaryPath = t.Launch.GetBinary()
+	case *pb.TraceRequest_Pid:
+		if t.Pid <= 0 {
+			return status.Error(codes.InvalidArgument, "pid must be > 0")
+		}
+		// Resolve the binary path from /proc so we can load symbols.
+		path, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", t.Pid))
+		if err != nil {
+			return status.Errorf(codes.InvalidArgument, "resolve binary for pid %d: %v", t.Pid, err)
+		}
+		binaryPath = path
+		attach = true
+	default:
+		return status.Error(codes.InvalidArgument, "one of launch or pid is required")
 	}
 
-	syms, err := LoadSymbols(binary)
+	syms, err := LoadSymbols(binaryPath)
 	if err != nil {
 		return status.Errorf(codes.Internal, "load symbols: %v", err)
 	}
@@ -46,7 +67,7 @@ func (s *PtraceServer) Run(req *pb.TraceRequest, stream grpc.ServerStreamingServ
 		return status.Error(codes.InvalidArgument, "no traceable symbols found in binary (strip binary?)")
 	}
 
-	goidOff, err := GoroutineIDOffset(binary)
+	goidOff, err := GoroutineIDOffset(binaryPath)
 	if err != nil {
 		log.Printf("ptrace: goroutine ID disabled: %v", err)
 		goidOff = 0
@@ -54,7 +75,6 @@ func (s *PtraceServer) Run(req *pb.TraceRequest, stream grpc.ServerStreamingServ
 
 	nameByAddr := addrToName(syms)
 
-	// Channel to receive the child PID so we can kill it on context cancel.
 	pidCh := make(chan int, 1)
 	type result struct{ err error }
 	done := make(chan result, 1)
@@ -64,10 +84,20 @@ func (s *PtraceServer) Run(req *pb.TraceRequest, stream grpc.ServerStreamingServ
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 
-		pid, err := startTracedProcess(binary, req.GetArgs())
-		if err != nil {
-			done <- result{status.Errorf(codes.Internal, "start process: %v", err)}
-			return
+		var pid int
+		if attach {
+			pid = int(req.GetPid())
+			if err := attachToProcess(pid); err != nil {
+				done <- result{status.Errorf(codes.Internal, "attach to pid %d: %v", pid, err)}
+				return
+			}
+		} else {
+			var err error
+			pid, err = startTracedProcess(binaryPath, req.GetLaunch().GetArgs())
+			if err != nil {
+				done <- result{status.Errorf(codes.Internal, "start process: %v", err)}
+				return
+			}
 		}
 		pidCh <- pid
 		done <- result{runPtraceLoop(pid, syms, nameByAddr, goidOff, stream)}
@@ -77,13 +107,34 @@ func (s *PtraceServer) Run(req *pb.TraceRequest, stream grpc.ServerStreamingServ
 	case r := <-done:
 		return r.err
 	case <-ctx.Done():
-		// Kill the child so the wait loop unblocks and the goroutine exits.
-		if pid := <-pidCh; pid != 0 {
-			unix.Kill(pid, unix.SIGKILL)
+		pid := <-pidCh
+		if pid != 0 {
+			if attach {
+				// Detach cleanly — don't kill a process we didn't start.
+				unix.PtraceDetach(pid)
+			} else {
+				unix.Kill(pid, unix.SIGKILL)
+			}
 		}
 		<-done
 		return ctx.Err()
 	}
+}
+
+// attachToProcess attaches to an already-running process via PTRACE_ATTACH,
+// which sends SIGSTOP to the target and waits for it to stop.
+func attachToProcess(pid int) error {
+	if err := unix.PtraceAttach(pid); err != nil {
+		return fmt.Errorf("PTRACE_ATTACH: %w", err)
+	}
+	var ws unix.WaitStatus
+	if _, err := unix.Wait4(pid, &ws, 0, nil); err != nil {
+		return fmt.Errorf("wait after attach: %w", err)
+	}
+	if !ws.Stopped() {
+		return fmt.Errorf("expected stopped after attach, got status %v", ws)
+	}
+	return nil
 }
 
 // startTracedProcess forks and execs the binary with PTRACE_TRACEME set in the

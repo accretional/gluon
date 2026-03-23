@@ -14,6 +14,7 @@ all: build
 
 ## proto: regenerate pb/*.go from *.proto
 proto: $(PROTOC_GEN_GO) $(PROTOC_GEN_GO_GRPC)
+	mkdir -p $(PB_DIR)
 	protoc \
 		--go_out=$(PB_DIR) --go_opt=paths=source_relative \
 		--go-grpc_out=$(PB_DIR) --go-grpc_opt=paths=source_relative \

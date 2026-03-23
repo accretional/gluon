@@ -5,6 +5,13 @@ package gluon;
 option go_package = "github.com/accretional/gluon/pb";
 
 message TraceRequest {
+  oneof target {
+    LaunchTarget launch = 1;
+    int32 pid = 2;
+  }
+}
+
+message LaunchTarget {
   string binary = 1;
   repeated string args = 2;
 }
