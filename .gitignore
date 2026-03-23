@@ -12,6 +12,9 @@ bin/
 # Test binary, built with `go test -c`
 *.test
 
+# Protobuf (can be generated)
+pb/
+
 # Code coverage profiles and other test artifacts
 *.out
 coverage.*
