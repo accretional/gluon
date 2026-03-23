@@ -568,10 +568,8 @@ func RegisterServices(srv *grpc.Server) error {
 	if err != nil {
 		return err
 	}
-	callgraphSrv := NewCallGraphServer()
 	pb.RegisterGoServer(srv, goSrv)
 	pb.RegisterGoModServer(srv, modSrv)
-	pb.RegisterCallGraphServer(srv, callgraphSrv)
 	commander.RegisterCommanderServer(srv, commander.NewCommanderServer())
 	registerTraceServices(srv)
 	reflection.Register(srv)
