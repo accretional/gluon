@@ -71,6 +71,11 @@ func isRuntimeInternal(name string) bool {
 // GoroutineIDOffset reads the DWARF debug info to find the byte offset of the
 // goid field within runtime.g. Returns 0 and an error if the offset cannot be
 // determined (goroutine IDs will be reported as 0 in that case).
+//
+// It first looks for a struct named "runtime.g" or "g" (Go versions differ on
+// whether the package prefix is included). If neither is found by name it falls
+// back to scanning every struct for a "goid" member, which is unambiguous
+// enough in practice.
 func GoroutineIDOffset(binary string) (uint64, error) {
 	f, err := elf.Open(binary)
 	if err != nil {
@@ -83,6 +88,22 @@ func GoroutineIDOffset(binary string) (uint64, error) {
 		return 0, fmt.Errorf("no DWARF info: %w", err)
 	}
 
+	// First pass: prefer structs explicitly named runtime.g or g.
+	// Second pass (fallback): any struct containing a goid field.
+	for _, targetName := range []string{"runtime.g", "g", ""} {
+		off, err := scanForGoid(d, targetName)
+		if err == nil {
+			return off, nil
+		}
+	}
+	return 0, fmt.Errorf("runtime.g.goid not found in DWARF")
+}
+
+// scanForGoid scans DWARF structs for a goid member. If targetName is non-empty
+// only structs with that name are considered; if empty all structs are scanned.
+// Children are always descended into so that structs nested inside compile units
+// or other parent entries are not missed.
+func scanForGoid(d *dwarf.Data, targetName string) (uint64, error) {
 	reader := d.Reader()
 	for {
 		entry, err := reader.Next()
@@ -94,25 +115,21 @@ func GoroutineIDOffset(binary string) (uint64, error) {
 		}
 
 		if entry.Tag != dwarf.TagStructType {
-			if entry.Children {
-				reader.SkipChildren()
-			}
 			continue
 		}
 
-		name, _ := entry.Val(dwarf.AttrName).(string)
-		if name != "runtime.g" {
-			if entry.Children {
-				reader.SkipChildren()
+		if targetName != "" {
+			name, _ := entry.Val(dwarf.AttrName).(string)
+			if name != targetName {
+				continue
 			}
-			continue
 		}
 
-		// Found runtime.g — scan its members for goid.
+		// Scan members of this struct for goid.
 		for {
 			child, err := reader.Next()
 			if err != nil {
-				return 0, fmt.Errorf("DWARF child read: %w", err)
+				break
 			}
 			if child == nil || child.Tag == 0 {
 				break
@@ -120,20 +137,18 @@ func GoroutineIDOffset(binary string) (uint64, error) {
 			if child.Tag != dwarf.TagMember {
 				continue
 			}
-			fieldName, _ := child.Val(dwarf.AttrName).(string)
-			if fieldName != "goid" {
+			if fieldName, _ := child.Val(dwarf.AttrName).(string); fieldName != "goid" {
 				continue
 			}
 			switch v := child.Val(dwarf.AttrDataMemberLoc).(type) {
 			case int64:
 				return uint64(v), nil
 			case []byte:
-				// Location expression: decode ULEB128 after the opcode byte.
 				return decodeULEB128(v), nil
 			}
 		}
 	}
-	return 0, fmt.Errorf("runtime.g.goid not found in DWARF")
+	return 0, fmt.Errorf("goid not found in struct %q", targetName)
 }
 
 // decodeULEB128 decodes an unsigned LEB128 value from a DWARF location

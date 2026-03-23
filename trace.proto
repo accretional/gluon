@@ -20,6 +20,3 @@ service Ptrace {
   rpc Run(TraceRequest) returns (stream TraceEvent);
 }
 
-service BPFTrace {
-  rpc Run(TraceRequest) returns (stream TraceEvent);
-}

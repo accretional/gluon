@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package gluon;
 
-import "go.proto";
-
 option go_package = "github.com/accretional/gluon/pb";
 
 // callgraph [-algo=static|cha|rta|vta] [-test] package...

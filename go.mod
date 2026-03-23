@@ -4,7 +4,6 @@ go 1.25.5
 
 require (
 	github.com/accretional/runrpc v0.0.0-20260312135111-3b4543f39b87
-	github.com/cilium/ebpf v0.21.0
 	golang.org/x/sys v0.42.0
 	golang.org/x/tools v0.43.0
 	google.golang.org/grpc v1.78.0
