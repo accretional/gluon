@@ -206,6 +206,9 @@ func runPtraceLoop(
 		var ws unix.WaitStatus
 		wpid, err := unix.Wait4(-1, &ws, 0, nil)
 		if err != nil {
+			if err == syscall.EINTR {
+				continue
+			}
 			break
 		}
 

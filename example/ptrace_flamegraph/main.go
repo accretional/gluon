@@ -1,34 +1,41 @@
 //go:build linux
 
 // ptrace_flamegraph connects to a running gluon server, traces a binary via
-// the Ptrace RPC, and in a single pass produces:
+// the Ptrace RPC, and streams all observed call events to an intermediate file
+// in real time. On exit (natural process exit or Ctrl+C), it reads the
+// intermediate file and generates a flame graph SVG.
 //
-//   - A flame graph SVG (via flamegraph.pl) from reconstructed per-goroutine
-//     call stacks.
-//   - A Graphviz DOT digraph of the observed call edges, weighted by frequency,
-//     for structural analysis (dot, xdot, d3-graphviz, etc.).
+// The intermediate file is tab-separated:
+//
+//	caller\tcallee\tgoroutine_id\ttimestamp_ns
+//
+// It is human-readable and can be grepped/awk'd directly while the trace is
+// still running.
 //
 // Usage:
 //
-//	ptrace_flamegraph -binary <path> [-addr <host:port>] [-output <file>] [-dot <file>] [-- binary-args...]
-//	ptrace_flamegraph -pid <pid>    [-addr <host:port>] [-output <file>] [-dot <file>]
+//	ptrace_flamegraph -binary <path> [-addr <host:port>] [-events <file>] [-output <file>] [-- binary-args...]
+//	ptrace_flamegraph -pid <pid>    [-addr <host:port>] [-events <file>] [-output <file>]
 //
 // If flamegraph.pl is not present at -flamegraph-pl it is cloned automatically
 // from https://github.com/brendangregg/FlameGraph.
-// Pass -output - to write folded stacks to stdout. Pass -dot - to write the
-// DOT graph to stdout. Either flag set to "" disables that output.
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"time"
 	"strings"
+	"syscall"
 
 	"github.com/accretional/gluon/pb"
 	"google.golang.org/grpc"
@@ -37,23 +44,17 @@ import (
 
 type edge struct{ caller, callee string }
 
-// traceData holds everything collected from a single stream pass.
 type traceData struct {
-	// stackCounts maps a semicolon-joined call stack to its sample count.
-	// Used to produce the flamegraph folded-stacks input.
 	stackCounts map[string]int
-
-	// edgeCounts maps a directed (caller→callee) edge to its call count.
-	// Used to produce the DOT digraph.
-	edgeCounts map[edge]int
+	edgeCounts  map[edge]int
 }
 
 func main() {
 	addr := flag.String("addr", "localhost:50051", "gluon server address")
 	binary := flag.String("binary", "", "launch this binary as the trace target")
 	pid := flag.Int("pid", 0, "attach to this already-running PID as the trace target")
-	output := flag.String("output", "temp/ptrace_flamegraph.svg", `flame graph SVG output; "-" writes folded stacks to stdout, "" skips`)
-	dotOut := flag.String("dot", "temp/ptrace_callgraph.dot", `DOT digraph output; "-" writes to stdout, "" skips`)
+	eventsFile := flag.String("events", "temp/ptrace_events.tsv", "intermediate events file written during tracing")
+	output := flag.String("output", "temp/ptrace_flamegraph.svg", `flame graph SVG output; "" skips`)
 	fgpl := flag.String("flamegraph-pl", "/tmp/flamegraph/flamegraph.pl", "path to flamegraph.pl")
 	flag.Parse()
 	binaryArgs := flag.Args()
@@ -87,67 +88,126 @@ func main() {
 		}
 	}
 
-	stream, err := pb.NewPtraceClient(conn).Run(context.Background(), req)
+	// Cancel the stream on SIGINT/SIGTERM so we can still generate outputs.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		fmt.Fprintln(os.Stderr, "\nstopping trace...")
+		cancel()
+	}()
+
+	stream, err := pb.NewPtraceClient(conn).Run(ctx, req)
 	if err != nil {
 		fatalf("Ptrace.Run: %v", err)
 	}
 
-	data := collect(stream)
-	if len(data.edgeCounts) == 0 {
+	label := *binary
+	if *pid != 0 {
+		label = fmt.Sprintf("pid:%d", *pid)
+	}
+
+	n, err := streamToFile(stream, *eventsFile)
+	if err != nil {
+		fatalf("stream: %v", err)
+	}
+	if n == 0 {
 		fatalf("no trace events received — is the binary stripped?")
 	}
-
-	if *dotOut != "" {
-		writeDOTTo(*dotOut, *binary, data)
-	}
+	fmt.Fprintf(os.Stderr, "%d events written to %s\n", n, *eventsFile)
 
 	if *output != "" {
-		if *output == "-" {
-			writeFolded(os.Stdout, data.stackCounts)
-		} else {
-			ensureFlamegraph(*fgpl)
-			generateSVG(*fgpl, *binary, *output, data.stackCounts)
+		data, err := readEvents(*eventsFile)
+		if err != nil {
+			fatalf("read events: %v", err)
 		}
+		ensureFlamegraph(*fgpl)
+		generateSVG(*fgpl, label, *output, data.stackCounts)
 	}
 }
 
-// collect streams TraceEvents and builds traceData in a single pass.
-//
-// Stack reconstruction: each event carries (caller, callee, goroutine_id).
-// We search the goroutine's current stack for the caller frame, trim to that
-// depth, then push the callee — giving plausible call chains without needing
-// return events. Simultaneously we accumulate directed edge counts.
-func collect(stream pb.Ptrace_RunClient) traceData {
-	stacks := map[int64][]string{}
-	data := traceData{
-		stackCounts: map[string]int{},
-		edgeCounts:  map[edge]int{},
+// streamToFile reads TraceEvents from the stream and appends each event as a
+// tab-separated line to path. Returns the number of events written.
+// The file is flushed on every write so it is readable while tracing is live.
+func streamToFile(stream pb.Ptrace_RunClient, path string) (int, error) {
+	f, err := os.Create(path)
+	if err != nil {
+		return 0, fmt.Errorf("create %s: %w", path, err)
 	}
+	defer f.Close()
 
+	w := bufio.NewWriter(f)
+	fmt.Fprintln(w, "caller\tcallee\tgoroutine_id\ttime")
+
+	n := 0
 	for {
 		ev, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			fatalf("recv: %v", err)
+			// Context cancellation (Ctrl+C) is a normal shutdown, not an error.
+			if strings.Contains(err.Error(), "context canceled") {
+				break
+			}
+			return n, fmt.Errorf("recv: %w", err)
 		}
 
-		gid := ev.GetGoroutineId()
 		caller := ev.GetCaller()
-		callee := ev.GetCallee()
-
-		// Drop events where the caller couldn't be resolved to a symbol name.
-		// These are assembly stubs or runtime trampolines excluded from the
-		// symbol table — they appear as raw hex addresses and add noise.
 		if strings.HasPrefix(caller, "0x") {
+			continue // unresolved address, skip
+		}
+
+		t := time.Unix(0, ev.GetTimestampNs()).Format("15:04:05.000")
+		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n",
+			caller,
+			ev.GetCallee(),
+			ev.GetGoroutineId(),
+			t,
+		)
+		n++
+
+		// Flush periodically so the file is live-readable.
+		if n%500 == 0 {
+			w.Flush()
+		}
+	}
+	w.Flush()
+	return n, nil
+}
+
+// readEvents reads the intermediate TSV file and reconstructs traceData,
+// applying the same per-goroutine stack reconstruction as the live collector.
+func readEvents(path string) (traceData, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return traceData{}, fmt.Errorf("open %s: %w", path, err)
+	}
+	defer f.Close()
+
+	data := traceData{
+		stackCounts: map[string]int{},
+		edgeCounts:  map[edge]int{},
+	}
+	stacks := map[int64][]string{}
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	scanner.Scan() // skip header
+
+	for scanner.Scan() {
+		fields := strings.SplitN(scanner.Text(), "\t", 4)
+		if len(fields) < 4 {
 			continue
 		}
+		caller := fields[0]
+		callee := fields[1]
+		gid, _ := strconv.ParseInt(fields[2], 10, 64)
 
-		// Always record the raw edge regardless of stack state.
 		data.edgeCounts[edge{caller, callee}]++
 
-		// Reconstruct the goroutine stack.
 		stack := stacks[gid]
 		found := -1
 		for i := len(stack) - 1; i >= 0; i-- {
@@ -167,7 +227,7 @@ func collect(stream pb.Ptrace_RunClient) traceData {
 		data.stackCounts[strings.Join(stack, ";")]++
 	}
 
-	return data
+	return data, scanner.Err()
 }
 
 // writeFolded writes the folded-stacks format expected by flamegraph.pl.
@@ -182,64 +242,8 @@ func writeFolded(w io.Writer, counts map[string]int) {
 	}
 }
 
-// writeDOT writes a weighted Graphviz digraph of the observed call edges.
-// Edge thickness and label reflect call frequency, making hot paths visually
-// prominent when rendered with dot/xdot.
-func writeDOT(w io.Writer, binary string, data traceData) {
-	// Find the max edge count to normalise penwidth.
-	maxCount := 1
-	for _, c := range data.edgeCounts {
-		if c > maxCount {
-			maxCount = c
-		}
-	}
-
-	fmt.Fprintf(w, "digraph ptrace {\n")
-	fmt.Fprintf(w, "\tlabel=%q;\n", "ptrace: "+filepath.Base(binary))
-	fmt.Fprintf(w, "\tlabelloc=t;\n")
-	fmt.Fprintf(w, "\trankdir=LR;\n")
-	fmt.Fprintf(w, "\tnode [shape=box fontname=\"monospace\" fontsize=9];\n")
-	fmt.Fprintf(w, "\tedge [fontname=\"monospace\" fontsize=8];\n\n")
-
-	// Sort edges for deterministic output.
-	edges := make([]edge, 0, len(data.edgeCounts))
-	for e := range data.edgeCounts {
-		edges = append(edges, e)
-	}
-	sort.Slice(edges, func(i, j int) bool {
-		if edges[i].caller != edges[j].caller {
-			return edges[i].caller < edges[j].caller
-		}
-		return edges[i].callee < edges[j].callee
-	})
-
-	for _, e := range edges {
-		count := data.edgeCounts[e]
-		// Scale penwidth between 1 and 5 based on relative frequency.
-		penwidth := 1.0 + 4.0*float64(count)/float64(maxCount)
-		fmt.Fprintf(w, "\t%q -> %q [label=%d penwidth=%.2f];\n",
-			e.caller, e.callee, count, penwidth)
-	}
-
-	fmt.Fprintf(w, "}\n")
-}
-
-func writeDOTTo(path, binary string, data traceData) {
-	if path == "-" {
-		writeDOT(os.Stdout, binary, data)
-		return
-	}
-	f, err := os.Create(path)
-	if err != nil {
-		fatalf("create %s: %v", path, err)
-	}
-	defer f.Close()
-	writeDOT(f, binary, data)
-	fmt.Fprintf(os.Stderr, "call graph written to %s\n", path)
-}
-
 // generateSVG pipes folded stacks into flamegraph.pl and writes the SVG.
-func generateSVG(fgpl, binary, output string, counts map[string]int) {
+func generateSVG(fgpl, label, output string, counts map[string]int) {
 	outFile, err := os.Create(output)
 	if err != nil {
 		fatalf("create %s: %v", output, err)
@@ -247,7 +251,7 @@ func generateSVG(fgpl, binary, output string, counts map[string]int) {
 	defer outFile.Close()
 
 	cmd := exec.Command("perl", fgpl,
-		"--title", "ptrace: "+binary,
+		"--title", "ptrace: "+filepath.Base(label),
 		"--colors", "hot",
 	)
 	cmd.Stdout = outFile
