@@ -197,6 +197,12 @@ func runPtraceLoop(
 	// to be re-inserted after the single-step that follows a breakpoint hit.
 	pendingReinsert := make(map[int]uint64)
 
+	// vforkChildren tracks PIDs created by vfork. They share the parent's
+	// address space so we cannot restore INT3 bytes without affecting the
+	// parent. We keep them traced (handling their breakpoints silently) until
+	// they exec into a different binary, then detach.
+	vforkChildren := make(map[int]bool)
+
 	// Resume the initial stop.
 	if err := unix.PtraceCont(rootPID, 0); err != nil {
 		return status.Errorf(codes.Internal, "initial PtraceCont: %v", err)
@@ -225,17 +231,52 @@ func runPtraceLoop(
 
 		sig := ws.StopSignal()
 
-		// Handle ptrace clone/fork/vfork events: register the new thread.
+		// Handle ptrace clone/fork/vfork events.
 		if sig == unix.SIGTRAP {
 			cause := ws.TrapCause()
 			switch cause {
-			case unix.PTRACE_EVENT_CLONE,
-				unix.PTRACE_EVENT_FORK,
-				unix.PTRACE_EVENT_VFORK:
+			case unix.PTRACE_EVENT_CLONE:
+				// Goroutine thread. Track it.
 				newPID, _ := unix.PtraceGetEventMsg(wpid)
 				threads[int(newPID)] = true
 				unix.PtraceSetOptions(int(newPID), opts) //nolint:errcheck
-				unix.PtraceCont(wpid, 0)                 //nolint:errcheck
+				unix.PtraceCont(int(newPID), 0)          //nolint:errcheck — resume new thread
+				unix.PtraceCont(wpid, 0)                 //nolint:errcheck — resume parent
+				continue
+			case unix.PTRACE_EVENT_FORK:
+				// Regular fork: child has copy-on-write memory. Restore INT3
+				// bytes in the child before detaching so it doesn't SIGTRAP on
+				// the first patched function it executes before exec().
+				newPID, _ := unix.PtraceGetEventMsg(wpid)
+				for addr, orig := range origByte {
+					pokeByte(int(newPID), addr, orig) //nolint:errcheck
+				}
+				unix.PtraceDetach(int(newPID)) //nolint:errcheck
+				unix.PtraceCont(wpid, 0)       //nolint:errcheck
+				continue
+			case unix.PTRACE_EVENT_VFORK:
+				// vfork: child shares the parent's address space, so we cannot
+				// restore bytes without wiping the parent's breakpoints. Keep
+				// the child traced and handle its breakpoints silently until it
+				// calls exec (PTRACE_EVENT_EXEC), then detach cleanly.
+				newPID, _ := unix.PtraceGetEventMsg(wpid)
+				threads[int(newPID)] = true
+				vforkChildren[int(newPID)] = true
+				unix.PtraceSetOptions(int(newPID), unix.PTRACE_O_TRACEEXEC) //nolint:errcheck
+				unix.PtraceCont(int(newPID), 0)                             //nolint:errcheck
+				unix.PtraceCont(wpid, 0)                                    //nolint:errcheck
+				continue
+			case unix.PTRACE_EVENT_EXEC:
+				// The traced process called exec — its address space has been
+				// replaced. If it was a vfork child, detach now.
+				if vforkChildren[wpid] {
+					delete(vforkChildren, wpid)
+					delete(threads, wpid)
+					delete(pendingReinsert, wpid)
+					unix.PtraceDetach(wpid) //nolint:errcheck
+				} else {
+					unix.PtraceCont(wpid, 0) //nolint:errcheck
+				}
 				continue
 			}
 		}
@@ -279,14 +320,18 @@ func runPtraceLoop(
 				goroutineID = int64(peekUint64(wpid, regs.R14+goidOff))
 			}
 
-			event := &pb.TraceEvent{
-				Caller:      caller,
-				Callee:      callee,
-				GoroutineId: goroutineID,
-				TimestampNs: time.Now().UnixNano(),
-			}
-			if err := stream.Send(event); err != nil {
-				return err
+			// Suppress events from vfork children — they share the parent's
+			// address space and their pre-exec calls are not meaningful.
+			if !vforkChildren[wpid] {
+				event := &pb.TraceEvent{
+					Caller:      caller,
+					Callee:      callee,
+					GoroutineId: goroutineID,
+					TimestampNs: time.Now().UnixNano(),
+				}
+				if err := stream.Send(event); err != nil {
+					return err
+				}
 			}
 
 			// Restore original byte, rewind RIP, single-step to re-execute it,
