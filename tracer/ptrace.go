@@ -85,9 +85,12 @@ func (s *PtraceServer) Run(req *pb.TraceRequest, stream grpc.ServerStreamingServ
 		defer runtime.UnlockOSThread()
 
 		var pid int
+		var extraThreads []int
 		if attach {
 			pid = int(req.GetPid())
-			if err := attachToProcess(pid); err != nil {
+			var err error
+			extraThreads, err = attachToProcess(pid)
+			if err != nil {
 				done <- result{status.Errorf(codes.Internal, "attach to pid %d: %v", pid, err)}
 				return
 			}
@@ -100,7 +103,7 @@ func (s *PtraceServer) Run(req *pb.TraceRequest, stream grpc.ServerStreamingServ
 			}
 		}
 		pidCh <- pid
-		done <- result{runPtraceLoop(pid, syms, nameByAddr, goidOff, stream)}
+		done <- result{runPtraceLoop(pid, extraThreads, syms, nameByAddr, goidOff, stream)}
 	}()
 
 	select {
@@ -121,20 +124,66 @@ func (s *PtraceServer) Run(req *pb.TraceRequest, stream grpc.ServerStreamingServ
 	}
 }
 
-// attachToProcess attaches to an already-running process via PTRACE_ATTACH,
-// which sends SIGSTOP to the target and waits for it to stop.
-func attachToProcess(pid int) error {
-	if err := unix.PtraceAttach(pid); err != nil {
-		return fmt.Errorf("PTRACE_ATTACH: %w", err)
+// attachToProcess attaches to all threads of a running process via
+// PTRACE_ATTACH. It enumerates /proc/<pid>/task/, attaches to each thread,
+// and waits for all of them to stop. Returns the full set of attached thread
+// PIDs so the caller can initialise the ptrace event loop correctly.
+//
+// A multi-threaded process (e.g. a Go binary with many goroutines) has one OS
+// thread per goroutine. Attaching only to the main PID leaves the other
+// threads untraced: when breakpoints are inserted they will hit an INT3 on an
+// untraced thread and the process will crash with SIGTRAP.
+func attachToProcess(pid int) ([]int, error) {
+	// attachOne sends PTRACE_ATTACH to a single thread and waits for the
+	// resulting stop. The loop below retries the task enumeration until no new
+	// threads appear, which closes the race between clone() and our attach.
+	attachOne := func(tid int) error {
+		if err := unix.PtraceAttach(tid); err != nil {
+			// ESRCH means the thread vanished between enumeration and attach.
+			if err == unix.ESRCH {
+				return nil
+			}
+			return fmt.Errorf("PTRACE_ATTACH tid %d: %w", tid, err)
+		}
+		var ws unix.WaitStatus
+		if _, err := unix.Wait4(tid, &ws, 0, nil); err != nil {
+			return fmt.Errorf("wait tid %d: %w", tid, err)
+		}
+		return nil
 	}
-	var ws unix.WaitStatus
-	if _, err := unix.Wait4(pid, &ws, 0, nil); err != nil {
-		return fmt.Errorf("wait after attach: %w", err)
+
+	attached := map[int]bool{}
+	for {
+		entries, err := os.ReadDir(fmt.Sprintf("/proc/%d/task", pid))
+		if err != nil {
+			return nil, fmt.Errorf("read /proc/%d/task: %w", pid, err)
+		}
+		newSeen := false
+		for _, e := range entries {
+			var tid int
+			if _, err := fmt.Sscanf(e.Name(), "%d", &tid); err != nil {
+				continue
+			}
+			if attached[tid] {
+				continue
+			}
+			if err := attachOne(tid); err != nil {
+				return nil, err
+			}
+			attached[tid] = true
+			newSeen = true
+		}
+		// Keep iterating until a full pass finds no new threads.
+		if !newSeen {
+			break
+		}
 	}
-	if !ws.Stopped() {
-		return fmt.Errorf("expected stopped after attach, got status %v", ws)
+
+	tids := make([]int, 0, len(attached))
+	for tid := range attached {
+		tids = append(tids, tid)
 	}
-	return nil
+	return tids, nil
 }
 
 // startTracedProcess forks and execs the binary with PTRACE_TRACEME set in the
@@ -160,8 +209,13 @@ func startTracedProcess(binary string, args []string) (int, error) {
 
 // runPtraceLoop sets ptrace options, inserts breakpoints, and runs the event
 // loop until all threads in the tracee exit.
+//
+// extraThreads contains additional thread IDs that were already attached (e.g.
+// from attachToProcess) and must be included in the initial threads map. For a
+// freshly launched process this slice is empty.
 func runPtraceLoop(
 	rootPID int,
+	extraThreads []int,
 	syms []Symbol,
 	nameByAddr map[uint64]string,
 	goidOff uint64,
@@ -175,6 +229,11 @@ func runPtraceLoop(
 
 	if err := unix.PtraceSetOptions(rootPID, opts); err != nil {
 		return status.Errorf(codes.Internal, "PtraceSetOptions: %v", err)
+	}
+	for _, tid := range extraThreads {
+		if tid != rootPID {
+			unix.PtraceSetOptions(tid, opts) //nolint:errcheck
+		}
 	}
 
 	// Save original bytes and insert INT3 at each function entry.
@@ -190,8 +249,12 @@ func runPtraceLoop(
 		origByte[s.Addr] = b
 	}
 
-	// threads tracks all known tracee thread PIDs.
+	// threads tracks all known tracee thread PIDs. Seed it with the root PID
+	// and any threads that were pre-attached (attach mode).
 	threads := map[int]bool{rootPID: true}
+	for _, tid := range extraThreads {
+		threads[tid] = true
+	}
 
 	// pendingReinsert maps a thread PID to the breakpoint address that needs
 	// to be re-inserted after the single-step that follows a breakpoint hit.
@@ -203,9 +266,14 @@ func runPtraceLoop(
 	// they exec into a different binary, then detach.
 	vforkChildren := make(map[int]bool)
 
-	// Resume the initial stop.
+	// Resume the initial stop on all attached threads.
 	if err := unix.PtraceCont(rootPID, 0); err != nil {
 		return status.Errorf(codes.Internal, "initial PtraceCont: %v", err)
+	}
+	for _, tid := range extraThreads {
+		if tid != rootPID {
+			unix.PtraceCont(tid, 0) //nolint:errcheck
+		}
 	}
 
 	for len(threads) > 0 {
