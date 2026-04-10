@@ -2,9 +2,15 @@
 // reads grammar definitions according to a LexDescriptor configuration.
 // It supports Go's EBNF variant, Protocol Buffers' EBNF, and standard
 // ISO 14977 EBNF by swapping the LexDescriptor.
+//
+// Parse results are returned directly as pb.GrammarDescriptor protos.
+// The EBNF LexDescriptor is loaded from the embedded ebnf.binarypb file;
+// Go and Proto LexDescriptors are still constructed in code until their
+// grammars are self-hosting.
 package lexkit
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"strings"
@@ -13,6 +19,7 @@ import (
 
 	pb "github.com/accretional/gluon/pb"
 	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 // Char constructs a UTF8 message from a rune. For ASCII range (0-127),
@@ -36,6 +43,19 @@ func RuneOf(u *pb.UTF8) rune {
 		return rune(v.Symbol)
 	}
 	return 0
+}
+
+//go:embed ebnf.binarypb
+var ebnfLexBytes []byte
+
+// EBNFLex returns the LexDescriptor for ISO 14977 standard EBNF,
+// loaded from the embedded ebnf.binarypb file.
+func EBNFLex() *pb.LexDescriptor {
+	var lex pb.LexDescriptor
+	if err := proto.Unmarshal(ebnfLexBytes, &lex); err != nil {
+		panic(fmt.Sprintf("lexkit: corrupt ebnf.binarypb: %v", err))
+	}
+	return &lex
 }
 
 // LoadGrammar reads a GrammarDescriptor from a textproto file.
@@ -64,6 +84,16 @@ func LoadLex(path string) (*pb.LexDescriptor, error) {
 	return gd.Lex, nil
 }
 
+// RawToToken converts a raw EBNF expression string into a TokenDescriptor,
+// encoding each character as a UTF8 value.
+func RawToToken(raw string) *pb.TokenDescriptor {
+	var chars []*pb.UTF8
+	for _, r := range raw {
+		chars = append(chars, Char(r))
+	}
+	return &pb.TokenDescriptor{Chars: chars}
+}
+
 // TokenToRaw converts a TokenDescriptor back to a raw EBNF expression string.
 func TokenToRaw(tok *pb.TokenDescriptor) string {
 	if tok == nil {
@@ -76,20 +106,8 @@ func TokenToRaw(tok *pb.TokenDescriptor) string {
 	return b.String()
 }
 
-// GrammarToParseResult converts a loaded GrammarDescriptor back into a
-// ParseResult, enabling re-serialization or re-parsing workflows.
-func GrammarToParseResult(gd *pb.GrammarDescriptor) *ParseResult {
-	pr := &ParseResult{Lex: gd.Lex}
-	for _, pd := range gd.Productions {
-		pr.Productions = append(pr.Productions, Production{
-			Name: pd.Name,
-			Raw:  TokenToRaw(pd.Token),
-		})
-	}
-	return pr
-}
-
 // Predefined LexDescriptors for supported EBNF variants.
+// These remain hardcoded until their grammars are self-hosting.
 
 // GoLex returns the LexDescriptor for Go's EBNF variant.
 // Definition: '=', termination: '.', no explicit concatenation,
@@ -132,42 +150,10 @@ func ProtoLex() *pb.LexDescriptor {
 	}
 }
 
-// StandardLex returns the LexDescriptor for ISO 14977 standard EBNF.
-// Uses ',' for concatenation, ';' for termination, (* *) for comments.
-func StandardLex() *pb.LexDescriptor {
-	return &pb.LexDescriptor{
-		Whitespace:    []*pb.UTF8{Char(' '), Char('\t'), Char('\n'), Char('\r')},
-		Definition:    Char('='),
-		Concatenation: Char(','),
-		Termination:   Char(';'),
-		Alternation:   Char('|'),
-		OptionalLhs:   Char('['),
-		OptionalRhs:   Char(']'),
-		RepetitionLhs: Char('{'),
-		RepetitionRhs: Char('}'),
-		GroupingLhs:   Char('('),
-		GroupingRhs:   Char(')'),
-		Terminal:      Char('"'),
-		CommentLhs:    Char('('),
-		CommentRhs:    Char(')'),
-	}
-}
-
-// Production represents a single parsed EBNF production rule.
-type Production struct {
-	Name string // production name (left-hand side)
-	Raw  string // raw EBNF text of the expression (right-hand side)
-}
-
-// ParseResult holds the output of parsing an EBNF grammar file.
-type ParseResult struct {
-	Lex         *pb.LexDescriptor
-	Productions []Production
-}
-
 // Parse reads EBNF source text and extracts production rules according
-// to the given LexDescriptor configuration.
-func Parse(src string, lex *pb.LexDescriptor) (*ParseResult, error) {
+// to the given LexDescriptor configuration. Returns a GrammarDescriptor
+// proto directly.
+func Parse(src string, lex *pb.LexDescriptor) (*pb.GrammarDescriptor, error) {
 	p := &parser{
 		src: src,
 		lex: lex,
@@ -177,43 +163,17 @@ func Parse(src string, lex *pb.LexDescriptor) (*ParseResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ParseResult{
+	return &pb.GrammarDescriptor{
 		Lex:         lex,
 		Productions: prods,
 	}, nil
 }
 
-// RawToToken converts a raw EBNF expression string into a TokenDescriptor,
-// encoding each character as a UTF8 value.
-func RawToToken(raw string) *pb.TokenDescriptor {
-	var chars []*pb.UTF8
-	for _, r := range raw {
-		chars = append(chars, Char(r))
-	}
-	return &pb.TokenDescriptor{Chars: chars}
-}
-
-// ToGrammarDescriptor converts a ParseResult into a protobuf GrammarDescriptor.
-func (pr *ParseResult) ToGrammarDescriptor() *pb.GrammarDescriptor {
-	gd := &pb.GrammarDescriptor{
-		Lex:         pr.Lex,
-		Productions: make([]*pb.ProductionDescriptor, len(pr.Productions)),
-	}
-	for i, prod := range pr.Productions {
-		gd.Productions[i] = &pb.ProductionDescriptor{
-			Name:  prod.Name,
-			Token: RawToToken(prod.Raw),
-		}
-	}
-	return gd
-}
-
-// ToTextproto serializes a ParseResult as a human-readable textproto
-// representation of a GrammarDescriptor.
+// ToTextproto serializes a GrammarDescriptor as a human-readable textproto.
 //
 // UTF8 characters in the ASCII range are emitted using ASCII enum names
 // (e.g. "ascii: EQUALS_SIGN") rather than raw numbers.
-func (pr *ParseResult) ToTextproto() string {
+func ToTextproto(gd *pb.GrammarDescriptor) string {
 	var b strings.Builder
 
 	b.WriteString("# GrammarDescriptor\n")
@@ -221,30 +181,30 @@ func (pr *ParseResult) ToTextproto() string {
 
 	// Lex descriptor
 	b.WriteString("lex {\n")
-	for _, ws := range pr.Lex.Whitespace {
+	for _, ws := range gd.Lex.Whitespace {
 		writeUTF8Field(&b, "whitespace", ws)
 	}
-	writeUTF8Field(&b, "definition", pr.Lex.Definition)
-	writeUTF8Field(&b, "concatenation", pr.Lex.Concatenation)
-	writeUTF8Field(&b, "termination", pr.Lex.Termination)
-	writeUTF8Field(&b, "alternation", pr.Lex.Alternation)
-	writeUTF8Field(&b, "optional_lhs", pr.Lex.OptionalLhs)
-	writeUTF8Field(&b, "optional_rhs", pr.Lex.OptionalRhs)
-	writeUTF8Field(&b, "repetition_lhs", pr.Lex.RepetitionLhs)
-	writeUTF8Field(&b, "repetition_rhs", pr.Lex.RepetitionRhs)
-	writeUTF8Field(&b, "grouping_lhs", pr.Lex.GroupingLhs)
-	writeUTF8Field(&b, "grouping_rhs", pr.Lex.GroupingRhs)
-	writeUTF8Field(&b, "terminal", pr.Lex.Terminal)
-	writeUTF8Field(&b, "comment_lhs", pr.Lex.CommentLhs)
-	writeUTF8Field(&b, "comment_rhs", pr.Lex.CommentRhs)
+	writeUTF8Field(&b, "definition", gd.Lex.Definition)
+	writeUTF8Field(&b, "concatenation", gd.Lex.Concatenation)
+	writeUTF8Field(&b, "termination", gd.Lex.Termination)
+	writeUTF8Field(&b, "alternation", gd.Lex.Alternation)
+	writeUTF8Field(&b, "optional_lhs", gd.Lex.OptionalLhs)
+	writeUTF8Field(&b, "optional_rhs", gd.Lex.OptionalRhs)
+	writeUTF8Field(&b, "repetition_lhs", gd.Lex.RepetitionLhs)
+	writeUTF8Field(&b, "repetition_rhs", gd.Lex.RepetitionRhs)
+	writeUTF8Field(&b, "grouping_lhs", gd.Lex.GroupingLhs)
+	writeUTF8Field(&b, "grouping_rhs", gd.Lex.GroupingRhs)
+	writeUTF8Field(&b, "terminal", gd.Lex.Terminal)
+	writeUTF8Field(&b, "comment_lhs", gd.Lex.CommentLhs)
+	writeUTF8Field(&b, "comment_rhs", gd.Lex.CommentRhs)
 	b.WriteString("}\n\n")
 
 	// Productions with name and token descriptor
-	fmt.Fprintf(&b, "# %d productions\n", len(pr.Productions))
-	for _, prod := range pr.Productions {
+	fmt.Fprintf(&b, "# %d productions\n", len(gd.Productions))
+	for _, prod := range gd.Productions {
 		b.WriteString("productions {\n")
 		fmt.Fprintf(&b, "  name: %q\n", prod.Name)
-		writeTokenDescriptor(&b, prod.Raw)
+		writeTokenDescriptor(&b, TokenToRaw(prod.Token))
 		b.WriteString("}\n")
 	}
 
@@ -281,14 +241,6 @@ func writeUTF8Field(b *strings.Builder, name string, u *pb.UTF8) {
 	}
 }
 
-func truncate(s string, n int) string {
-	s = strings.Join(strings.Fields(s), " ") // collapse whitespace
-	if len(s) <= n {
-		return s
-	}
-	return s[:n-3] + "..."
-}
-
 // parser implements a simple EBNF production-rule extractor.
 type parser struct {
 	src string
@@ -296,8 +248,8 @@ type parser struct {
 	pos int
 }
 
-func (p *parser) parse() ([]Production, error) {
-	var prods []Production
+func (p *parser) parse() ([]*pb.ProductionDescriptor, error) {
+	var prods []*pb.ProductionDescriptor
 	for {
 		p.skipWhitespaceAndComments()
 		if p.pos >= len(p.src) {
@@ -341,9 +293,10 @@ func (p *parser) parse() ([]Production, error) {
 			return nil, fmt.Errorf("parsing expression for %q: %w", name, err)
 		}
 
-		prods = append(prods, Production{
-			Name: name,
-			Raw:  strings.TrimSpace(raw),
+		raw = strings.TrimSpace(raw)
+		prods = append(prods, &pb.ProductionDescriptor{
+			Name:  name,
+			Token: RawToToken(raw),
 		})
 	}
 	return prods, nil

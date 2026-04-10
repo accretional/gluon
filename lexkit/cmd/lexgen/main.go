@@ -51,7 +51,7 @@ func main() {
 			name:   "EBNF",
 			input:  filepath.Join(dir, "ebnf.txt"),
 			output: filepath.Join(dir, "ebnf_grammar.textproto"),
-			lexFn:  lexkit.StandardLex,
+			lexFn:  lexkit.EBNFLex,
 			validator: func(src string) error {
 				return validateSelfDescribing(src)
 			},
@@ -70,19 +70,19 @@ func main() {
 		}
 
 		lex := g.lexFn()
-		result, err := lexkit.Parse(string(src), lex)
+		gd, err := lexkit.Parse(string(src), lex)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  error parsing %s: %v\n", g.input, err)
 			exitCode = 1
 			continue
 		}
 
-		fmt.Printf("  parsed %d productions\n", len(result.Productions))
-		for i, p := range result.Productions {
+		fmt.Printf("  parsed %d productions\n", len(gd.Productions))
+		for i, p := range gd.Productions {
 			fmt.Printf("    [%d] %s\n", i+1, p.Name)
 		}
 
-		textproto := result.ToTextproto()
+		textproto := lexkit.ToTextproto(gd)
 		if err := os.WriteFile(g.output, []byte(textproto), 0o644); err != nil {
 			fmt.Fprintf(os.Stderr, "  error writing %s: %v\n", g.output, err)
 			exitCode = 1
@@ -139,32 +139,33 @@ func validateSelfHosting(textprotoPath, sourcePath string) error {
 	}
 
 	// Re-parse using the loaded LexDescriptor
-	result, err := lexkit.Parse(string(src), gd.Lex)
+	reparsed, err := lexkit.Parse(string(src), gd.Lex)
 	if err != nil {
 		return fmt.Errorf("re-parse with loaded lex: %w", err)
 	}
 
 	// Compare production counts
-	if len(result.Productions) != len(gd.Productions) {
+	if len(reparsed.Productions) != len(gd.Productions) {
 		return fmt.Errorf("production count mismatch: textproto=%d, re-parsed=%d",
-			len(gd.Productions), len(result.Productions))
+			len(gd.Productions), len(reparsed.Productions))
 	}
 
 	// Compare production names and raw expressions
-	for i, got := range result.Productions {
+	for i, got := range reparsed.Productions {
 		want := gd.Productions[i]
+		gotRaw := lexkit.TokenToRaw(got.Token)
 		wantRaw := lexkit.TokenToRaw(want.Token)
 		if got.Name != want.Name {
 			return fmt.Errorf("production[%d] name: got %q, want %q", i, got.Name, want.Name)
 		}
-		if got.Raw != wantRaw {
+		if gotRaw != wantRaw {
 			return fmt.Errorf("production[%d] %q raw mismatch:\n  got:  %q\n  want: %q",
-				i, got.Name, got.Raw, wantRaw)
+				i, got.Name, gotRaw, wantRaw)
 		}
 	}
 
 	fmt.Printf("  re-parsed %d productions from loaded LexDescriptor, all match\n",
-		len(result.Productions))
+		len(reparsed.Productions))
 	return nil
 }
 
@@ -200,7 +201,7 @@ func validateGoEBNF(src string) error {
 // self-consistent: it should parse and produce the expected set of
 // meta-productions (Syntax, Production, Expression, etc.).
 func validateSelfDescribing(src string) error {
-	result, err := lexkit.Parse(src, lexkit.StandardLex())
+	gd, err := lexkit.Parse(src, lexkit.EBNFLex())
 	if err != nil {
 		return fmt.Errorf("self-parse failed: %w", err)
 	}
@@ -210,7 +211,7 @@ func validateSelfDescribing(src string) error {
 		"Term": false, "Factor": false, "Group": false,
 		"Option": false, "Repetition": false,
 	}
-	for _, p := range result.Productions {
+	for _, p := range gd.Productions {
 		if _, ok := expected[p.Name]; ok {
 			expected[p.Name] = true
 		}

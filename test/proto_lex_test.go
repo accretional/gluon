@@ -489,15 +489,15 @@ func TestLexkitOnProtoSource(t *testing.T) {
 	lex := lexkit.ProtoLex()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := lexkit.Parse(tt.src, lex)
+			gd, err := lexkit.Parse(tt.src, lex)
 			if err != nil {
 				t.Fatalf("parse error: %v", err)
 			}
-			if len(result.Productions) == 0 {
+			if len(gd.Productions) == 0 {
 				t.Error("expected at least one production")
 			}
-			for _, p := range result.Productions {
-				t.Logf("  %s = %s", p.Name, p.Raw)
+			for _, p := range gd.Productions {
+				t.Logf("  %s = %s", p.Name, lexkit.TokenToRaw(p.Token))
 			}
 		})
 	}

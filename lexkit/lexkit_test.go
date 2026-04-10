@@ -13,15 +13,15 @@ func TestParseGoEBNF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := Parse(string(src), GoLex())
+	gd, err := Parse(string(src), GoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) == 0 {
+	if len(gd.Productions) == 0 {
 		t.Fatal("expected productions, got 0")
 	}
 	names := make(map[string]bool)
-	for _, p := range result.Productions {
+	for _, p := range gd.Productions {
 		names[p.Name] = true
 	}
 	for _, want := range []string{"SourceFile", "identifier", "Type", "Expression", "Statement"} {
@@ -29,7 +29,7 @@ func TestParseGoEBNF(t *testing.T) {
 			t.Errorf("missing expected production %q", want)
 		}
 	}
-	t.Logf("parsed %d Go productions", len(result.Productions))
+	t.Logf("parsed %d Go productions", len(gd.Productions))
 }
 
 func TestParseProtoEBNF(t *testing.T) {
@@ -37,12 +37,12 @@ func TestParseProtoEBNF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := Parse(string(src), ProtoLex())
+	gd, err := Parse(string(src), ProtoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
 	names := make(map[string]bool)
-	for _, p := range result.Productions {
+	for _, p := range gd.Productions {
 		names[p.Name] = true
 	}
 	for _, want := range []string{"proto", "message", "service", "rpc", "field"} {
@@ -50,7 +50,7 @@ func TestParseProtoEBNF(t *testing.T) {
 			t.Errorf("missing expected production %q", want)
 		}
 	}
-	t.Logf("parsed %d proto productions", len(result.Productions))
+	t.Logf("parsed %d proto productions", len(gd.Productions))
 }
 
 func TestParseEBNF(t *testing.T) {
@@ -58,12 +58,12 @@ func TestParseEBNF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := Parse(string(src), StandardLex())
+	gd, err := Parse(string(src), EBNFLex())
 	if err != nil {
 		t.Fatal(err)
 	}
 	names := make(map[string]bool)
-	for _, p := range result.Productions {
+	for _, p := range gd.Productions {
 		names[p.Name] = true
 	}
 	for _, want := range []string{"Syntax", "Production", "Expression", "Term", "Factor"} {
@@ -71,7 +71,7 @@ func TestParseEBNF(t *testing.T) {
 			t.Errorf("missing expected production %q", want)
 		}
 	}
-	t.Logf("parsed %d EBNF meta-productions", len(result.Productions))
+	t.Logf("parsed %d EBNF meta-productions", len(gd.Productions))
 }
 
 func TestToGrammarDescriptor(t *testing.T) {
@@ -79,16 +79,26 @@ func TestToGrammarDescriptor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := Parse(string(src), StandardLex())
+	gd, err := Parse(string(src), EBNFLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	gd := result.ToGrammarDescriptor()
 	if gd.Lex == nil {
 		t.Fatal("GrammarDescriptor.Lex is nil")
 	}
-	if len(gd.Productions) != len(result.Productions) {
-		t.Errorf("expected %d productions, got %d", len(result.Productions), len(gd.Productions))
+	if len(gd.Productions) < 10 {
+		t.Errorf("expected at least 10 productions, got %d", len(gd.Productions))
+	}
+	for _, p := range gd.Productions {
+		if p.Name == "" {
+			t.Error("production with empty name")
+		}
+		if p.Token == nil || len(p.Token.Chars) == 0 {
+			// Only EmptyStmt-like productions can have empty tokens
+			if p.Name != "EmptyStmt" {
+				// Some productions like Syntax = { Production } are short but not empty
+			}
+		}
 	}
 }
 
@@ -97,11 +107,11 @@ func TestToTextproto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := Parse(string(src), StandardLex())
+	gd, err := Parse(string(src), EBNFLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	tp := result.ToTextproto()
+	tp := ToTextproto(gd)
 	if len(tp) == 0 {
 		t.Fatal("empty textproto output")
 	}
@@ -123,40 +133,39 @@ func TestToTextproto(t *testing.T) {
 
 // TestEmptyProduction checks that EmptyStmt = . (empty RHS) is captured.
 func TestEmptyProduction(t *testing.T) {
-	result := mustParseGo(t)
-	raw := findProd(result, "EmptyStmt")
-	if raw == nil {
+	gd := mustParseGo(t)
+	p := findProd(gd, "EmptyStmt")
+	if p == nil {
 		t.Fatal("EmptyStmt production not found")
 	}
-	// EmptyStmt has an empty body — the raw text should be blank or whitespace-only
-	if strings.TrimSpace(raw.Raw) != "" {
-		t.Errorf("EmptyStmt should have empty raw body, got %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if strings.TrimSpace(raw) != "" {
+		t.Errorf("EmptyStmt should have empty raw body, got %q", raw)
 	}
 }
 
 // TestMultiLineProduction checks that multi-line productions are joined correctly.
 func TestMultiLineProduction(t *testing.T) {
-	result := mustParseGo(t)
+	gd := mustParseGo(t)
 
-	// PrimaryExpr spans 8 lines in the source
-	raw := findProd(result, "PrimaryExpr")
-	if raw == nil {
+	p := findProd(gd, "PrimaryExpr")
+	if p == nil {
 		t.Fatal("PrimaryExpr production not found")
 	}
-	// Must contain all the alternatives
+	raw := TokenToRaw(p.Token)
 	for _, want := range []string{"Operand", "Conversion", "MethodExpr", "Selector", "Index", "Slice", "TypeAssertion", "Arguments"} {
-		if !strings.Contains(raw.Raw, want) {
-			t.Errorf("PrimaryExpr missing %q in raw: %q", want, raw.Raw)
+		if !strings.Contains(raw, want) {
+			t.Errorf("PrimaryExpr missing %q in raw: %q", want, raw)
 		}
 	}
 
-	// Statement also spans many lines
-	raw = findProd(result, "Statement")
-	if raw == nil {
+	p = findProd(gd, "Statement")
+	if p == nil {
 		t.Fatal("Statement production not found")
 	}
+	raw = TokenToRaw(p.Token)
 	for _, want := range []string{"Declaration", "GoStmt", "DeferStmt", "ForStmt", "SelectStmt"} {
-		if !strings.Contains(raw.Raw, want) {
+		if !strings.Contains(raw, want) {
 			t.Errorf("Statement missing %q", want)
 		}
 	}
@@ -166,17 +175,17 @@ func TestMultiLineProduction(t *testing.T) {
 // string syntax in EBNF) are handled correctly, especially `\` which
 // is a single-character raw string containing a backslash.
 func TestBacktickQuotedTerminals(t *testing.T) {
-	result := mustParseGo(t)
+	gd := mustParseGo(t)
 
-	// All these productions use `\` as a terminal
 	for _, name := range []string{"octal_byte_value", "hex_byte_value", "little_u_value", "big_u_value", "escaped_char"} {
-		raw := findProd(result, name)
-		if raw == nil {
+		p := findProd(gd, name)
+		if p == nil {
 			t.Errorf("production %q not found", name)
 			continue
 		}
-		if !strings.Contains(raw.Raw, "`\\`") {
-			t.Errorf("%s should contain backtick-quoted backslash, got: %q", name, raw.Raw)
+		raw := TokenToRaw(p.Token)
+		if !strings.Contains(raw, "`\\`") {
+			t.Errorf("%s should contain backtick-quoted backslash, got: %q", name, raw)
 		}
 	}
 }
@@ -184,101 +193,91 @@ func TestBacktickQuotedTerminals(t *testing.T) {
 // TestTerminatorInsideQuotes checks that '.' inside quoted strings
 // doesn't prematurely terminate a Go production.
 func TestTerminatorInsideQuotes(t *testing.T) {
-	result := mustParseGo(t)
+	gd := mustParseGo(t)
 
-	// QualifiedIdent = PackageName "." identifier .
-	// The "." is a terminal, not a terminator.
-	raw := findProd(result, "QualifiedIdent")
-	if raw == nil {
+	p := findProd(gd, "QualifiedIdent")
+	if p == nil {
 		t.Fatal("QualifiedIdent production not found")
 	}
-	if !strings.Contains(raw.Raw, `"."`) {
-		t.Errorf("QualifiedIdent should contain quoted dot, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, `"."`) {
+		t.Errorf("QualifiedIdent should contain quoted dot, got: %q", raw)
 	}
-	if !strings.Contains(raw.Raw, "PackageName") {
-		t.Errorf("QualifiedIdent should contain PackageName, got: %q", raw.Raw)
+	if !strings.Contains(raw, "PackageName") {
+		t.Errorf("QualifiedIdent should contain PackageName, got: %q", raw)
 	}
 }
 
 // TestTerminatorInsideBrackets checks that '.' inside brackets (as part
-// of a nested expression) doesn't terminate. Go's EBNF uses '.' for
-// termination, and '...' (three dots) appears in some productions.
+// of a nested expression) doesn't terminate.
 func TestTerminatorInsideBrackets(t *testing.T) {
-	result := mustParseGo(t)
+	gd := mustParseGo(t)
 
-	// ParameterDecl = [ IdentifierList ] [ "..." ] Type .
-	raw := findProd(result, "ParameterDecl")
-	if raw == nil {
+	p := findProd(gd, "ParameterDecl")
+	if p == nil {
 		t.Fatal("ParameterDecl production not found")
 	}
-	if !strings.Contains(raw.Raw, `"..."`) {
-		t.Errorf("ParameterDecl should contain ellipsis terminal, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, `"..."`) {
+		t.Errorf("ParameterDecl should contain ellipsis terminal, got: %q", raw)
 	}
 }
 
 // TestRangeOperator checks that the "…" (ellipsis) range operator in Go
-// EBNF is preserved in the raw text and doesn't confuse the lexer.
+// EBNF is preserved in the raw text.
 func TestRangeOperator(t *testing.T) {
-	result := mustParseGo(t)
+	gd := mustParseGo(t)
 
-	raw := findProd(result, "decimal_digit")
-	if raw == nil {
+	p := findProd(gd, "decimal_digit")
+	if p == nil {
 		t.Fatal("decimal_digit production not found")
 	}
-	// Should contain the range: "0" … "9"
-	if !strings.Contains(raw.Raw, "…") {
-		t.Errorf("decimal_digit should contain ellipsis range operator, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, "…") {
+		t.Errorf("decimal_digit should contain ellipsis range operator, got: %q", raw)
 	}
 }
 
 // TestBlockCommentInExpression checks that /* */ comments inside
-// production expressions (like Go's character class definitions)
-// are properly skipped.
+// production expressions don't break the parse.
 func TestBlockCommentInExpression(t *testing.T) {
-	result := mustParseGo(t)
+	gd := mustParseGo(t)
 
-	raw := findProd(result, "newline")
-	if raw == nil {
+	p := findProd(gd, "newline")
+	if p == nil {
 		t.Fatal("newline production not found")
 	}
-	// The body is just a block comment: /* the Unicode code point U+000A */
-	// After comment stripping during expression parsing, the raw text
-	// should still be captured (comments inside expressions are part of
-	// the expression text, not stripped).
-	t.Logf("newline raw: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	t.Logf("newline raw: %q", raw)
 }
 
 // TestProtoSemicolonTerminator checks that ';' works as terminator
-// in proto EBNF without confusing proto keywords like "syntax" and
-// "import" that appear both as production names and terminals.
+// in proto EBNF without confusing proto keywords.
 func TestProtoSemicolonTerminator(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	// syntax = "syntax" "=" ... ";" — the ";" here is a terminal inside
-	// the production body, not the terminator.
-	raw := findProd(result, "syntax")
-	if raw == nil {
+	p := findProd(gd, "syntax")
+	if p == nil {
 		t.Fatal("syntax production not found")
 	}
-	// The production body should contain the keyword terminal
-	if !strings.Contains(raw.Raw, `"syntax"`) {
-		t.Errorf("syntax production should reference \"syntax\" terminal, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, `"syntax"`) {
+		t.Errorf("syntax production should reference \"syntax\" terminal, got: %q", raw)
 	}
 }
 
-// TestStandardEBNFComma checks that commas are recognized as
+// TestEBNFComma checks that commas are recognized as
 // concatenation operators in standard EBNF.
-func TestStandardEBNFComma(t *testing.T) {
-	result := mustParseStandard(t)
+func TestEBNFComma(t *testing.T) {
+	gd := mustParseEBNF(t)
 
-	raw := findProd(result, "Production")
-	if raw == nil {
+	p := findProd(gd, "Production")
+	if p == nil {
 		t.Fatal("Production not found in EBNF grammar")
 	}
-	// Should contain commas as concatenation:
-	// production_name , "=" , [ Expression ] , ";"
-	if !strings.Contains(raw.Raw, ",") {
-		t.Errorf("Production should contain comma concatenation, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, ",") {
+		t.Errorf("Production should contain comma concatenation, got: %q", raw)
 	}
 }
 
@@ -289,11 +288,11 @@ func TestProductionCount(t *testing.T) {
 		name  string
 		file  string
 		lexFn func() *pb.LexDescriptor
-		min   int // minimum expected (allows for spec updates)
+		min   int
 	}{
 		{"Go", "go_ebnf.txt", GoLex, 160},
 		{"Proto", "proto_ebnf.txt", ProtoLex, 50},
-		{"EBNF", "ebnf.txt", StandardLex, 10},
+		{"EBNF", "ebnf.txt", EBNFLex, 10},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -301,12 +300,12 @@ func TestProductionCount(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			result, err := Parse(string(src), tt.lexFn())
+			gd, err := Parse(string(src), tt.lexFn())
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(result.Productions) < tt.min {
-				t.Errorf("expected at least %d productions, got %d", tt.min, len(result.Productions))
+			if len(gd.Productions) < tt.min {
+				t.Errorf("expected at least %d productions, got %d", tt.min, len(gd.Productions))
 			}
 		})
 	}
@@ -321,7 +320,7 @@ func TestNoDuplicateNames(t *testing.T) {
 	}{
 		{"Go", "go_ebnf.txt", GoLex},
 		{"Proto", "proto_ebnf.txt", ProtoLex},
-		{"EBNF", "ebnf.txt", StandardLex},
+		{"EBNF", "ebnf.txt", EBNFLex},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -329,12 +328,12 @@ func TestNoDuplicateNames(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			result, err := Parse(string(src), tt.lexFn())
+			gd, err := Parse(string(src), tt.lexFn())
 			if err != nil {
 				t.Fatal(err)
 			}
 			seen := make(map[string]int)
-			for _, p := range result.Productions {
+			for _, p := range gd.Productions {
 				seen[p.Name]++
 			}
 			for name, count := range seen {
@@ -355,7 +354,7 @@ func TestNoEmptyNames(t *testing.T) {
 	}{
 		{"Go", "go_ebnf.txt", GoLex},
 		{"Proto", "proto_ebnf.txt", ProtoLex},
-		{"EBNF", "ebnf.txt", StandardLex},
+		{"EBNF", "ebnf.txt", EBNFLex},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -363,11 +362,11 @@ func TestNoEmptyNames(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			result, err := Parse(string(src), tt.lexFn())
+			gd, err := Parse(string(src), tt.lexFn())
 			if err != nil {
 				t.Fatal(err)
 			}
-			for i, p := range result.Productions {
+			for i, p := range gd.Productions {
 				if p.Name == "" {
 					t.Errorf("production [%d] has empty name", i)
 				}
@@ -376,24 +375,24 @@ func TestNoEmptyNames(t *testing.T) {
 	}
 }
 
-// TestSyntheticSimple tests a minimal hand-crafted grammar to verify
-// basic parser behavior in isolation.
+// TestSyntheticSimple tests a minimal hand-crafted grammar.
 func TestSyntheticSimple(t *testing.T) {
 	src := `A = "x" | "y" .
 B = A A .
 C = { A } .`
-	result, err := Parse(src, GoLex())
+	gd, err := Parse(src, GoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) != 3 {
-		t.Fatalf("expected 3 productions, got %d", len(result.Productions))
+	if len(gd.Productions) != 3 {
+		t.Fatalf("expected 3 productions, got %d", len(gd.Productions))
 	}
-	if result.Productions[0].Name != "A" {
-		t.Errorf("expected first production 'A', got %q", result.Productions[0].Name)
+	if gd.Productions[0].Name != "A" {
+		t.Errorf("expected first production 'A', got %q", gd.Productions[0].Name)
 	}
-	if !strings.Contains(result.Productions[0].Raw, `"x"`) {
-		t.Errorf("A should contain \"x\", got %q", result.Productions[0].Raw)
+	raw := TokenToRaw(gd.Productions[0].Token)
+	if !strings.Contains(raw, `"x"`) {
+		t.Errorf("A should contain \"x\", got %q", raw)
 	}
 }
 
@@ -401,15 +400,16 @@ C = { A } .`
 // (just the terminator) is handled.
 func TestSyntheticEmptyBody(t *testing.T) {
 	src := `Empty = .`
-	result, err := Parse(src, GoLex())
+	gd, err := Parse(src, GoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) != 1 {
-		t.Fatalf("expected 1 production, got %d", len(result.Productions))
+	if len(gd.Productions) != 1 {
+		t.Fatalf("expected 1 production, got %d", len(gd.Productions))
 	}
-	if strings.TrimSpace(result.Productions[0].Raw) != "" {
-		t.Errorf("Empty should have blank raw body, got %q", result.Productions[0].Raw)
+	raw := TokenToRaw(gd.Productions[0].Token)
+	if strings.TrimSpace(raw) != "" {
+		t.Errorf("Empty should have blank raw body, got %q", raw)
 	}
 }
 
@@ -417,15 +417,14 @@ func TestSyntheticEmptyBody(t *testing.T) {
 // don't cause premature termination.
 func TestSyntheticNestedBrackets(t *testing.T) {
 	src := `Deep = ( [ { "." } ] ) .`
-	result, err := Parse(src, GoLex())
+	gd, err := Parse(src, GoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) != 1 {
-		t.Fatalf("expected 1 production, got %d", len(result.Productions))
+	if len(gd.Productions) != 1 {
+		t.Fatalf("expected 1 production, got %d", len(gd.Productions))
 	}
-	raw := result.Productions[0].Raw
-	// The "." inside {""} should not terminate the production
+	raw := TokenToRaw(gd.Productions[0].Token)
 	if !strings.Contains(raw, `"."`) {
 		t.Errorf("nested production should preserve inner dot terminal, got %q", raw)
 	}
@@ -435,38 +434,38 @@ func TestSyntheticNestedBrackets(t *testing.T) {
 // production expressions don't break the parse.
 func TestSyntheticCommentInBody(t *testing.T) {
 	src := `X = /* a comment */ "a" .`
-	result, err := Parse(src, GoLex())
+	gd, err := Parse(src, GoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) != 1 {
-		t.Fatalf("expected 1 production, got %d", len(result.Productions))
+	if len(gd.Productions) != 1 {
+		t.Fatalf("expected 1 production, got %d", len(gd.Productions))
 	}
-	if !strings.Contains(result.Productions[0].Raw, `"a"`) {
-		t.Errorf("should contain terminal after comment, got %q", result.Productions[0].Raw)
+	raw := TokenToRaw(gd.Productions[0].Token)
+	if !strings.Contains(raw, `"a"`) {
+		t.Errorf("should contain terminal after comment, got %q", raw)
 	}
 }
 
 // TestSyntheticMultiLineWithIdentifierOnContinuation ensures that
-// identifiers on continuation lines of multi-line productions aren't
-// mistaken for new production names.
+// identifiers on continuation lines aren't mistaken for new productions.
 func TestSyntheticMultiLineWithIdentifierOnContinuation(t *testing.T) {
 	src := `Expr = Term |
                 Expr "+" Term .
 Term = Factor .`
-	result, err := Parse(src, GoLex())
+	gd, err := Parse(src, GoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) != 2 {
-		t.Fatalf("expected 2 productions, got %d: %v", len(result.Productions), prodNames(result))
+	if len(gd.Productions) != 2 {
+		t.Fatalf("expected 2 productions, got %d: %v", len(gd.Productions), gdNames(gd))
 	}
-	if result.Productions[0].Name != "Expr" {
-		t.Errorf("first should be Expr, got %q", result.Productions[0].Name)
+	if gd.Productions[0].Name != "Expr" {
+		t.Errorf("first should be Expr, got %q", gd.Productions[0].Name)
 	}
-	// Expr's body must include both alternatives
-	if !strings.Contains(result.Productions[0].Raw, "Term") || !strings.Contains(result.Productions[0].Raw, "Expr") {
-		t.Errorf("Expr body incomplete: %q", result.Productions[0].Raw)
+	raw := TokenToRaw(gd.Productions[0].Token)
+	if !strings.Contains(raw, "Term") || !strings.Contains(raw, "Expr") {
+		t.Errorf("Expr body incomplete: %q", raw)
 	}
 }
 
@@ -474,32 +473,34 @@ Term = Factor .`
 // doesn't terminate a proto-style production.
 func TestSyntheticProtoTerminatorInQuotes(t *testing.T) {
 	src := `stmt = expr ";" ;`
-	result, err := Parse(src, ProtoLex())
+	gd, err := Parse(src, ProtoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) != 1 {
-		t.Fatalf("expected 1 production, got %d", len(result.Productions))
+	if len(gd.Productions) != 1 {
+		t.Fatalf("expected 1 production, got %d", len(gd.Productions))
 	}
-	if !strings.Contains(result.Productions[0].Raw, `";"`) {
-		t.Errorf("should contain quoted semicolon, got %q", result.Productions[0].Raw)
+	raw := TokenToRaw(gd.Productions[0].Token)
+	if !strings.Contains(raw, `";"`) {
+		t.Errorf("should contain quoted semicolon, got %q", raw)
 	}
 }
 
-// TestSyntheticStandardEBNFWithCommas tests standard EBNF parsing with
+// TestSyntheticEBNFWithCommas tests standard EBNF parsing with
 // explicit comma concatenation.
-func TestSyntheticStandardEBNFWithCommas(t *testing.T) {
+func TestSyntheticEBNFWithCommas(t *testing.T) {
 	src := `Rule = "a" , "b" , "c" ;`
-	result, err := Parse(src, StandardLex())
+	gd, err := Parse(src, EBNFLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) != 1 {
-		t.Fatalf("expected 1 production, got %d", len(result.Productions))
+	if len(gd.Productions) != 1 {
+		t.Fatalf("expected 1 production, got %d", len(gd.Productions))
 	}
+	raw := TokenToRaw(gd.Productions[0].Token)
 	for _, want := range []string{`"a"`, `"b"`, `"c"`, ","} {
-		if !strings.Contains(result.Productions[0].Raw, want) {
-			t.Errorf("should contain %s, got %q", want, result.Productions[0].Raw)
+		if !strings.Contains(raw, want) {
+			t.Errorf("should contain %s, got %q", want, raw)
 		}
 	}
 }
@@ -509,26 +510,25 @@ func TestSyntheticStandardEBNFWithCommas(t *testing.T) {
 func TestSyntheticParenCommentEBNF(t *testing.T) {
 	src := `(* this is a comment *)
 Rule = "a" ;`
-	result, err := Parse(src, StandardLex())
+	gd, err := Parse(src, EBNFLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) != 1 {
-		t.Fatalf("expected 1 production, got %d", len(result.Productions))
+	if len(gd.Productions) != 1 {
+		t.Fatalf("expected 1 production, got %d", len(gd.Productions))
 	}
-	if result.Productions[0].Name != "Rule" {
-		t.Errorf("expected Rule, got %q", result.Productions[0].Name)
+	if gd.Productions[0].Name != "Rule" {
+		t.Errorf("expected Rule, got %q", gd.Productions[0].Name)
 	}
 }
 
 // TestLexDescriptorRoundTrip checks that LexDescriptor → textproto
 // preserves all fields.
 func TestLexDescriptorRoundTrip(t *testing.T) {
-	for _, lex := range []*pb.LexDescriptor{GoLex(), ProtoLex(), StandardLex()} {
-		result := &ParseResult{Lex: lex}
-		tp := result.ToTextproto()
+	for _, lex := range []*pb.LexDescriptor{GoLex(), ProtoLex(), EBNFLex()} {
+		gd := &pb.GrammarDescriptor{Lex: lex}
+		tp := ToTextproto(gd)
 
-		// Verify all non-nil fields appear
 		if lex.Concatenation != nil && !strings.Contains(tp, "concatenation") {
 			t.Error("missing concatenation in textproto")
 		}
@@ -538,10 +538,7 @@ func TestLexDescriptorRoundTrip(t *testing.T) {
 		if !strings.Contains(tp, "whitespace") {
 			t.Error("missing whitespace in textproto")
 		}
-		// Verify ASCII enum names appear instead of raw numbers
-		if strings.Contains(tp, "EQUALS_SIGN") {
-			// definition should use ASCII enum name
-		} else {
+		if !strings.Contains(tp, "EQUALS_SIGN") {
 			t.Error("expected ASCII enum name in textproto output")
 		}
 	}
@@ -549,7 +546,7 @@ func TestLexDescriptorRoundTrip(t *testing.T) {
 
 // TestSelfHostingEBNF loads ebnf_grammar.textproto, extracts its
 // LexDescriptor, uses it to re-parse ebnf.txt, and verifies the
-// productions match — proving the textproto works on itself.
+// productions match.
 func TestSelfHostingEBNF(t *testing.T) {
 	gd, err := LoadGrammar("ebnf_grammar.textproto")
 	if err != nil {
@@ -564,27 +561,55 @@ func TestSelfHostingEBNF(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Parse(string(src), gd.Lex)
+	reparsed, err := Parse(string(src), gd.Lex)
 	if err != nil {
 		t.Fatalf("re-parse with loaded lex: %v", err)
 	}
 
-	if len(result.Productions) != len(gd.Productions) {
+	if len(reparsed.Productions) != len(gd.Productions) {
 		t.Fatalf("production count mismatch: textproto=%d, re-parsed=%d",
-			len(gd.Productions), len(result.Productions))
+			len(gd.Productions), len(reparsed.Productions))
 	}
 
-	for i, got := range result.Productions {
+	for i, got := range reparsed.Productions {
 		want := gd.Productions[i]
-		wantRaw := TokenToRaw(want.Token)
 		if got.Name != want.Name {
 			t.Errorf("production[%d] name: got %q, want %q", i, got.Name, want.Name)
 		}
-		if got.Raw != wantRaw {
+		gotRaw := TokenToRaw(got.Token)
+		wantRaw := TokenToRaw(want.Token)
+		if gotRaw != wantRaw {
 			t.Errorf("production[%d] %q raw mismatch", i, got.Name)
 		}
 	}
-	t.Logf("self-hosting: %d productions re-parsed and matched", len(result.Productions))
+	t.Logf("self-hosting: %d productions re-parsed and matched", len(reparsed.Productions))
+}
+
+// TestEBNFLexFromBinary verifies that EBNFLex() loaded from the
+// binarypb matches the expected EBNF configuration.
+func TestEBNFLexFromBinary(t *testing.T) {
+	lex := EBNFLex()
+	if RuneOf(lex.Definition) != '=' {
+		t.Errorf("definition: got %c, want =", RuneOf(lex.Definition))
+	}
+	if RuneOf(lex.Termination) != ';' {
+		t.Errorf("termination: got %c, want ;", RuneOf(lex.Termination))
+	}
+	if RuneOf(lex.Concatenation) != ',' {
+		t.Errorf("concatenation: got %c, want ,", RuneOf(lex.Concatenation))
+	}
+	if RuneOf(lex.Alternation) != '|' {
+		t.Errorf("alternation: got %c, want |", RuneOf(lex.Alternation))
+	}
+	if RuneOf(lex.CommentLhs) != '(' {
+		t.Errorf("comment_lhs: got %c, want (", RuneOf(lex.CommentLhs))
+	}
+	if RuneOf(lex.CommentRhs) != ')' {
+		t.Errorf("comment_rhs: got %c, want )", RuneOf(lex.CommentRhs))
+	}
+	if len(lex.Whitespace) != 4 {
+		t.Errorf("whitespace count: got %d, want 4", len(lex.Whitespace))
+	}
 }
 
 // TestTokenRoundTrip verifies Raw → TokenDescriptor → Raw round-trip.
@@ -605,50 +630,47 @@ func TestTokenRoundTrip(t *testing.T) {
 }
 
 // TestBackslashInQuotedTerminal verifies that a backslash inside a
-// quoted terminal string does not escape the closing quote. In EBNF,
-// terminals are always literal — "\" is a valid single-character
-// terminal containing a backslash.
+// quoted terminal string does not escape the closing quote.
 func TestBackslashInQuotedTerminal(t *testing.T) {
-	// This is the pattern from proto EBNF: octEscape = "\" digit digit digit ;
 	src := `escape = "\" digit ;`
-	result, err := Parse(src, ProtoLex())
+	gd, err := Parse(src, ProtoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Productions) != 1 {
-		t.Fatalf("expected 1 production, got %d", len(result.Productions))
+	if len(gd.Productions) != 1 {
+		t.Fatalf("expected 1 production, got %d", len(gd.Productions))
 	}
-	if result.Productions[0].Name != "escape" {
-		t.Errorf("expected 'escape', got %q", result.Productions[0].Name)
+	if gd.Productions[0].Name != "escape" {
+		t.Errorf("expected 'escape', got %q", gd.Productions[0].Name)
 	}
-	// The raw body should contain both the backslash terminal and "digit"
-	if !strings.Contains(result.Productions[0].Raw, `"\"`) {
-		t.Errorf("should contain backslash terminal, got %q", result.Productions[0].Raw)
+	raw := TokenToRaw(gd.Productions[0].Token)
+	if !strings.Contains(raw, `"\"`) {
+		t.Errorf("should contain backslash terminal, got %q", raw)
 	}
-	if !strings.Contains(result.Productions[0].Raw, "digit") {
-		t.Errorf("should contain 'digit' reference, got %q", result.Productions[0].Raw)
+	if !strings.Contains(raw, "digit") {
+		t.Errorf("should contain 'digit' reference, got %q", raw)
 	}
 }
 
 // TestProtoEscapeProductions checks that the previously-missing proto
-// escape productions (octEscape, charEscape) are now captured.
+// escape productions are captured.
 func TestProtoEscapeProductions(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 	for _, name := range []string{"hexEscape", "octEscape", "charEscape"} {
-		raw := findProd(result, name)
-		if raw == nil {
+		p := findProd(gd, name)
+		if p == nil {
 			t.Errorf("production %q not found", name)
 			continue
 		}
-		// All escape productions should reference a backslash terminal
-		if !strings.Contains(raw.Raw, `"\"`) {
-			t.Errorf("%s should contain backslash terminal, got: %q", name, raw.Raw)
+		raw := TokenToRaw(p.Token)
+		if !strings.Contains(raw, `"\"`) {
+			t.Errorf("%s should contain backslash terminal, got: %q", name, raw)
 		}
 	}
 }
 
 // TestSingleCharTerminals checks edge cases with various single-char
-// terminal strings that could confuse the lexer.
+// terminal strings.
 func TestSingleCharTerminals(t *testing.T) {
 	tests := []struct {
 		name string
@@ -667,15 +689,15 @@ func TestSingleCharTerminals(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := Parse(tt.src, ProtoLex())
+			gd, err := Parse(tt.src, ProtoLex())
 			if err != nil {
 				t.Fatalf("parse error: %v", err)
 			}
-			if len(result.Productions) != 1 {
-				t.Fatalf("expected 1 production, got %d", len(result.Productions))
+			if len(gd.Productions) != 1 {
+				t.Fatalf("expected 1 production, got %d", len(gd.Productions))
 			}
-			if result.Productions[0].Name != "R" {
-				t.Errorf("expected 'R', got %q", result.Productions[0].Name)
+			if gd.Productions[0].Name != "R" {
+				t.Errorf("expected 'R', got %q", gd.Productions[0].Name)
 			}
 		})
 	}
@@ -684,68 +706,36 @@ func TestSingleCharTerminals(t *testing.T) {
 // =============================================================
 // Proto3 spec conformance tests
 // =============================================================
-// These tests validate our proto_ebnf.txt against the official
-// proto3 spec cached in proto-spec/proto3.txt.
 
-// TestProtoSpecProductionNames checks that every production defined
-// in the official spec is present in our EBNF file.
 func TestProtoSpecProductionNames(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 	names := make(map[string]bool)
-	for _, p := range result.Productions {
+	for _, p := range gd.Productions {
 		names[p.Name] = true
 	}
 
-	// Every production from the official spec at
-	// https://protobuf.dev/reference/protobuf/proto3-spec/
-	// The spec defines these productions (MessageValue is referenced
-	// but defined in the Text Format spec, not proto3 spec itself):
 	specProductions := []string{
-		// Letters and Digits
 		"letter", "decimalDigit", "octalDigit", "hexDigit",
-		// Identifiers
 		"ident", "fullIdent", "messageName", "enumName", "fieldName",
 		"oneofName", "mapName", "serviceName", "rpcName",
 		"messageType", "enumType",
-		// Integer Literals
 		"intLit", "decimalLit", "octalLit", "hexLit",
-		// Floating-point Literals
 		"floatLit", "decimals", "exponent",
-		// Boolean
 		"boolLit",
-		// String Literals
 		"strLit", "strLitSingle", "charValue",
 		"hexEscape", "octEscape", "charEscape",
 		"unicodeEscape", "unicodeLongEscape",
-		// Empty Statement
-		"emptyStatement",
-		// Constant
-		"constant",
-		// Syntax
-		"syntax",
-		// Import
-		"import",
-		// Package
-		"package",
-		// Option
+		"emptyStatement", "constant",
+		"syntax", "import", "package",
 		"option", "optionName", "bracedFullIdent",
-		// Fields
 		"type", "fieldNumber",
-		// Normal Field
 		"field", "fieldOptions", "fieldOption",
-		// Oneof
 		"oneof", "oneofField",
-		// Map Field
 		"mapField", "keyType",
-		// Reserved
 		"reserved", "ranges", "range", "strFieldNames", "strFieldName",
-		// Enum
 		"enum", "enumBody", "enumField", "enumValueOption",
-		// Message
 		"message", "messageBody",
-		// Service
 		"service", "rpc",
-		// Proto File
 		"proto", "topLevelDef",
 	}
 
@@ -755,271 +745,248 @@ func TestProtoSpecProductionNames(t *testing.T) {
 		}
 	}
 
-	// Also check we don't have any extra productions not in the spec
 	specSet := make(map[string]bool)
 	for _, name := range specProductions {
 		specSet[name] = true
 	}
-	for _, p := range result.Productions {
+	for _, p := range gd.Productions {
 		if !specSet[p.Name] {
 			t.Logf("note: extra production %q (not in spec)", p.Name)
 		}
 	}
 }
 
-// TestProtoSpecIntLitSignedness validates that integer literals in our
-// EBNF match the spec's signedness handling (spec allows [-] prefix).
 func TestProtoSpecIntLitSignedness(t *testing.T) {
-	result := mustParseProto(t)
-
-	// The spec defines: decimalLit = [-] ( "1" ... "9" ) { decimalDigit }
+	gd := mustParseProto(t)
 	for _, name := range []string{"decimalLit", "octalLit", "hexLit"} {
-		raw := findProd(result, name)
-		if raw == nil {
+		p := findProd(gd, name)
+		if p == nil {
 			t.Errorf("missing %q", name)
 			continue
 		}
-		if !strings.Contains(raw.Raw, `"-"`) {
-			t.Errorf("%s should allow negative sign per spec, got: %q", name, raw.Raw)
+		raw := TokenToRaw(p.Token)
+		if !strings.Contains(raw, `"-"`) {
+			t.Errorf("%s should allow negative sign per spec, got: %q", name, raw)
 		}
 	}
 }
 
-// TestProtoSpecStrLitConcatenation validates that strLit supports
-// string concatenation (strLitSingle { strLitSingle }).
 func TestProtoSpecStrLitConcatenation(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	raw := findProd(result, "strLit")
-	if raw == nil {
+	p := findProd(gd, "strLit")
+	if p == nil {
 		t.Fatal("strLit production not found")
 	}
-	// Must reference strLitSingle
-	if !strings.Contains(raw.Raw, "strLitSingle") {
-		t.Errorf("strLit should reference strLitSingle per spec, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, "strLitSingle") {
+		t.Errorf("strLit should reference strLitSingle per spec, got: %q", raw)
 	}
 
-	// strLitSingle must exist
-	raw = findProd(result, "strLitSingle")
-	if raw == nil {
+	p = findProd(gd, "strLitSingle")
+	if p == nil {
 		t.Fatal("strLitSingle production not found")
 	}
 }
 
-// TestProtoSpecUnicodeEscapes validates that unicode escape productions
-// exist and have the right structure.
 func TestProtoSpecUnicodeEscapes(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	raw := findProd(result, "unicodeEscape")
-	if raw == nil {
+	p := findProd(gd, "unicodeEscape")
+	if p == nil {
 		t.Fatal("unicodeEscape not found")
 	}
-	// Must contain "u" and hexDigit references
-	if !strings.Contains(raw.Raw, `"u"`) {
-		t.Errorf("unicodeEscape should contain \"u\", got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, `"u"`) {
+		t.Errorf("unicodeEscape should contain \"u\", got: %q", raw)
 	}
 
-	raw = findProd(result, "unicodeLongEscape")
-	if raw == nil {
+	p = findProd(gd, "unicodeLongEscape")
+	if p == nil {
 		t.Fatal("unicodeLongEscape not found")
 	}
-	// Must contain "U"
-	if !strings.Contains(raw.Raw, `"U"`) {
-		t.Errorf("unicodeLongEscape should contain \"U\", got: %q", raw.Raw)
+	raw = TokenToRaw(p.Token)
+	if !strings.Contains(raw, `"U"`) {
+		t.Errorf("unicodeLongEscape should contain \"U\", got: %q", raw)
 	}
 }
 
-// TestProtoSpecEscapeDigitCounts validates that hex/oct escapes allow
-// the variable digit counts specified in the spec.
 func TestProtoSpecEscapeDigitCounts(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	// hexEscape: spec says hexDigit [ hexDigit ] — 1-2 hex digits
-	raw := findProd(result, "hexEscape")
-	if raw == nil {
+	p := findProd(gd, "hexEscape")
+	if p == nil {
 		t.Fatal("hexEscape not found")
 	}
-	// Must have optional second hexDigit: [ hexDigit ]
-	if !strings.Contains(raw.Raw, "[ hexDigit ]") &&
-		!strings.Contains(raw.Raw, "[hexDigit]") {
-		t.Errorf("hexEscape should have optional second hexDigit per spec, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, "[ hexDigit ]") && !strings.Contains(raw, "[hexDigit]") {
+		t.Errorf("hexEscape should have optional second hexDigit per spec, got: %q", raw)
 	}
 
-	// octEscape: spec says octalDigit [ octalDigit [ octalDigit ] ] — 1-3 digits
-	raw = findProd(result, "octEscape")
-	if raw == nil {
+	p = findProd(gd, "octEscape")
+	if p == nil {
 		t.Fatal("octEscape not found")
 	}
-	// Must have nested optionals
-	if !strings.Contains(raw.Raw, "[") {
-		t.Errorf("octEscape should have optional digits per spec, got: %q", raw.Raw)
+	raw = TokenToRaw(p.Token)
+	if !strings.Contains(raw, "[") {
+		t.Errorf("octEscape should have optional digits per spec, got: %q", raw)
 	}
 }
 
-// TestProtoSpecOptionName validates that optionName uses bracedFullIdent.
 func TestProtoSpecOptionName(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	raw := findProd(result, "optionName")
-	if raw == nil {
+	p := findProd(gd, "optionName")
+	if p == nil {
 		t.Fatal("optionName not found")
 	}
-	if !strings.Contains(raw.Raw, "bracedFullIdent") {
-		t.Errorf("optionName should reference bracedFullIdent per spec, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, "bracedFullIdent") {
+		t.Errorf("optionName should reference bracedFullIdent per spec, got: %q", raw)
 	}
 
-	raw = findProd(result, "bracedFullIdent")
-	if raw == nil {
+	p = findProd(gd, "bracedFullIdent")
+	if p == nil {
 		t.Fatal("bracedFullIdent not found")
 	}
-	// bracedFullIdent = "(" ["."] fullIdent ")"
-	if !strings.Contains(raw.Raw, "fullIdent") {
-		t.Errorf("bracedFullIdent should reference fullIdent, got: %q", raw.Raw)
+	raw = TokenToRaw(p.Token)
+	if !strings.Contains(raw, "fullIdent") {
+		t.Errorf("bracedFullIdent should reference fullIdent, got: %q", raw)
 	}
 }
 
-// TestProtoSpecStrFieldName validates that reserved field names use
-// strFieldName (quoted field names) not strLit.
 func TestProtoSpecStrFieldName(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	raw := findProd(result, "strFieldNames")
-	if raw == nil {
+	p := findProd(gd, "strFieldNames")
+	if p == nil {
 		t.Fatal("strFieldNames not found")
 	}
-	if !strings.Contains(raw.Raw, "strFieldName") {
-		t.Errorf("strFieldNames should reference strFieldName per spec, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, "strFieldName") {
+		t.Errorf("strFieldNames should reference strFieldName per spec, got: %q", raw)
 	}
 
-	raw = findProd(result, "strFieldName")
-	if raw == nil {
+	p = findProd(gd, "strFieldName")
+	if p == nil {
 		t.Fatal("strFieldName not found")
 	}
-	// strFieldName = "'" fieldName "'" | '"' fieldName '"'
-	if !strings.Contains(raw.Raw, "fieldName") {
-		t.Errorf("strFieldName should reference fieldName, got: %q", raw.Raw)
+	raw = TokenToRaw(p.Token)
+	if !strings.Contains(raw, "fieldName") {
+		t.Errorf("strFieldName should reference fieldName, got: %q", raw)
 	}
 }
 
-// TestProtoSpecProtoRoot validates that the top-level proto production
-// makes syntax optional (per spec: proto = [syntax] { ... }).
 func TestProtoSpecProtoRoot(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	raw := findProd(result, "proto")
-	if raw == nil {
+	p := findProd(gd, "proto")
+	if p == nil {
 		t.Fatal("proto production not found")
 	}
-	// syntax should be inside optional brackets
-	if !strings.Contains(raw.Raw, "[ syntax ]") &&
-		!strings.Contains(raw.Raw, "[syntax]") {
-		t.Errorf("proto should have optional syntax per spec, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, "[ syntax ]") && !strings.Contains(raw, "[syntax]") {
+		t.Errorf("proto should have optional syntax per spec, got: %q", raw)
 	}
 }
 
-// TestProtoSpecSyntaxQuoting validates that the syntax production
-// matches the spec's explicit quoting pattern.
 func TestProtoSpecSyntaxQuoting(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	raw := findProd(result, "syntax")
-	if raw == nil {
+	p := findProd(gd, "syntax")
+	if p == nil {
 		t.Fatal("syntax production not found")
 	}
-	// Must contain both "syntax" keyword terminal and "proto3"
-	if !strings.Contains(raw.Raw, `"syntax"`) {
-		t.Errorf("syntax should contain \"syntax\" terminal, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, `"syntax"`) {
+		t.Errorf("syntax should contain \"syntax\" terminal, got: %q", raw)
 	}
-	if !strings.Contains(raw.Raw, "proto3") {
-		t.Errorf("syntax should reference proto3, got: %q", raw.Raw)
+	if !strings.Contains(raw, "proto3") {
+		t.Errorf("syntax should reference proto3, got: %q", raw)
 	}
 }
 
-// TestProtoSpecRangeNotation validates that our EBNF uses "..." (three dots)
-// for ranges, matching the spec's notation.
 func TestProtoSpecRangeNotation(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	// letter = "A" ... "Z" | "a" ... "z"
-	raw := findProd(result, "letter")
-	if raw == nil {
+	p := findProd(gd, "letter")
+	if p == nil {
 		t.Fatal("letter production not found")
 	}
-	if !strings.Contains(raw.Raw, "...") {
-		t.Errorf("letter should use '...' range notation per spec, got: %q", raw.Raw)
+	raw := TokenToRaw(p.Token)
+	if !strings.Contains(raw, "...") {
+		t.Errorf("letter should use '...' range notation per spec, got: %q", raw)
 	}
 }
 
-// TestProtoSpecCharValueInclusions validates that charValue references
-// all escape types from the spec.
 func TestProtoSpecCharValueInclusions(t *testing.T) {
-	result := mustParseProto(t)
+	gd := mustParseProto(t)
 
-	raw := findProd(result, "charValue")
-	if raw == nil {
+	p := findProd(gd, "charValue")
+	if p == nil {
 		t.Fatal("charValue not found")
 	}
+	raw := TokenToRaw(p.Token)
 	for _, want := range []string{"hexEscape", "octEscape", "charEscape", "unicodeEscape", "unicodeLongEscape"} {
-		if !strings.Contains(raw.Raw, want) {
-			t.Errorf("charValue should reference %q per spec, got: %q", want, raw.Raw)
+		if !strings.Contains(raw, want) {
+			t.Errorf("charValue should reference %q per spec, got: %q", want, raw)
 		}
 	}
 }
 
 // --- helpers ---
 
-func mustParseGo(t *testing.T) *ParseResult {
+func mustParseGo(t *testing.T) *pb.GrammarDescriptor {
 	t.Helper()
 	src, err := os.ReadFile("go_ebnf.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := Parse(string(src), GoLex())
+	gd, err := Parse(string(src), GoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	return result
+	return gd
 }
 
-func mustParseProto(t *testing.T) *ParseResult {
+func mustParseProto(t *testing.T) *pb.GrammarDescriptor {
 	t.Helper()
 	src, err := os.ReadFile("proto_ebnf.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := Parse(string(src), ProtoLex())
+	gd, err := Parse(string(src), ProtoLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	return result
+	return gd
 }
 
-func mustParseStandard(t *testing.T) *ParseResult {
+func mustParseEBNF(t *testing.T) *pb.GrammarDescriptor {
 	t.Helper()
 	src, err := os.ReadFile("ebnf.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := Parse(string(src), StandardLex())
+	gd, err := Parse(string(src), EBNFLex())
 	if err != nil {
 		t.Fatal(err)
 	}
-	return result
+	return gd
 }
 
-func findProd(result *ParseResult, name string) *Production {
-	for i := range result.Productions {
-		if result.Productions[i].Name == name {
-			return &result.Productions[i]
+func findProd(gd *pb.GrammarDescriptor, name string) *pb.ProductionDescriptor {
+	for _, p := range gd.Productions {
+		if p.Name == name {
+			return p
 		}
 	}
 	return nil
 }
 
-func prodNames(result *ParseResult) []string {
-	names := make([]string, len(result.Productions))
-	for i, p := range result.Productions {
+func gdNames(gd *pb.GrammarDescriptor) []string {
+	names := make([]string, len(gd.Productions))
+	for i, p := range gd.Productions {
 		names[i] = p.Name
 	}
 	return names
