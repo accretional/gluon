@@ -16,18 +16,37 @@ message ASTDescriptor {
   string version = 2;
 
   // Root node of the abstract syntax tree.
-  // TODO: Design and implement once GrammarDescriptor/ProductionDescriptor
-  // are fleshed out. The node structure will mirror the production rules
-  // of the source language's grammar, making it possible to mechanically
-  // derive AST node types from EBNF definitions.
   ASTNodeDescriptor root = 3;
 }
 
 // ASTNodeDescriptor represents a single node in a language-agnostic AST.
-// TODO: Define fields. Expected structure:
-//   string kind = 1;                    // node type (maps to a production name)
-//   string value = 2;                   // terminal value, if leaf node
-//   repeated ASTNodeDescriptor children = 3; // child nodes
-//   SourceLocation location = 4;        // source position
+// Each node's kind maps to a production name from the source language's
+// GrammarDescriptor. Leaf nodes (terminals) carry a value; interior nodes
+// carry children. This structure is mechanically derived from EBNF
+// production rules.
 message ASTNodeDescriptor {
+  // Node type — maps to a production name (e.g. "Expression", "Term")
+  // or "terminal" for literal matches.
+  string kind = 1;
+
+  // Terminal value — populated for leaf nodes (quoted strings, identifiers).
+  string value = 2;
+
+  // Child nodes — the sub-expressions that matched.
+  repeated ASTNodeDescriptor children = 3;
+
+  // Source position where this node was parsed from.
+  SourceLocation location = 4;
+}
+
+// SourceLocation identifies a position in source text.
+message SourceLocation {
+  // Byte offset from start of source.
+  int32 offset = 1;
+
+  // Line number (1-based).
+  int32 line = 2;
+
+  // Column number (1-based, in bytes).
+  int32 column = 3;
 }
