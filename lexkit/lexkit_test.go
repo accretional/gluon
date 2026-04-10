@@ -547,6 +547,63 @@ func TestLexDescriptorRoundTrip(t *testing.T) {
 	}
 }
 
+// TestSelfHostingEBNF loads ebnf_grammar.textproto, extracts its
+// LexDescriptor, uses it to re-parse ebnf.txt, and verifies the
+// productions match — proving the textproto works on itself.
+func TestSelfHostingEBNF(t *testing.T) {
+	gd, err := LoadGrammar("ebnf_grammar.textproto")
+	if err != nil {
+		t.Fatalf("loading textproto: %v", err)
+	}
+	if gd.Lex == nil {
+		t.Fatal("textproto has no lex descriptor")
+	}
+
+	src, err := os.ReadFile("ebnf.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Parse(string(src), gd.Lex)
+	if err != nil {
+		t.Fatalf("re-parse with loaded lex: %v", err)
+	}
+
+	if len(result.Productions) != len(gd.Productions) {
+		t.Fatalf("production count mismatch: textproto=%d, re-parsed=%d",
+			len(gd.Productions), len(result.Productions))
+	}
+
+	for i, got := range result.Productions {
+		want := gd.Productions[i]
+		wantRaw := TokenToRaw(want.Token)
+		if got.Name != want.Name {
+			t.Errorf("production[%d] name: got %q, want %q", i, got.Name, want.Name)
+		}
+		if got.Raw != wantRaw {
+			t.Errorf("production[%d] %q raw mismatch", i, got.Name)
+		}
+	}
+	t.Logf("self-hosting: %d productions re-parsed and matched", len(result.Productions))
+}
+
+// TestTokenRoundTrip verifies Raw → TokenDescriptor → Raw round-trip.
+func TestTokenRoundTrip(t *testing.T) {
+	samples := []string{
+		`"A" | "B" | "C"`,
+		`letter , { letter | digit }`,
+		`"(" , Expression , ")"`,
+		``,
+	}
+	for _, raw := range samples {
+		tok := RawToToken(raw)
+		got := TokenToRaw(tok)
+		if got != raw {
+			t.Errorf("round-trip failed:\n  input: %q\n  got:   %q", raw, got)
+		}
+	}
+}
+
 // TestBackslashInQuotedTerminal verifies that a backslash inside a
 // quoted terminal string does not escape the closing quote. In EBNF,
 // terminals are always literal — "\" is a valid single-character

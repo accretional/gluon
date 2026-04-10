@@ -23,13 +23,15 @@ func main() {
 	}
 	dir := os.Args[1]
 
-	grammars := []struct {
+	type grammar struct {
 		name      string
 		input     string
 		output    string
 		lexFn     func() *pb.LexDescriptor
 		validator func(string) error
-	}{
+	}
+
+	grammars := []grammar{
 		{
 			name:   "Go",
 			input:  filepath.Join(dir, "go_ebnf.txt"),
@@ -100,7 +102,70 @@ func main() {
 		fmt.Println()
 	}
 
+	// Self-hosting test: load the EBNF grammar textproto and use its
+	// LexDescriptor to re-parse ebnf.txt. This validates that the
+	// textproto can serve as its own lexer configuration.
+	ebnfTextproto := filepath.Join(dir, "ebnf_grammar.textproto")
+	ebnfSource := filepath.Join(dir, "ebnf.txt")
+
+	fmt.Println("=== Self-hosting: ebnf_grammar.textproto → ebnf.txt ===")
+	if err := validateSelfHosting(ebnfTextproto, ebnfSource); err != nil {
+		fmt.Printf("  FAILED: %v\n", err)
+		exitCode = 1
+	} else {
+		fmt.Println("  PASSED")
+	}
+
 	os.Exit(exitCode)
+}
+
+// validateSelfHosting loads a GrammarDescriptor textproto, extracts its
+// LexDescriptor, and uses it to re-parse the original EBNF source. It
+// then verifies the re-parsed productions match the textproto's.
+func validateSelfHosting(textprotoPath, sourcePath string) error {
+	// Load the grammar textproto
+	gd, err := lexkit.LoadGrammar(textprotoPath)
+	if err != nil {
+		return fmt.Errorf("loading textproto: %w", err)
+	}
+	if gd.Lex == nil {
+		return fmt.Errorf("textproto has no lex descriptor")
+	}
+
+	// Read the EBNF source
+	src, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return fmt.Errorf("reading source: %w", err)
+	}
+
+	// Re-parse using the loaded LexDescriptor
+	result, err := lexkit.Parse(string(src), gd.Lex)
+	if err != nil {
+		return fmt.Errorf("re-parse with loaded lex: %w", err)
+	}
+
+	// Compare production counts
+	if len(result.Productions) != len(gd.Productions) {
+		return fmt.Errorf("production count mismatch: textproto=%d, re-parsed=%d",
+			len(gd.Productions), len(result.Productions))
+	}
+
+	// Compare production names and raw expressions
+	for i, got := range result.Productions {
+		want := gd.Productions[i]
+		wantRaw := lexkit.TokenToRaw(want.Token)
+		if got.Name != want.Name {
+			return fmt.Errorf("production[%d] name: got %q, want %q", i, got.Name, want.Name)
+		}
+		if got.Raw != wantRaw {
+			return fmt.Errorf("production[%d] %q raw mismatch:\n  got:  %q\n  want: %q",
+				i, got.Name, got.Raw, wantRaw)
+		}
+	}
+
+	fmt.Printf("  re-parsed %d productions from loaded LexDescriptor, all match\n",
+		len(result.Productions))
+	return nil
 }
 
 // validateGoEBNF parses the Go EBNF grammar using golang.org/x/exp/ebnf

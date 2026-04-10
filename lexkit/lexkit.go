@@ -6,11 +6,13 @@ package lexkit
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	pb "github.com/accretional/gluon/pb"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 // Char constructs a UTF8 message from a rune. For ASCII range (0-127),
@@ -34,6 +36,57 @@ func RuneOf(u *pb.UTF8) rune {
 		return rune(v.Symbol)
 	}
 	return 0
+}
+
+// LoadGrammar reads a GrammarDescriptor from a textproto file.
+func LoadGrammar(path string) (*pb.GrammarDescriptor, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+	var gd pb.GrammarDescriptor
+	if err := prototext.Unmarshal(data, &gd); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	return &gd, nil
+}
+
+// LoadLex reads a GrammarDescriptor textproto and returns just the
+// LexDescriptor from it.
+func LoadLex(path string) (*pb.LexDescriptor, error) {
+	gd, err := LoadGrammar(path)
+	if err != nil {
+		return nil, err
+	}
+	if gd.Lex == nil {
+		return nil, fmt.Errorf("%s: no lex descriptor", path)
+	}
+	return gd.Lex, nil
+}
+
+// TokenToRaw converts a TokenDescriptor back to a raw EBNF expression string.
+func TokenToRaw(tok *pb.TokenDescriptor) string {
+	if tok == nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, ch := range tok.Chars {
+		b.WriteRune(RuneOf(ch))
+	}
+	return b.String()
+}
+
+// GrammarToParseResult converts a loaded GrammarDescriptor back into a
+// ParseResult, enabling re-serialization or re-parsing workflows.
+func GrammarToParseResult(gd *pb.GrammarDescriptor) *ParseResult {
+	pr := &ParseResult{Lex: gd.Lex}
+	for _, pd := range gd.Productions {
+		pr.Productions = append(pr.Productions, Production{
+			Name: pd.Name,
+			Raw:  TokenToRaw(pd.Token),
+		})
+	}
+	return pr
 }
 
 // Predefined LexDescriptors for supported EBNF variants.
