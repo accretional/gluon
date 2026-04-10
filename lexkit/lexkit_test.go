@@ -108,8 +108,14 @@ func TestToTextproto(t *testing.T) {
 	if !strings.Contains(tp, "lex {") {
 		t.Error("textproto missing lex block")
 	}
-	if !strings.Contains(tp, "productions {}") {
+	if !strings.Contains(tp, "productions {") {
 		t.Error("textproto missing productions")
+	}
+	if !strings.Contains(tp, `name: "Syntax"`) {
+		t.Error("textproto missing production name")
+	}
+	if !strings.Contains(tp, "token {") {
+		t.Error("textproto missing token descriptor")
 	}
 }
 

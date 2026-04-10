@@ -20,131 +20,3145 @@ lex {
   comment_rhs { ascii: SOLIDUS }
 }
 
-# 63 productions parsed
-# ProductionDescriptor fields are TODO — listing as comments:
-#   [1] letter = "A" ... "Z" | "a" ... "z"
-productions {}
-#   [2] decimalDigit = "0" ... "9"
-productions {}
-#   [3] octalDigit = "0" ... "7"
-productions {}
-#   [4] hexDigit = "0" ... "9" | "A" ... "F" | "a" ... "f"
-productions {}
-#   [5] ident = letter { letter | decimalDigit | "_" }
-productions {}
-#   [6] fullIdent = ident { "." ident }
-productions {}
-#   [7] messageName = ident
-productions {}
-#   [8] enumName = ident
-productions {}
-#   [9] fieldName = ident
-productions {}
-#   [10] oneofName = ident
-productions {}
-#   [11] mapName = ident
-productions {}
-#   [12] serviceName = ident
-productions {}
-#   [13] rpcName = ident
-productions {}
-#   [14] messageType = [ "." ] { ident "." } messageName
-productions {}
-#   [15] enumType = [ "." ] { ident "." } enumName
-productions {}
-#   [16] intLit = decimalLit | octalLit | hexLit
-productions {}
-#   [17] decimalLit = [ "-" ] ( "1" ... "9" ) { decimalDigit }
-productions {}
-#   [18] octalLit = [ "-" ] "0" { octalDigit }
-productions {}
-#   [19] hexLit = [ "-" ] "0" ( "x" | "X" ) hexDigit { hexDigit }
-productions {}
-#   [20] floatLit = [ "-" ] ( decimals "." [ decimals ] [ exponent ] | decimals exponent | "." de...
-productions {}
-#   [21] decimals = [ "-" ] decimalDigit { decimalDigit }
-productions {}
-#   [22] exponent = ( "e" | "E" ) [ "+" | "-" ] decimals
-productions {}
-#   [23] boolLit = "true" | "false"
-productions {}
-#   [24] strLit = strLitSingle { strLitSingle }
-productions {}
-#   [25] strLitSingle = ( "'" { charValue } "'" ) | ( '"' { charValue } '"' )
-productions {}
-#   [26] charValue = hexEscape | octEscape | charEscape | unicodeEscape | unicodeLongEscape
-productions {}
-#   [27] hexEscape = "\" ( "x" | "X" ) hexDigit [ hexDigit ]
-productions {}
-#   [28] octEscape = "\" octalDigit [ octalDigit [ octalDigit ] ]
-productions {}
-#   [29] charEscape = "\" ( "a" | "b" | "f" | "n" | "r" | "t" | "v" | "\" | "'" | '"' )
-productions {}
-#   [30] unicodeEscape = "\" "u" hexDigit hexDigit hexDigit hexDigit
-productions {}
-#   [31] unicodeLongEscape = "\" "U" ( "000" hexDigit hexDigit hexDigit hexDigit hexDigit | "0010" hexDigi...
-productions {}
-#   [32] emptyStatement = ";"
-productions {}
-#   [33] constant = fullIdent | ( [ "-" | "+" ] intLit ) | ( [ "-" | "+" ] floatLit ) | strLit | ...
-productions {}
-#   [34] syntax = "syntax" "=" ( "'" "proto3" "'" | '"' "proto3" '"' ) ";"
-productions {}
-#   [35] import = "import" [ "weak" | "public" ] strLit ";"
-productions {}
-#   [36] package = "package" fullIdent ";"
-productions {}
-#   [37] option = "option" optionName "=" constant ";"
-productions {}
-#   [38] optionName = ( ident | bracedFullIdent ) { "." ( ident | bracedFullIdent ) }
-productions {}
-#   [39] bracedFullIdent = "(" [ "." ] fullIdent ")"
-productions {}
-#   [40] type = "double" | "float" | "int32" | "int64" | "uint32" | "uint64" | "sint32" | "si...
-productions {}
-#   [41] fieldNumber = intLit
-productions {}
-#   [42] field = [ "repeated" | "optional" ] type fieldName "=" fieldNumber [ "[" fieldOptions...
-productions {}
-#   [43] fieldOptions = fieldOption { "," fieldOption }
-productions {}
-#   [44] fieldOption = optionName "=" constant
-productions {}
-#   [45] oneof = "oneof" oneofName "{" { option | oneofField } "}"
-productions {}
-#   [46] oneofField = type fieldName "=" fieldNumber [ "[" fieldOptions "]" ] ";"
-productions {}
-#   [47] mapField = "map" "<" keyType "," type ">" mapName "=" fieldNumber [ "[" fieldOptions "]"...
-productions {}
-#   [48] keyType = "int32" | "int64" | "uint32" | "uint64" | "sint32" | "sint64" | "fixed32" | "...
-productions {}
-#   [49] reserved = "reserved" ( ranges | strFieldNames ) ";"
-productions {}
-#   [50] ranges = range { "," range }
-productions {}
-#   [51] range = intLit [ "to" ( intLit | "max" ) ]
-productions {}
-#   [52] strFieldNames = strFieldName { "," strFieldName }
-productions {}
-#   [53] strFieldName = "'" fieldName "'" | '"' fieldName '"'
-productions {}
-#   [54] enum = "enum" enumName enumBody
-productions {}
-#   [55] enumBody = "{" { option | enumField | emptyStatement | reserved } "}"
-productions {}
-#   [56] enumField = ident "=" [ "-" ] intLit [ "[" enumValueOption { "," enumValueOption } "]" ] ";"
-productions {}
-#   [57] enumValueOption = optionName "=" constant
-productions {}
-#   [58] message = "message" messageName messageBody
-productions {}
-#   [59] messageBody = "{" { field | enum | message | option | oneof | mapField | reserved | emptySt...
-productions {}
-#   [60] service = "service" serviceName "{" { option | rpc | emptyStatement } "}"
-productions {}
-#   [61] rpc = "rpc" rpcName "(" [ "stream" ] messageType ")" "returns" "(" [ "stream" ] mes...
-productions {}
-#   [62] proto = [ syntax ] { import | package | option | topLevelDef | emptyStatement }
-productions {}
-#   [63] topLevelDef = message | enum | service
-productions {}
+# 63 productions
+productions {
+  name: "letter"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_CAPITAL_LETTER_A }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_CAPITAL_LETTER_Z }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_Z }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "decimalDigit"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_NINE }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "octalDigit"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_SEVEN }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "hexDigit"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_NINE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_CAPITAL_LETTER_A }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_CAPITAL_LETTER_F }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "ident"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LOW_LINE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "fullIdent"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: FULL_STOP }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "messageName"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "enumName"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "fieldName"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "oneofName"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "mapName"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "serviceName"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "rpcName"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "messageType"
+  token {
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: FULL_STOP }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: FULL_STOP }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+  }
+}
+productions {
+  name: "enumType"
+  token {
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: FULL_STOP }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: FULL_STOP }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+  }
+}
+productions {
+  name: "intLit"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "decimalLit"
+  token {
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: HYPHEN_MINUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_ONE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: FULL_STOP }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_NINE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "octalLit"
+  token {
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: HYPHEN_MINUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "hexLit"
+  token {
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: HYPHEN_MINUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_CAPITAL_LETTER_X }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "floatLit"
+  token {
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: HYPHEN_MINUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: FULL_STOP }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: FULL_STOP }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "decimals"
+  token {
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: HYPHEN_MINUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "exponent"
+  token {
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_CAPITAL_LETTER_E }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: PLUS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: HYPHEN_MINUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+  }
+}
+productions {
+  name: "boolLit"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "strLit"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_CAPITAL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_CAPITAL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "strLitSingle"
+  token {
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+  }
+}
+productions {
+  name: "charValue"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_CAPITAL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_CAPITAL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+  }
+}
+productions {
+  name: "hexEscape"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: REVERSE_SOLIDUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_CAPITAL_LETTER_X }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+  }
+}
+productions {
+  name: "octEscape"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: REVERSE_SOLIDUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+  }
+}
+productions {
+  name: "charEscape"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: REVERSE_SOLIDUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_V }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: REVERSE_SOLIDUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+  }
+}
+productions {
+  name: "unicodeEscape"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: REVERSE_SOLIDUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "unicodeLongEscape"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: REVERSE_SOLIDUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_CAPITAL_LETTER_U }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: DIGIT_ONE }
+    chars { ascii: DIGIT_ZERO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_H }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+  }
+}
+productions {
+  name: "emptyStatement"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "constant"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: HYPHEN_MINUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: PLUS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: HYPHEN_MINUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: PLUS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_CAPITAL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+  }
+}
+productions {
+  name: "syntax"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: EQUALS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "import"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_W }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_K }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "package"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_K }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "option"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: EQUALS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "optionName"
+  token {
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: FULL_STOP }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "bracedFullIdent"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: FULL_STOP }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "type"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LINE_FEED }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LINE_FEED }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_CAPITAL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+  }
+}
+productions {
+  name: "fieldNumber"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "field"
+  token {
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: EQUALS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "fieldOptions"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: COMMA }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "fieldOption"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: EQUALS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "oneof"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_CAPITAL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "oneofField"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: EQUALS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "mapField"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LESS_THAN_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_K }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_CAPITAL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: COMMA }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: GREATER_THAN_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: EQUALS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "keyType"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LINE_FEED }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: DIGIT_THREE }
+    chars { ascii: DIGIT_TWO }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: DIGIT_SIX }
+    chars { ascii: DIGIT_FOUR }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "reserved"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "ranges"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: COMMA }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "range"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+  }
+}
+productions {
+  name: "strFieldNames"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: COMMA }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_CAPITAL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "strFieldName"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: APOSTROPHE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: APOSTROPHE }
+  }
+}
+productions {
+  name: "enum"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_CAPITAL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+  }
+}
+productions {
+  name: "enumBody"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_CAPITAL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_CAPITAL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "enumField"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: EQUALS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: HYPHEN_MINUS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_CAPITAL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: COMMA }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_CAPITAL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "enumValueOption"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: EQUALS_SIGN }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+  }
+}
+productions {
+  name: "message"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_B }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+  }
+}
+productions {
+  name: "messageBody"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_CAPITAL_LETTER_F }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_D }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_CAPITAL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "service"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_CAPITAL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+  }
+}
+productions {
+  name: "rpc"
+  token {
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_CAPITAL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_CAPITAL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_CAPITAL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SEMICOLON }
+    chars { ascii: QUOTATION_MARK }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_PARENTHESIS }
+  }
+}
+productions {
+  name: "proto"
+  token {
+    chars { ascii: LEFT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_X }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_SQUARE_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LEFT_CURLY_BRACKET }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_K }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_O }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_CAPITAL_LETTER_L }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_L }
+    chars { ascii: LATIN_CAPITAL_LETTER_D }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_F }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_P }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_Y }
+    chars { ascii: LATIN_CAPITAL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_T }
+    chars { ascii: SPACE }
+    chars { ascii: RIGHT_CURLY_BRACKET }
+  }
+}
+productions {
+  name: "topLevelDef"
+  token {
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_A }
+    chars { ascii: LATIN_SMALL_LETTER_G }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_N }
+    chars { ascii: LATIN_SMALL_LETTER_U }
+    chars { ascii: LATIN_SMALL_LETTER_M }
+    chars { ascii: SPACE }
+    chars { ascii: VERTICAL_LINE }
+    chars { ascii: SPACE }
+    chars { ascii: LATIN_SMALL_LETTER_S }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+    chars { ascii: LATIN_SMALL_LETTER_R }
+    chars { ascii: LATIN_SMALL_LETTER_V }
+    chars { ascii: LATIN_SMALL_LETTER_I }
+    chars { ascii: LATIN_SMALL_LETTER_C }
+    chars { ascii: LATIN_SMALL_LETTER_E }
+  }
+}

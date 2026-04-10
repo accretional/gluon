@@ -130,23 +130,33 @@ func Parse(src string, lex *pb.LexDescriptor) (*ParseResult, error) {
 	}, nil
 }
 
+// RawToToken converts a raw EBNF expression string into a TokenDescriptor,
+// encoding each character as a UTF8 value.
+func RawToToken(raw string) *pb.TokenDescriptor {
+	var chars []*pb.UTF8
+	for _, r := range raw {
+		chars = append(chars, Char(r))
+	}
+	return &pb.TokenDescriptor{Chars: chars}
+}
+
 // ToGrammarDescriptor converts a ParseResult into a protobuf GrammarDescriptor.
-// Since ProductionDescriptor is currently empty (TODO), the productions
-// are counted but their content is not serialized into proto fields yet.
 func (pr *ParseResult) ToGrammarDescriptor() *pb.GrammarDescriptor {
 	gd := &pb.GrammarDescriptor{
 		Lex:         pr.Lex,
 		Productions: make([]*pb.ProductionDescriptor, len(pr.Productions)),
 	}
-	for i := range pr.Productions {
-		gd.Productions[i] = &pb.ProductionDescriptor{}
+	for i, prod := range pr.Productions {
+		gd.Productions[i] = &pb.ProductionDescriptor{
+			Name:  prod.Name,
+			Token: RawToToken(prod.Raw),
+		}
 	}
 	return gd
 }
 
 // ToTextproto serializes a ParseResult as a human-readable textproto
-// representation of a GrammarDescriptor. Since ProductionDescriptor has
-// no fields yet, productions are represented as comments.
+// representation of a GrammarDescriptor.
 //
 // UTF8 characters in the ASCII range are emitted using ASCII enum names
 // (e.g. "ascii: EQUALS_SIGN") rather than raw numbers.
@@ -176,15 +186,32 @@ func (pr *ParseResult) ToTextproto() string {
 	writeUTF8Field(&b, "comment_rhs", pr.Lex.CommentRhs)
 	b.WriteString("}\n\n")
 
-	// Productions as comments + empty proto messages
-	b.WriteString(fmt.Sprintf("# %d productions parsed\n", len(pr.Productions)))
-	b.WriteString("# ProductionDescriptor fields are TODO — listing as comments:\n")
-	for i, prod := range pr.Productions {
-		fmt.Fprintf(&b, "#   [%d] %s = %s\n", i+1, prod.Name, truncate(prod.Raw, 80))
-		b.WriteString("productions {}\n")
+	// Productions with name and token descriptor
+	fmt.Fprintf(&b, "# %d productions\n", len(pr.Productions))
+	for _, prod := range pr.Productions {
+		b.WriteString("productions {\n")
+		fmt.Fprintf(&b, "  name: %q\n", prod.Name)
+		writeTokenDescriptor(&b, prod.Raw)
+		b.WriteString("}\n")
 	}
 
 	return b.String()
+}
+
+// writeTokenDescriptor writes a token descriptor for an EBNF expression,
+// encoding each character as a UTF8 value with ASCII enum names.
+func writeTokenDescriptor(b *strings.Builder, raw string) {
+	b.WriteString("  token {\n")
+	for _, r := range raw {
+		u := Char(r)
+		switch v := u.Char.(type) {
+		case *pb.UTF8_Ascii:
+			fmt.Fprintf(b, "    chars { ascii: %s }\n", v.Ascii.String())
+		case *pb.UTF8_Symbol:
+			fmt.Fprintf(b, "    chars { symbol: %d }\n", v.Symbol)
+		}
+	}
+	b.WriteString("  }\n")
 }
 
 // writeUTF8Field writes a textproto field for a UTF8 value, using ASCII

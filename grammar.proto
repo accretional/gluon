@@ -5,6 +5,7 @@ package gluon;
 option go_package = "github.com/accretional/gluon/pb";
 
 import "lex.proto";
+import "unicode/utf_8.proto";
 
 // GrammarDescriptor represents a complete grammar defined in EBNF notation.
 // It pairs the lexical configuration (how to read the EBNF) with the
@@ -14,17 +15,23 @@ message GrammarDescriptor {
   LexDescriptor lex = 1;
 
   // Production rules that define the grammar.
-  // TODO: Define fields for ProductionDescriptor once AST node
-  // representation is settled.
   repeated ProductionDescriptor productions = 2;
 }
 
 // ProductionDescriptor represents a single EBNF production rule.
-// For example: Identifier = letter { letter | digit } .
-//
-// TODO: Add fields once ASTNodeDescriptor is designed. Expected fields:
-//   string name = 1;         // production name (e.g. "Identifier")
-//   string raw = 2;          // raw EBNF text of the expression
-//   ASTNodeDescriptor body = 3; // parsed expression tree
+// For example: letter = "A" | "B" | "C" ;
 message ProductionDescriptor {
+  // Production name (left-hand side), e.g. "letter".
+  string name = 1;
+
+  // The expression body as a token sequence — each character of the
+  // EBNF expression represented as a unicode.UTF8 value.
+  TokenDescriptor token = 2;
+}
+
+// TokenDescriptor represents a sequence of characters, each encoded as
+// a unicode.UTF8 value. For ASCII characters, the enum name provides a
+// readable representation (e.g. VERTICAL_LINE for '|').
+message TokenDescriptor {
+  repeated unicode.UTF8 chars = 1;
 }

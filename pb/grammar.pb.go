@@ -29,8 +29,6 @@ type GrammarDescriptor struct {
 	// Lexical structure of the EBNF notation used to write this grammar.
 	Lex *LexDescriptor `protobuf:"bytes,1,opt,name=lex,proto3" json:"lex,omitempty"`
 	// Production rules that define the grammar.
-	// TODO: Define fields for ProductionDescriptor once AST node
-	// representation is settled.
 	Productions   []*ProductionDescriptor `protobuf:"bytes,2,rep,name=productions,proto3" json:"productions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -81,15 +79,14 @@ func (x *GrammarDescriptor) GetProductions() []*ProductionDescriptor {
 }
 
 // ProductionDescriptor represents a single EBNF production rule.
-// For example: Identifier = letter { letter | digit } .
-//
-// TODO: Add fields once ASTNodeDescriptor is designed. Expected fields:
-//
-//	string name = 1;         // production name (e.g. "Identifier")
-//	string raw = 2;          // raw EBNF text of the expression
-//	ASTNodeDescriptor body = 3; // parsed expression tree
+// For example: letter = "A" | "B" | "C" ;
 type ProductionDescriptor struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Production name (left-hand side), e.g. "letter".
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// The expression body as a token sequence — each character of the
+	// EBNF expression represented as a unicode.UTF8 value.
+	Token         *TokenDescriptor `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -124,15 +121,80 @@ func (*ProductionDescriptor) Descriptor() ([]byte, []int) {
 	return file_grammar_proto_rawDescGZIP(), []int{1}
 }
 
+func (x *ProductionDescriptor) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ProductionDescriptor) GetToken() *TokenDescriptor {
+	if x != nil {
+		return x.Token
+	}
+	return nil
+}
+
+// TokenDescriptor represents a sequence of characters, each encoded as
+// a unicode.UTF8 value. For ASCII characters, the enum name provides a
+// readable representation (e.g. VERTICAL_LINE for '|').
+type TokenDescriptor struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Chars         []*UTF8                `protobuf:"bytes,1,rep,name=chars,proto3" json:"chars,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TokenDescriptor) Reset() {
+	*x = TokenDescriptor{}
+	mi := &file_grammar_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TokenDescriptor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TokenDescriptor) ProtoMessage() {}
+
+func (x *TokenDescriptor) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TokenDescriptor.ProtoReflect.Descriptor instead.
+func (*TokenDescriptor) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *TokenDescriptor) GetChars() []*UTF8 {
+	if x != nil {
+		return x.Chars
+	}
+	return nil
+}
+
 var File_grammar_proto protoreflect.FileDescriptor
 
 const file_grammar_proto_rawDesc = "" +
 	"\n" +
-	"\rgrammar.proto\x12\x05gluon\x1a\tlex.proto\"z\n" +
+	"\rgrammar.proto\x12\x05gluon\x1a\tlex.proto\x1a\x13unicode/utf_8.proto\"z\n" +
 	"\x11GrammarDescriptor\x12&\n" +
 	"\x03lex\x18\x01 \x01(\v2\x14.gluon.LexDescriptorR\x03lex\x12=\n" +
-	"\vproductions\x18\x02 \x03(\v2\x1b.gluon.ProductionDescriptorR\vproductions\"\x16\n" +
-	"\x14ProductionDescriptorB!Z\x1fgithub.com/accretional/gluon/pbb\x06proto3"
+	"\vproductions\x18\x02 \x03(\v2\x1b.gluon.ProductionDescriptorR\vproductions\"X\n" +
+	"\x14ProductionDescriptor\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12,\n" +
+	"\x05token\x18\x02 \x01(\v2\x16.gluon.TokenDescriptorR\x05token\"6\n" +
+	"\x0fTokenDescriptor\x12#\n" +
+	"\x05chars\x18\x01 \x03(\v2\r.unicode.UTF8R\x05charsB!Z\x1fgithub.com/accretional/gluon/pbb\x06proto3"
 
 var (
 	file_grammar_proto_rawDescOnce sync.Once
@@ -146,20 +208,24 @@ func file_grammar_proto_rawDescGZIP() []byte {
 	return file_grammar_proto_rawDescData
 }
 
-var file_grammar_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_grammar_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_grammar_proto_goTypes = []any{
 	(*GrammarDescriptor)(nil),    // 0: gluon.GrammarDescriptor
 	(*ProductionDescriptor)(nil), // 1: gluon.ProductionDescriptor
-	(*LexDescriptor)(nil),        // 2: gluon.LexDescriptor
+	(*TokenDescriptor)(nil),      // 2: gluon.TokenDescriptor
+	(*LexDescriptor)(nil),        // 3: gluon.LexDescriptor
+	(*UTF8)(nil),                 // 4: unicode.UTF8
 }
 var file_grammar_proto_depIdxs = []int32{
-	2, // 0: gluon.GrammarDescriptor.lex:type_name -> gluon.LexDescriptor
+	3, // 0: gluon.GrammarDescriptor.lex:type_name -> gluon.LexDescriptor
 	1, // 1: gluon.GrammarDescriptor.productions:type_name -> gluon.ProductionDescriptor
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	2, // 2: gluon.ProductionDescriptor.token:type_name -> gluon.TokenDescriptor
+	4, // 3: gluon.TokenDescriptor.chars:type_name -> unicode.UTF8
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_grammar_proto_init() }
@@ -168,13 +234,14 @@ func file_grammar_proto_init() {
 		return
 	}
 	file_lex_proto_init()
+	file_unicode_utf_8_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_grammar_proto_rawDesc), len(file_grammar_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
