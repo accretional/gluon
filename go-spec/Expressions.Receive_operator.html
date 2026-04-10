@@ -1,0 +1,44 @@
+<h3 id="Receive_operator">Receive operator</h3>
+
+<p>
+For an operand <code>ch</code> of <a href="#Channel_types">channel type</a>,
+the value of the receive operation <code>&lt;-ch</code> is the value received
+from the channel <code>ch</code>.
+The channel direction must permit receive operations,
+and the type of the receive operation is the element type of the channel.
+The expression blocks until a value is available.
+Receiving from a <code>nil</code> channel blocks forever.
+A receive operation on a <a href="#Close">closed</a> channel can always proceed
+immediately, yielding the element type&#39;s <a href="#The_zero_value">zero value</a>
+after any previously sent values have been received.
+</p>
+
+<pre>v1 := &lt;-ch
+v2 = &lt;-ch
+f(&lt;-ch)
+&lt;-strobe  // wait until clock pulse and discard received value
+</pre>
+
+<p>
+If the operand type is a <a href="#Type_parameter_declarations">type parameter</a>,
+all types in its type set must be channel types that permit receive operations, and
+they must all have the same element type, which is the type of the receive operation.
+</p>
+
+<p>
+A receive expression used in an <a href="#Assignment_statements">assignment statement</a> or initialization of the special form
+</p>
+
+<pre>x, ok = &lt;-ch
+x, ok := &lt;-ch
+var x, ok = &lt;-ch
+var x, ok T = &lt;-ch
+</pre>
+
+<p>
+yields an additional untyped boolean result reporting whether the
+communication succeeded. The value of <code>ok</code> is <code>true</code>
+if the value received was delivered by a successful send operation to the
+channel, or <code>false</code> if it is a zero value generated because the
+channel is closed and empty.
+</p>

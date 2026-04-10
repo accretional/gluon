@@ -1,0 +1,106 @@
+<h3 id="Operators">Operators</h3>
+
+<p>
+Operators combine operands into expressions.
+</p>
+
+<pre class="ebnf">Expression = UnaryExpr | Expression binary_op Expression .
+UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
+
+binary_op  = &#34;||&#34; | &#34;&amp;&amp;&#34; | rel_op | add_op | mul_op .
+rel_op     = &#34;==&#34; | &#34;!=&#34; | &#34;&lt;&#34; | &#34;&lt;=&#34; | &#34;&gt;&#34; | &#34;&gt;=&#34; .
+add_op     = &#34;+&#34; | &#34;-&#34; | &#34;|&#34; | &#34;^&#34; .
+mul_op     = &#34;*&#34; | &#34;/&#34; | &#34;%&#34; | &#34;&lt;&lt;&#34; | &#34;&gt;&gt;&#34; | &#34;&amp;&#34; | &#34;&amp;^&#34; .
+
+unary_op   = &#34;+&#34; | &#34;-&#34; | &#34;!&#34; | &#34;^&#34; | &#34;*&#34; | &#34;&amp;&#34; | &#34;&lt;-&#34; .
+</pre>
+
+<p>
+Comparisons are discussed <a href="#Comparison_operators">elsewhere</a>.
+For other binary operators, the operand types must be <a href="#Type_identity">identical</a>
+unless the operation involves shifts or untyped <a href="#Constants">constants</a>.
+For operations involving constants only, see the section on
+<a href="#Constant_expressions">constant expressions</a>.
+</p>
+
+<p>
+Except for shift operations, if one operand is an untyped <a href="#Constants">constant</a>
+and the other operand is not, the constant is implicitly <a href="#Conversions">converted</a>
+to the type of the other operand.
+</p>
+
+<p>
+The right operand in a shift expression must have <a href="#Numeric_types">integer type</a>
+[<a href="#Go_1.13">Go 1.13</a>]
+or be an untyped constant <a href="#Representability">representable</a> by a
+value of type <code>uint</code>.
+If the left operand of a non-constant shift expression is an untyped constant,
+it is first implicitly converted to the type it would assume if the shift expression were
+replaced by its left operand alone.
+</p>
+
+<pre>var a [1024]byte
+var s uint = 33
+
+// The results of the following examples are given for 64-bit ints.
+var i = 1&lt;&lt;s                   // 1 has type int
+var j int32 = 1&lt;&lt;s             // 1 has type int32; j == 0
+var k = uint64(1&lt;&lt;s)           // 1 has type uint64; k == 1&lt;&lt;33
+var m int = 1.0&lt;&lt;s             // 1.0 has type int; m == 1&lt;&lt;33
+var n = 1.0&lt;&lt;s == j            // 1.0 has type int32; n == true
+var o = 1&lt;&lt;s == 2&lt;&lt;s           // 1 and 2 have type int; o == false
+var p = 1&lt;&lt;s == 1&lt;&lt;33          // 1 has type int; p == true
+var u = 1.0&lt;&lt;s                 // illegal: 1.0 has type float64, cannot shift
+var u1 = 1.0&lt;&lt;s != 0           // illegal: 1.0 has type float64, cannot shift
+var u2 = 1&lt;&lt;s != 1.0           // illegal: 1 has type float64, cannot shift
+var v1 float32 = 1&lt;&lt;s          // illegal: 1 has type float32, cannot shift
+var v2 = string(1&lt;&lt;s)          // illegal: 1 is converted to a string, cannot shift
+var w int64 = 1.0&lt;&lt;33          // 1.0&lt;&lt;33 is a constant shift expression; w == 1&lt;&lt;33
+var x = a[1.0&lt;&lt;s]              // panics: 1.0 has type int, but 1&lt;&lt;33 overflows array bounds
+var b = make([]byte, 1.0&lt;&lt;s)   // 1.0 has type int; len(b) == 1&lt;&lt;33
+
+// The results of the following examples are given for 32-bit ints,
+// which means the shifts will overflow.
+var mm int = 1.0&lt;&lt;s            // 1.0 has type int; mm == 0
+var oo = 1&lt;&lt;s == 2&lt;&lt;s          // 1 and 2 have type int; oo == true
+var pp = 1&lt;&lt;s == 1&lt;&lt;33         // illegal: 1 has type int, but 1&lt;&lt;33 overflows int
+var xx = a[1.0&lt;&lt;s]             // 1.0 has type int; xx == a[0]
+var bb = make([]byte, 1.0&lt;&lt;s)  // 1.0 has type int; len(bb) == 0
+</pre>
+
+<h4 id="Operator_precedence">Operator precedence</h4>
+<p>
+Unary operators have the highest precedence.
+As the  <code>++</code> and <code>--</code> operators form
+statements, not expressions, they fall
+outside the operator hierarchy.
+As a consequence, statement <code>*p++</code> is the same as <code>(*p)++</code>.
+</p>
+<p>
+There are five precedence levels for binary operators.
+Multiplication operators bind strongest, followed by addition
+operators, comparison operators, <code>&amp;&amp;</code> (logical AND),
+and finally <code>||</code> (logical OR):
+</p>
+
+<pre class="grammar">Precedence    Operator
+    5             *  /  %  &lt;&lt;  &gt;&gt;  &amp;  &amp;^
+    4             +  -  |  ^
+    3             ==  !=  &lt;  &lt;=  &gt;  &gt;=
+    2             &amp;&amp;
+    1             ||
+</pre>
+
+<p>
+Binary operators of the same precedence associate from left to right.
+For instance, <code>x / y * z</code> is the same as <code>(x / y) * z</code>.
+</p>
+
+<pre>+x                         // x
+42 + a - b                 // (42 + a) - b
+23 + 3*x[i]                // 23 + (3 * x[i])
+x &lt;= f()                   // x &lt;= f()
+^a &gt;&gt; b                    // (^a) &gt;&gt; b
+f() || g()                 // f() || g()
+x == y+1 &amp;&amp; &lt;-chanInt &gt; 0  // (x == (y+1)) &amp;&amp; ((&lt;-chanInt) &gt; 0)
+</pre>

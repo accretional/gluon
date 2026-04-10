@@ -1,0 +1,100 @@
+<h3 id="Calls">Calls</h3>
+
+<p>
+Given an expression <code>f</code> of <a href="#Function_types">function type</a>
+<code>F</code>,
+</p>
+
+<pre>f(a1, a2, … an)
+</pre>
+
+<p>
+calls <code>f</code> with arguments <code>a1, a2, … an</code>.
+Except for one special case, arguments must be single-valued expressions
+<a href="#Assignability">assignable</a> to the parameter types of
+<code>F</code> and are evaluated before the function is called.
+The type of the expression is the result type of <code>F</code>.
+A method invocation is similar but the method itself
+is specified as a selector upon a value of the receiver type for
+the method.
+</p>
+
+<pre>math.Atan2(x, y)  // function call
+var pt *Point
+pt.Scale(3.5)     // method call with receiver pt
+</pre>
+
+<p>
+If <code>f</code> denotes a generic function, it must be
+<a href="#Instantiations">instantiated</a> before it can be called
+or used as a function value.
+</p>
+
+<p>
+If the type of <code>f</code> is a <a href="#Type_parameter_declarations">type parameter</a>,
+all types in its type set must have the same underlying type, which must be a function type,
+and the function call must be valid for that type.
+</p>
+
+<p>
+In a function call, the function value and arguments are evaluated in
+<a href="#Order_of_evaluation">the usual order</a>.
+After they are evaluated, new storage is allocated for the function&#39;s
+<a href="#Variables">variables</a>, which includes its parameters
+and results.
+Then, the arguments of the call are <i>passed</i> to the function,
+which means that they are <a href="#Assignment_statements">assigned</a>
+to their corresponding function parameters,
+and the called function begins execution.
+The return parameters of the function are passed
+back to the caller when the function returns.
+</p>
+
+<p>
+Calling a <code>nil</code> function value
+causes a <a href="#Run_time_panics">run-time panic</a>.
+</p>
+
+<p>
+As a special case, if the return values of a function or method
+<code>g</code> are equal in number and individually
+assignable to the parameters of another function or method
+<code>f</code>, then the call <code>f(g(<i>parameters_of_g</i>))</code>
+will invoke <code>f</code> after passing the return values of
+<code>g</code> to the parameters of <code>f</code> in order.
+The call of <code>f</code> must contain no parameters other than the call of <code>g</code>,
+and <code>g</code> must have at least one return value.
+If <code>f</code> has a final <code>...</code> parameter, it is
+assigned the return values of <code>g</code> that remain after
+assignment of regular parameters.
+</p>
+
+<pre>func Split(s string, pos int) (string, string) {
+	return s[0:pos], s[pos:]
+}
+
+func Join(s, t string) string {
+	return s + t
+}
+
+if Join(Split(value, len(value)/2)) != value {
+	log.Panic(&#34;test fails&#34;)
+}
+</pre>
+
+<p>
+A method call <code>x.m()</code> is valid if the <a href="#Method_sets">method set</a>
+of (the type of) <code>x</code> contains <code>m</code> and the
+argument list can be assigned to the parameter list of <code>m</code>.
+If <code>x</code> is <a href="#Address_operators">addressable</a> and <code>&amp;x</code>&#39;s method
+set contains <code>m</code>, <code>x.m()</code> is shorthand
+for <code>(&amp;x).m()</code>:
+</p>
+
+<pre>var p Point
+p.Scale(3.5)
+</pre>
+
+<p>
+There is no distinct method type and there are no method literals.
+</p>

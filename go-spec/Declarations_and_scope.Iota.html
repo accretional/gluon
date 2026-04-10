@@ -1,0 +1,49 @@
+<h3 id="Iota">Iota</h3>
+
+<p>
+Within a <a href="#Constant_declarations">constant declaration</a>, the predeclared identifier
+<code>iota</code> represents successive untyped integer <a href="#Constants">
+constants</a>. Its value is the index of the respective <a href="#ConstSpec">ConstSpec</a>
+in that constant declaration, starting at zero.
+It can be used to construct a set of related constants:
+</p>
+
+<pre>const (
+	c0 = iota  // c0 == 0
+	c1 = iota  // c1 == 1
+	c2 = iota  // c2 == 2
+)
+
+const (
+	a = 1 &lt;&lt; iota  // a == 1  (iota == 0)
+	b = 1 &lt;&lt; iota  // b == 2  (iota == 1)
+	c = 3          // c == 3  (iota == 2, unused)
+	d = 1 &lt;&lt; iota  // d == 8  (iota == 3)
+)
+
+const (
+	u         = iota * 42  // u == 0     (untyped integer constant)
+	v float64 = iota * 42  // v == 42.0  (float64 constant)
+	w         = iota * 42  // w == 84    (untyped integer constant)
+)
+
+const x = iota  // x == 0
+const y = iota  // y == 0
+</pre>
+
+<p>
+By definition, multiple uses of <code>iota</code> in the same ConstSpec all have the same value:
+</p>
+
+<pre>const (
+	bit0, mask0 = 1 &lt;&lt; iota, 1&lt;&lt;iota - 1  // bit0 == 1, mask0 == 0  (iota == 0)
+	bit1, mask1                           // bit1 == 2, mask1 == 1  (iota == 1)
+	_, _                                  //                        (iota == 2, unused)
+	bit3, mask3                           // bit3 == 8, mask3 == 7  (iota == 3)
+)
+</pre>
+
+<p>
+This last example exploits the <a href="#Constant_declarations">implicit repetition</a>
+of the last non-empty expression list.
+</p>

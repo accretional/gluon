@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package gluon;
+
+option go_package = "github.com/accretional/gluon/pb";
+
+import "lex.proto";
+
+// GrammarDescriptor represents a complete grammar defined in EBNF notation.
+// It pairs the lexical configuration (how to read the EBNF) with the
+// production rules that define the language.
+message GrammarDescriptor {
+  // Lexical structure of the EBNF notation used to write this grammar.
+  LexDescriptor lex = 1;
+
+  // Production rules that define the grammar.
+  // TODO: Define fields for ProductionDescriptor once AST node
+  // representation is settled.
+  repeated ProductionDescriptor productions = 2;
+}
+
+// ProductionDescriptor represents a single EBNF production rule.
+// For example: Identifier = letter { letter | digit } .
+//
+// TODO: Add fields once ASTNodeDescriptor is designed. Expected fields:
+//   string name = 1;         // production name (e.g. "Identifier")
+//   string raw = 2;          // raw EBNF text of the expression
+//   ASTNodeDescriptor body = 3; // parsed expression tree
+message ProductionDescriptor {
+}

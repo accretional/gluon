@@ -1,0 +1,48 @@
+<h3 id="Integer_literals">Integer literals</h3>
+
+<p>
+An integer literal is a sequence of digits representing an
+<a href="#Constants">integer constant</a>.
+An optional prefix sets a non-decimal base: <code>0b</code> or <code>0B</code>
+for binary, <code>0</code>, <code>0o</code>, or <code>0O</code> for octal,
+and <code>0x</code> or <code>0X</code> for hexadecimal
+[<a href="#Go_1.13">Go 1.13</a>].
+A single <code>0</code> is considered a decimal zero.
+In hexadecimal literals, letters <code>a</code> through <code>f</code>
+and <code>A</code> through <code>F</code> represent values 10 through 15.
+</p>
+
+<p>
+For readability, an underscore character <code>_</code> may appear after
+a base prefix or between successive digits; such underscores do not change
+the literal&#39;s value.
+</p>
+<pre class="ebnf">int_lit        = decimal_lit | binary_lit | octal_lit | hex_lit .
+decimal_lit    = &#34;0&#34; | ( &#34;1&#34; … &#34;9&#34; ) [ [ &#34;_&#34; ] decimal_digits ] .
+binary_lit     = &#34;0&#34; ( &#34;b&#34; | &#34;B&#34; ) [ &#34;_&#34; ] binary_digits .
+octal_lit      = &#34;0&#34; [ &#34;o&#34; | &#34;O&#34; ] [ &#34;_&#34; ] octal_digits .
+hex_lit        = &#34;0&#34; ( &#34;x&#34; | &#34;X&#34; ) [ &#34;_&#34; ] hex_digits .
+
+decimal_digits = decimal_digit { [ &#34;_&#34; ] decimal_digit } .
+binary_digits  = binary_digit { [ &#34;_&#34; ] binary_digit } .
+octal_digits   = octal_digit { [ &#34;_&#34; ] octal_digit } .
+hex_digits     = hex_digit { [ &#34;_&#34; ] hex_digit } .
+</pre>
+
+<pre>42
+4_2
+0600
+0_600
+0o600
+0O600       // second character is capital letter &#39;O&#39;
+0xBadFace
+0xBad_Face
+0x_67_7a_2f_cc_40_c6
+170141183460469231731687303715884105727
+170_141183_460469_231731_687303_715884_105727
+
+_42         // an identifier, not an integer literal
+42_         // invalid: _ must separate successive digits
+4__2        // invalid: only one _ at a time
+0_xBadFace  // invalid: _ must separate successive digits
+</pre>

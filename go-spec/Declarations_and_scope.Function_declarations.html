@@ -1,0 +1,57 @@
+<h3 id="Function_declarations">Function declarations</h3>
+
+<!--
+	Given the importance of functions, this section has always
+	been woefully underdeveloped. Would be nice to expand this
+	a bit.
+-->
+
+<p>
+A function declaration binds an identifier, the <i>function name</i>,
+to a function.
+</p>
+
+<pre class="ebnf">FunctionDecl = &#34;func&#34; FunctionName [ TypeParameters ] Signature [ FunctionBody ] .
+FunctionName = identifier .
+FunctionBody = Block .
+</pre>
+
+<p>
+If the function&#39;s <a href="#Function_types">signature</a> declares
+result parameters, the function body&#39;s statement list must end in
+a <a href="#Terminating_statements">terminating statement</a>.
+</p>
+
+<pre>func IndexRune(s string, r rune) int {
+	for i, c := range s {
+		if c == r {
+			return i
+		}
+	}
+	// invalid: missing return statement
+}
+</pre>
+
+<p>
+If the function declaration specifies <a href="#Type_parameter_declarations">type parameters</a>,
+the function name denotes a <i>generic function</i>.
+A generic function must be <a href="#Instantiations">instantiated</a> before it can be
+called or used as a value.
+</p>
+
+<pre>func min[T ~int|~float64](x, y T) T {
+	if x &lt; y {
+		return x
+	}
+	return y
+}
+</pre>
+
+<p>
+A function declaration without type parameters may omit the body.
+Such a declaration provides the signature for a function implemented outside Go,
+such as an assembly routine.
+</p>
+
+<pre>func flushICache(begin, end uintptr)  // implemented externally
+</pre>

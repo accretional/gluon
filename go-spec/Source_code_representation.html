@@ -1,0 +1,25 @@
+<h2 id="Source_code_representation">Source code representation</h2>
+
+<p>
+Source code is Unicode text encoded in
+<a href="https://en.wikipedia.org/wiki/UTF-8">UTF-8</a>. The text is not
+canonicalized, so a single accented code point is distinct from the
+same character constructed from combining an accent and a letter;
+those are treated as two code points.  For simplicity, this document
+will use the unqualified term <i>character</i> to refer to a Unicode code point
+in the source text.
+</p>
+<p>
+Each code point is distinct; for instance, uppercase and lowercase letters
+are different characters.
+</p>
+<p>
+Implementation restriction: For compatibility with other tools, a
+compiler may disallow the NUL character (U+0000) in the source text.
+</p>
+<p>
+Implementation restriction: For compatibility with other tools, a
+compiler may ignore a UTF-8-encoded byte order mark
+(U+FEFF) if it is the first Unicode code point in the source text.
+A byte order mark may be disallowed anywhere else in the source.
+</p>

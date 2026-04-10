@@ -1,0 +1,212 @@
+// AST_GENERALIZATION_DESIGN.proto
+//
+// Design document: Language-Agnostic AST Serialization and Transpilation
+// via Protocol Buffers
+//
+// This file describes the architectural vision for gluon's approach to
+// cross-language transpilation using protobuf as the universal interchange
+// format.
+//
+// ============================================================================
+// VISION
+// ============================================================================
+//
+// The goal is to formally define, encode, serialize, and interoperate the
+// entire end-to-end process of transpilation into protobuf and back. Once
+// a language's grammar is encoded as a GrammarDescriptor and its compiler
+// is accessible via a Compiler descriptor, gluon can:
+//
+//   1. Parse source code into a language-agnostic ASTDescriptor
+//   2. Transform ASTs between languages (ast2ast)
+//   3. Generate source code from ASTs in the target language
+//   4. Compile and validate the output using the target's Compiler
+//
+// Protobuf provides the common structure, tooling, and encoding across all
+// languages. This enables bootstrapping transpilations to many languages
+// starting from Go and Protocol Buffers themselves.
+//
+// ============================================================================
+// CURRENT STATE
+// ============================================================================
+//
+// Proto definitions:
+//   - lex.proto       — LexDescriptor: configurable EBNF lexical operators
+//   - grammar.proto   — GrammarDescriptor + ProductionDescriptor (TODO: fields)
+//   - language.proto   — LanguageDescriptor, VersionDescriptor, Compiler
+//   - ast.proto        — ASTDescriptor + ASTNodeDescriptor (TODO: fields)
+//   - go.proto         — Go compiler and toolchain wrapped as gRPC services
+//
+// Working implementations:
+//   - lexkit/          — Configurable EBNF lexer/parser that produces
+//                        GrammarDescriptors from EBNF text definitions
+//   - lexkit/go_ebnf.txt    — Go's complete EBNF grammar (166 productions)
+//   - lexkit/proto_ebnf.txt — Proto3's complete EBNF grammar (56 productions)
+//   - lexkit/ebnf.txt       — EBNF's self-describing grammar (13 productions)
+//   - astkit/          — Go AST manipulation library (227 tests)
+//   - codegen/         — Full pipeline: Go source → proto → gRPC server
+//
+// Validated against:
+//   - golang.org/x/exp/ebnf — Go grammar parses and verifies (SourceFile root)
+//   - EBNF self-description — Parses itself, all meta-productions found
+//   - codegen round-trip    — Generated code re-analyzes to same structure
+//
+// ============================================================================
+// ARCHITECTURE: THE EBNF → AST BOOTSTRAP
+// ============================================================================
+//
+// The key insight is that EBNF is itself a language with a grammar, and that
+// grammar can describe both itself and other languages. This creates a
+// bootstrapping chain:
+//
+//   EBNF (the notation)
+//     └─ describes → Go's grammar (go_ebnf.txt, 166 productions)
+//     └─ describes → Proto's grammar (proto_ebnf.txt, 56 productions)
+//     └─ describes → EBNF's own grammar (ebnf.txt, 13 productions)
+//
+// Each grammar, when paired with a LexDescriptor, tells lexkit how to
+// tokenize EBNF text written in that notation variant:
+//
+//   LexDescriptor (Go variant)
+//     definition:  '=' (61)
+//     termination: '.' (46)
+//     concatenation: 0 (implicit/juxtaposition)
+//     alternation: '|' (124)
+//     optional:    '[' ']'
+//     repetition:  '{' '}'
+//     grouping:    '(' ')'
+//     terminal:    '"' (also '`' for Go)
+//     comments:    '/' '/' (// and /* */)
+//
+//   LexDescriptor (Proto variant)
+//     Same as Go except: termination = ';' (59)
+//
+//   LexDescriptor (Standard EBNF / ISO 14977)
+//     Same except: concatenation = ',' (44), termination = ';' (59),
+//     comments = '(' ')' for (* ... *)
+//
+// ============================================================================
+// PIPELINE: FROM GRAMMAR TO TRANSPILATION
+// ============================================================================
+//
+// Phase 1 (DONE): EBNF → GrammarDescriptor
+//   lexkit reads EBNF text + LexDescriptor → GrammarDescriptor
+//   Productions are parsed and counted; expression bodies captured as raw text.
+//
+// Phase 2 (TODO): GrammarDescriptor → ASTNodeDescriptor schema
+//   Each ProductionDescriptor defines an AST node type. The production's
+//   expression tree (alternation, repetition, etc.) defines the node's
+//   possible children. This is mechanical:
+//     - Terminal → leaf node with string value
+//     - NonTerminal → child node reference
+//     - Alternation → oneof in the node
+//     - Repetition → repeated field
+//     - Optional → optional field
+//
+// Phase 3 (TODO): Source code → ASTDescriptor
+//   Given a GrammarDescriptor, generate a parser that reads source code
+//   and produces an ASTDescriptor. For Go, this can delegate to go/parser
+//   and map the go/ast types to ASTNodeDescriptors. For proto, this can
+//   delegate to protocompile.
+//
+// Phase 4 (TODO): ASTDescriptor → ASTDescriptor (cross-language)
+//   ast2ast transformations that map nodes from one language's grammar to
+//   another's. The existing codegen.TransformInterface is an early example
+//   of this (Go interface → gRPC-normalized interface).
+//
+// Phase 5 (TODO): ASTDescriptor → Source code
+//   Given an ASTDescriptor in the target language's grammar, emit source
+//   code. The existing codegen.GenerateProto is an early example (Go
+//   types → proto text). codegen.Bootstrap generates Go source from
+//   analyzed structures.
+//
+// ============================================================================
+// COMBINING WITH go.proto
+// ============================================================================
+//
+// go.proto wraps the Go compiler as a gRPC service, giving us:
+//   - Go.Build, Go.Run, Go.Test — compile and execute Go code
+//   - Go.Vet, Go.Format — validate and format Go source
+//   - GoMod.Init, GoMod.Tidy — manage Go modules
+//
+// Combined with the grammar/AST pipeline, this enables:
+//   1. Analyze Go source → ASTDescriptor (pkg2ast, via go/parser)
+//   2. Transform AST to proto schema (struct2proto, function2service)
+//   3. Generate proto source from AST
+//   4. Compile proto → Go code (protoc via ProtoCompiler)
+//   5. Generate server/client Go source (service2server)
+//   6. Build and test via Go.Build/Go.Test (go.proto services)
+//   7. Validate round-trip (re-analyze generated code)
+//
+// ============================================================================
+// BOOTSTRAPPING TO OTHER LANGUAGES
+// ============================================================================
+//
+// Once the EBNF → Grammar → AST → Source pipeline is working for Go and
+// Proto, adding a new language requires:
+//
+//   1. Write the language's EBNF grammar (e.g. python_ebnf.txt)
+//   2. Define its LexDescriptor (which EBNF variant it uses)
+//   3. Define its Compiler (uri to the compiler binary)
+//   4. Implement ast2ast mappings from/to existing languages
+//   5. Implement source emitter for the new language
+//
+// Steps 1-3 are largely mechanical. Steps 4-5 are where the real work is,
+// but the grammar-driven approach means AST node types are derived
+// automatically from the EBNF productions rather than hand-coded.
+//
+// ============================================================================
+// NOTES ON EBNF VARIANTS
+// ============================================================================
+//
+// Standard EBNF (ISO 14977) also defines:
+//   - Special sequences: ? ... ? (for informal descriptions)
+//   - Exceptions: - (set difference, e.g. "letter - vowel")
+//
+// These are NOT yet implemented in LexDescriptor. Go's EBNF uses /* */
+// comments for the role that special sequences serve (describing character
+// classes informally). Proto's EBNF similarly uses comments.
+//
+// The "…" (ellipsis) operator in Go's EBNF (e.g. "0" … "9") represents
+// character ranges and is not part of standard EBNF. It is handled by
+// x/exp/ebnf as a Range expression.
+
+syntax = "proto3";
+
+package gluon;
+
+option go_package = "github.com/accretional/gluon/pb";
+
+// This file is primarily a design document. The messages below summarize
+// the target architecture; actual definitions live in their respective
+// .proto files (ast.proto, language.proto, grammar.proto, lex.proto).
+
+// TranspilationPipeline describes the full end-to-end conversion from
+// one language to another via protobuf-encoded ASTs.
+message TranspilationPipeline {
+  // Source language definition.
+  string source_language = 1;
+
+  // Target language definition.
+  string target_language = 2;
+
+  // Stages in the pipeline, in order.
+  repeated PipelineStage stages = 3;
+}
+
+// PipelineStage represents one step in a transpilation pipeline.
+message PipelineStage {
+  // Stage name (e.g. "pkg2ast", "ast2ast", "struct2proto").
+  string name = 1;
+
+  // Description of what this stage does.
+  string description = 2;
+
+  // Status of implementation.
+  enum Status {
+    UNSPECIFIED = 0;
+    DONE = 1;
+    PARTIAL = 2;
+    TODO = 3;
+  }
+  Status status = 3;
+}

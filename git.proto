@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package gluon;
+
+option go_package = "github.com/accretional/gluon/pb";
+
+import "repos.proto";
+
+// FetchRequest specifies a repository to fetch and where to put it.
+message FetchRequest {
+  Repo repo = 1;
+
+  // Local filesystem path to clone/fetch into.
+  // If empty, the server uses its configured default path.
+  string dest = 2;
+
+  // If true, do a shallow clone (--depth 1).
+  bool shallow = 3;
+}
+
+// FetchResult describes the outcome of a fetch operation.
+message FetchResult {
+  // Local path where the repo was cloned/fetched.
+  string path = 1;
+
+  // HEAD commit hash after fetch.
+  string head_commit = 2;
+
+  // Whether this was a fresh clone or an update of an existing repo.
+  bool already_existed = 3;
+}
+
+// FileEntry describes a single file discovered in a repository.
+message FileEntry {
+  // Path relative to the repo root.
+  string path = 1;
+
+  // Size in bytes.
+  int64 size = 2;
+}
+
+// ListFilesRequest asks for files matching a pattern in a fetched repo.
+message ListFilesRequest {
+  Repo repo = 1;
+
+  // Glob pattern to match (e.g. "**/*.proto").
+  string pattern = 2;
+}
+
+// ListFilesResult returns the matching files.
+message ListFilesResult {
+  repeated FileEntry files = 1;
+}
+
+// Git provides operations on git repositories.
+service Git {
+  // Fetch clones or updates a repository to the local filesystem.
+  rpc Fetch(FetchRequest) returns (FetchResult);
+
+  // ListFiles returns files matching a glob pattern in a fetched repo.
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResult);
+}

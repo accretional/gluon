@@ -1,0 +1,36 @@
+<h3 id="Operands">Operands</h3>
+
+<p>
+Operands denote the elementary values in an expression. An operand may be a
+literal, a (possibly <a href="#Qualified_identifiers">qualified</a>)
+non-<a href="#Blank_identifier">blank</a> identifier denoting a
+<a href="#Constant_declarations">constant</a>,
+<a href="#Variable_declarations">variable</a>, or
+<a href="#Function_declarations">function</a>,
+or a parenthesized expression.
+</p>
+
+<pre class="ebnf">Operand     = Literal | OperandName [ TypeArgs ] | &#34;(&#34; Expression &#34;)&#34; .
+Literal     = BasicLit | CompositeLit | FunctionLit .
+BasicLit    = int_lit | float_lit | imaginary_lit | rune_lit | string_lit .
+OperandName = identifier | QualifiedIdent .
+</pre>
+
+<p>
+An operand name denoting a <a href="#Function_declarations">generic function</a>
+may be followed by a list of <a href="#Instantiations">type arguments</a>; the
+resulting operand is an <a href="#Instantiations">instantiated</a> function.
+</p>
+
+<p>
+The <a href="#Blank_identifier">blank identifier</a> may appear as an
+operand only on the left-hand side of an <a href="#Assignment_statements">assignment statement</a>.
+</p>
+
+<p>
+Implementation restriction: A compiler need not report an error if an operand&#39;s
+type is a <a href="#Type_parameter_declarations">type parameter</a> with an empty
+<a href="#Interface_types">type set</a>. Functions with such type parameters
+cannot be <a href="#Instantiations">instantiated</a>; any attempt will lead
+to an error at the instantiation site.
+</p>

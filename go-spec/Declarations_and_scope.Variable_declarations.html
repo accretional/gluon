@@ -1,0 +1,51 @@
+<h3 id="Variable_declarations">Variable declarations</h3>
+
+<p>
+A variable declaration creates one or more <a href="#Variables">variables</a>,
+binds corresponding identifiers to them, and gives each a type and an initial value.
+</p>
+
+<pre class="ebnf">VarDecl = &#34;var&#34; ( VarSpec | &#34;(&#34; { VarSpec &#34;;&#34; } &#34;)&#34; ) .
+VarSpec = IdentifierList ( Type [ &#34;=&#34; ExpressionList ] | &#34;=&#34; ExpressionList ) .
+</pre>
+
+<pre>var i int
+var U, V, W float64
+var k = 0
+var x, y float32 = -1, -2
+var (
+	i       int
+	u, v, s = 2.0, 3.0, &#34;bar&#34;
+)
+var re, im = complexSqrt(-1)
+var _, found = entries[name]  // map lookup; only interested in &#34;found&#34;
+</pre>
+
+<p>
+If a list of expressions is given, the variables are initialized
+with the expressions following the rules for <a href="#Assignment_statements">assignment statements</a>.
+Otherwise, each variable is initialized to its <a href="#The_zero_value">zero value</a>.
+</p>
+
+<p>
+If a type is present, each variable is given that type.
+Otherwise, each variable is given the type of the corresponding
+initialization value in the assignment.
+If that value is an untyped constant, it is first implicitly
+<a href="#Conversions">converted</a> to its <a href="#Constants">default type</a>;
+if it is an untyped boolean value, it is first implicitly converted to type <code>bool</code>.
+The predeclared identifier <code>nil</code> cannot be used to initialize a variable
+with no explicit type.
+</p>
+
+<pre>var d = math.Sin(0.5)  // d is float64
+var i = 42             // i is int
+var t, ok = x.(T)      // t is T, ok is bool
+var n = nil            // illegal
+</pre>
+
+<p>
+Implementation restriction: A compiler may make it illegal to declare a variable
+inside a <a href="#Function_declarations">function body</a> if the variable is
+never used.
+</p>

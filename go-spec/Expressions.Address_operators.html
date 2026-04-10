@@ -1,0 +1,34 @@
+<h3 id="Address_operators">Address operators</h3>
+
+<p>
+For an operand <code>x</code> of type <code>T</code>, the address operation
+<code>&amp;x</code> generates a pointer of type <code>*T</code> to <code>x</code>.
+The operand must be <i>addressable</i>,
+that is, either a variable, pointer indirection, or slice indexing
+operation; or a field selector of an addressable struct operand;
+or an array indexing operation of an addressable array.
+As an exception to the addressability requirement, <code>x</code> may also be a
+(possibly parenthesized)
+<a href="#Composite_literals">composite literal</a>.
+If the evaluation of <code>x</code> would cause a <a href="#Run_time_panics">run-time panic</a>,
+then the evaluation of <code>&amp;x</code> does too.
+</p>
+
+<p>
+For an operand <code>x</code> of pointer type <code>*T</code>, the pointer
+indirection <code>*x</code> denotes the <a href="#Variables">variable</a> of type <code>T</code> pointed
+to by <code>x</code>.
+If <code>x</code> is <code>nil</code>, an attempt to evaluate <code>*x</code>
+will cause a <a href="#Run_time_panics">run-time panic</a>.
+</p>
+
+<pre>&amp;x
+&amp;a[f(2)]
+&amp;Point{2, 3}
+*p
+*pf(x)
+
+var x *int = nil
+*x   // causes a run-time panic
+&amp;*x  // causes a run-time panic
+</pre>

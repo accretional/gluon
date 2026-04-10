@@ -1,0 +1,37 @@
+<h2 id="Blocks">Blocks</h2>
+
+<p>
+A <i>block</i> is a possibly empty sequence of declarations and statements
+within matching brace brackets.
+</p>
+
+<pre class="ebnf">Block         = &#34;{&#34; StatementList &#34;}&#34; .
+StatementList = { Statement &#34;;&#34; } .
+</pre>
+
+<p>
+In addition to explicit blocks in the source code, there are implicit blocks:
+</p>
+
+<ol>
+	<li>The <i>universe block</i> encompasses all Go source text.</li>
+
+	<li>Each <a href="#Packages">package</a> has a <i>package block</i> containing all
+	    Go source text for that package.</li>
+
+	<li>Each file has a <i>file block</i> containing all Go source text
+	    in that file.</li>
+
+	<li>Each <a href="#If_statements">&#34;if&#34;</a>,
+	    <a href="#For_statements">&#34;for&#34;</a>, and
+	    <a href="#Switch_statements">&#34;switch&#34;</a>
+	    statement is considered to be in its own implicit block.</li>
+
+	<li>Each clause in a <a href="#Switch_statements">&#34;switch&#34;</a>
+	    or <a href="#Select_statements">&#34;select&#34;</a> statement
+	    acts as an implicit block.</li>
+</ol>
+
+<p>
+Blocks nest and influence <a href="#Declarations_and_scope">scoping</a>.
+</p>

@@ -1,0 +1,13 @@
+<h2 id="Statements">Statements</h2>
+
+<p>
+Statements control execution.
+</p>
+
+<pre class="ebnf">Statement  = Declaration | LabeledStmt | SimpleStmt |
+             GoStmt | ReturnStmt | BreakStmt | ContinueStmt | GotoStmt |
+             FallthroughStmt | Block | IfStmt | SwitchStmt | SelectStmt | ForStmt |
+             DeferStmt .
+
+SimpleStmt = EmptyStmt | ExpressionStmt | SendStmt | IncDecStmt | Assignment | ShortVarDecl .
+</pre>

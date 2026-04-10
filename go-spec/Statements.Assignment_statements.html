@@ -1,0 +1,152 @@
+<h3 id="Assignment_statements">Assignment statements</h3>
+
+<p>
+An <i>assignment</i> replaces the current value stored in a <a href="#Variables">variable</a>
+with a new value specified by an <a href="#Expressions">expression</a>.
+An assignment statement may assign a single value to a single variable, or multiple values to a
+matching number of variables.
+</p>
+
+<pre class="ebnf">Assignment = ExpressionList assign_op ExpressionList .
+
+assign_op  = [ add_op | mul_op ] &#34;=&#34; .
+</pre>
+
+<p>
+Each left-hand side operand must be <a href="#Address_operators">addressable</a>,
+a map index expression, or (for <code>=</code> assignments only) the
+<a href="#Blank_identifier">blank identifier</a>.
+Operands may be parenthesized.
+</p>
+
+<pre>x = 1
+*p = f()
+a[i] = 23
+(k) = &lt;-ch  // same as: k = &lt;-ch
+</pre>
+
+<p>
+An <i>assignment operation</i> <code>x</code> <i>op</i><code>=</code>
+<code>y</code> where <i>op</i> is a binary <a href="#Arithmetic_operators">arithmetic operator</a>
+is equivalent to <code>x</code> <code>=</code> <code>x</code> <i>op</i>
+<code>(y)</code> but evaluates <code>x</code>
+only once.  The <i>op</i><code>=</code> construct is a single token.
+In assignment operations, both the left- and right-hand expression lists
+must contain exactly one single-valued expression, and the left-hand
+expression must not be the blank identifier.
+</p>
+
+<pre>a[i] &lt;&lt;= 2
+i &amp;^= 1&lt;&lt;n
+</pre>
+
+<p>
+A tuple assignment assigns the individual elements of a multi-valued
+operation to a list of variables.  There are two forms.  In the
+first, the right hand operand is a single multi-valued expression
+such as a function call, a <a href="#Channel_types">channel</a> or
+<a href="#Map_types">map</a> operation, or a <a href="#Type_assertions">type assertion</a>.
+The number of operands on the left
+hand side must match the number of values.  For instance, if
+<code>f</code> is a function returning two values,
+</p>
+
+<pre>x, y = f()
+</pre>
+
+<p>
+assigns the first value to <code>x</code> and the second to <code>y</code>.
+In the second form, the number of operands on the left must equal the number
+of expressions on the right, each of which must be single-valued, and the
+<i>n</i>th expression on the right is assigned to the <i>n</i>th
+operand on the left:
+</p>
+
+<pre>one, two, three = &#39;一&#39;, &#39;二&#39;, &#39;三&#39;
+</pre>
+
+<p>
+The <a href="#Blank_identifier">blank identifier</a> provides a way to
+ignore right-hand side values in an assignment:
+</p>
+
+<pre>_ = x       // evaluate x but ignore it
+x, _ = f()  // evaluate f() but ignore second result value
+</pre>
+
+<p>
+The assignment proceeds in two phases.
+First, the operands of <a href="#Index_expressions">index expressions</a>
+and <a href="#Address_operators">pointer indirections</a>
+(including implicit pointer indirections in <a href="#Selectors">selectors</a>)
+on the left and the expressions on the right are all
+<a href="#Order_of_evaluation">evaluated in the usual order</a>.
+Second, the assignments are carried out in left-to-right order.
+</p>
+
+<pre>a, b = b, a  // exchange a and b
+
+x := []int{1, 2, 3}
+i := 0
+i, x[i] = 1, 2  // set i = 1, x[0] = 2
+
+i = 0
+x[i], i = 2, 1  // set x[0] = 2, i = 1
+
+x[0], x[0] = 1, 2  // set x[0] = 1, then x[0] = 2 (so x[0] == 2 at end)
+
+x[1], x[3] = 4, 5  // set x[1] = 4, then panic setting x[3] = 5.
+
+type Point struct { x, y int }
+var p *Point
+x[2], p.x = 6, 7  // set x[2] = 6, then panic setting p.x = 7
+
+i = 2
+x = []int{3, 5, 7}
+for i, x[i] = range x {  // set i, x[2] = 0, x[0]
+	break
+}
+// after this loop, i == 0 and x is []int{3, 5, 3}
+</pre>
+
+<p>
+In assignments, each value must be <a href="#Assignability">assignable</a>
+to the type of the operand to which it is assigned, with the following special cases:
+</p>
+
+<ol>
+<li>
+	Any typed value may be assigned to the blank identifier.
+</li>
+
+<li>
+	If an untyped constant
+	is assigned to a variable of interface type or the blank identifier,
+	the constant is first implicitly <a href="#Conversions">converted</a> to its
+	 <a href="#Constants">default type</a>.
+</li>
+
+<li>
+	If an untyped boolean value is assigned to a variable of interface type or
+	the blank identifier, it is first implicitly converted to type <code>bool</code>.
+</li>
+</ol>
+
+<p>
+When a value is assigned to a variable, only the data that is stored in the variable
+is replaced. If the value contains a <a href="#Representation_of_values">reference</a>,
+the assignment copies the reference but does not make a copy of the referenced data
+(such as the underlying array of a slice).
+</p>
+
+<pre>var s1 = []int{1, 2, 3}
+var s2 = s1                    // s2 stores the slice descriptor of s1
+s1 = s1[:1]                    // s1&#39;s length is 1 but it still shares its underlying array with s2
+s2[0] = 42                     // setting s2[0] changes s1[0] as well
+fmt.Println(s1, s2)            // prints [42] [42 2 3]
+
+var m1 = make(map[string]int)
+var m2 = m1                    // m2 stores the map descriptor of m1
+m1[&#34;foo&#34;] = 42                 // setting m1[&#34;foo&#34;] changes m2[&#34;foo&#34;] as well
+fmt.Println(m2[&#34;foo&#34;])         // prints 42
+</pre>

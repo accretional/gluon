@@ -1,0 +1,21 @@
+<h3 id="Deletion_of_map_elements">Deletion of map elements</h3>
+
+<p>
+The built-in function <code>delete</code> removes the element with key
+<code>k</code> from a <a href="#Map_types">map</a> <code>m</code>. The
+value <code>k</code> must be <a href="#Assignability">assignable</a>
+to the key type of <code>m</code>.
+</p>
+
+<pre class="grammar">delete(m, k)  // remove element m[k] from map m
+</pre>
+
+<p>
+If the type of <code>m</code> is a <a href="#Type_parameter_declarations">type parameter</a>,
+all types in that type set must be maps, and they must all have identical key types.
+</p>
+
+<p>
+If the map <code>m</code> is <code>nil</code> or the element <code>m[k]</code>
+does not exist, <code>delete</code> is a no-op.
+</p>

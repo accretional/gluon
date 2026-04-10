@@ -1,0 +1,117 @@
+<h3 id="Method_declarations">Method declarations</h3>
+
+<p>
+A method is a <a href="#Function_declarations">function</a> with a <i>receiver</i>.
+A method declaration binds an identifier, the <i>method name</i>, to a method,
+and associates the method with the receiver&#39;s <i>base type</i>.
+</p>
+
+<pre class="ebnf">MethodDecl = &#34;func&#34; Receiver MethodName [ TypeParameters ] Signature [ FunctionBody ] .
+Receiver   = Parameters .
+</pre>
+
+<p>
+The receiver is specified via an extra parameter section preceding the method
+name. That parameter section must declare a single non-variadic parameter, the receiver.
+Its type must be a <a href="#Type_definitions">defined</a> type <code>T</code> or a
+pointer to a defined type <code>T</code>, possibly followed by a list of type parameter
+names <code>[P1, P2, …]</code> enclosed in square brackets.
+<code>T</code> is called the receiver <i>base type</i>. A receiver base type cannot be
+a pointer or interface type and it must be declared in the same package as the method.
+The method is said to be <i>bound</i> to its receiver base type and the method name
+is visible only within <a href="#Selectors">selectors</a> for type <code>T</code>
+or <code>*T</code>.
+</p>
+
+<p>
+A non-<a href="#Blank_identifier">blank</a> receiver identifier must be
+<a href="#Uniqueness_of_identifiers">unique</a> in the method signature.
+If the receiver&#39;s value is not referenced inside the body of the method,
+its identifier may be omitted in the declaration. The same applies in
+general to parameters of functions and methods.
+</p>
+
+<p>
+For a base type, the non-blank names of methods bound to it must be unique.
+If the base type is a <a href="#Struct_types">struct type</a>,
+the non-blank method and field names must be distinct.
+</p>
+
+<p>
+Given defined type <code>Point</code> the declarations
+</p>
+
+<pre>func (p *Point) Length() float64 {
+	return math.Sqrt(p.x * p.x + p.y * p.y)
+}
+
+func (p *Point) Scale(factor float64) {
+	p.x *= factor
+	p.y *= factor
+}
+</pre>
+
+<p>
+bind the methods <code>Length</code> and <code>Scale</code>,
+with receiver type <code>*Point</code>,
+to the base type <code>Point</code>.
+</p>
+
+<p>
+If the receiver base type is a <a href="#Type_definitions">generic type</a>, the
+receiver specification must declare corresponding type parameters for the method
+to use. This makes the receiver type parameters available to the method.
+Syntactically, this type parameter declaration looks like an
+<a href="#Instantiations">instantiation</a> of the receiver base type: the type
+arguments must be identifiers denoting the type parameters being declared, one
+for each type parameter of the receiver base type.
+The type parameter names do not need to match their corresponding parameter names in the
+receiver base type definition, and all non-blank parameter names must be unique in the
+receiver parameter section and the method signature.
+The receiver type parameter constraints are implied by the receiver base type definition:
+corresponding type parameters have corresponding constraints.
+</p>
+
+<pre>type Pair[A, B any] struct {
+	a A
+	b B
+}
+
+func (p Pair[A, B]) Swap() Pair[B, A]  { … }  // receiver declares A, B
+func (p Pair[First, _]) First() First  { … }  // receiver declares First, corresponds to A in Pair
+</pre>
+
+<p>
+If the receiver type is denoted by (a pointer to) an <a href="#Alias_declarations">alias</a>,
+the alias must not be generic and it must not denote an instantiated generic type, neither
+directly nor indirectly via another alias, and irrespective of pointer indirections.
+</p>
+
+<pre>type GPoint[P any] = Point
+type HPoint        = *GPoint[int]
+type IPair         = Pair[int, int]
+
+func (*GPoint[P]) Draw(P)   { … }  // illegal: alias must not be generic
+func (HPoint) Draw(P)       { … }  // illegal: alias must not denote instantiated type GPoint[int]
+func (*IPair) Second() int  { … }  // illegal: alias must not denote instantiated type Pair[int, int]
+</pre>
+
+<p>
+If the method declaration specifies <a href="#Type_parameter_declarations">type parameters</a>
+(possibly in addition to type parameters declared by the receiver specification), the method name denotes
+a <i>generic method</i>.
+Like a generic function, a generic method must be <a href="#Instantiations">instantiated</a> before it can
+be called or used as a value.
+</p>
+
+<pre>type List[E any] []E
+
+// Apply returns the list obtained from applying f to each element of l.
+func (l List[E]) Apply[F any](f func(E) F) List[F] {
+	r := make(List[F], len(l))
+	for i, x := range l {
+		r[i] = f(x)
+	}
+	return r
+}
+</pre>

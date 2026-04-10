@@ -1,0 +1,48 @@
+<h3 id="Passing_arguments_to_..._parameters">Passing arguments to <code>...</code> parameters</h3>
+
+<p>
+If <code>f</code> is <a href="#Function_types">variadic</a> with a final
+parameter <code>p</code> of type <code>...T</code>, then within <code>f</code>
+the type of <code>p</code> is equivalent to type <code>[]T</code>.
+If <code>f</code> is invoked with no actual arguments for <code>p</code>,
+the value <a href="#Calls">passed</a> to <code>p</code> is <code>nil</code>.
+Otherwise, the value passed is a new slice
+of type <code>[]T</code> with a new underlying array whose successive elements
+are the actual arguments, which all must be <a href="#Assignability">assignable</a>
+to <code>T</code>. The length and capacity of the slice is therefore
+the number of arguments bound to <code>p</code> and may differ for each
+call site.
+</p>
+
+<p>
+Given the function and calls
+</p>
+<pre>func Greeting(prefix string, who ...string)
+Greeting(&#34;nobody&#34;)
+Greeting(&#34;hello:&#34;, &#34;Joe&#34;, &#34;Anna&#34;, &#34;Eileen&#34;)
+</pre>
+
+<p>
+within <code>Greeting</code>, <code>who</code> will have the value
+<code>nil</code> in the first call, and
+<code>[]string{&#34;Joe&#34;, &#34;Anna&#34;, &#34;Eileen&#34;}</code> in the second.
+</p>
+
+<p>
+If the final argument is assignable to a slice type <code>[]T</code> and
+is followed by <code>...</code>, it is passed unchanged as the value
+for a <code>...T</code> parameter. In this case no new slice is created.
+</p>
+
+<p>
+Given the slice <code>s</code> and call
+</p>
+
+<pre>s := []string{&#34;James&#34;, &#34;Jasmine&#34;}
+Greeting(&#34;goodbye:&#34;, s...)
+</pre>
+
+<p>
+within <code>Greeting</code>, <code>who</code> will have the same value as <code>s</code>
+with the same underlying array.
+</p>

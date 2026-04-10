@@ -1,0 +1,16 @@
+<h3 id="Exported_identifiers">Exported identifiers</h3>
+
+<p>
+An identifier may be <i>exported</i> to permit access to it from another package.
+An identifier is exported if both:
+</p>
+<ol>
+	<li>the first character of the identifier&#39;s name is a Unicode uppercase
+	letter (Unicode character category Lu); and</li>
+	<li>the identifier is declared in the <a href="#Blocks">package block</a>
+	or it is a <a href="#Struct_types">field name</a> or
+	<a href="#MethodName">method name</a>.</li>
+</ol>
+<p>
+All other identifiers are not exported.
+</p>

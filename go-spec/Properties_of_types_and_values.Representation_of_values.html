@@ -1,0 +1,50 @@
+<h3 id="Representation_of_values">Representation of values</h3>
+
+<p>
+Values of predeclared types (see below for the interfaces <code>any</code>
+and <code>error</code>), arrays, and structs are self-contained:
+Each such value contains a complete copy of all its data,
+and <a href="#Variables">variables</a> of such types store the entire value.
+For instance, an array variable provides the storage (the variables)
+for all elements of the array.
+The respective <a href="#The_zero_value">zero values</a> are specific to the
+value&#39;s types; they are never <code>nil</code>.
+</p>
+
+<p>
+Non-nil pointer, function, slice, map, and channel values contain references
+to underlying data which may be shared by multiple values:
+</p>
+
+<ul>
+<li>
+	A pointer value is a reference to the variable holding
+	the pointer base type value.
+</li>
+<li>
+	A function value contains references to the (possibly
+	<a href="#Function_literals">anonymous</a>) function
+	and enclosed variables.
+</li>
+<li>
+	A slice value contains the slice length, capacity, and
+	a reference to its <a href="#Slice_types">underlying array</a>.
+</li>
+<li>
+	A map or channel value is a reference to the implementation-specific
+	data structure of the map or channel.
+</li>
+</ul>
+
+<p>
+An interface value may be self-contained or contain references to underlying data
+depending on the interface&#39;s <a href="#Variables">dynamic type</a>.
+The predeclared identifier <code>nil</code> is the zero value for types whose values
+can contain references.
+</p>
+
+<p>
+When multiple values share underlying data, changing one value may change another.
+For instance, changing an element of a <a href="#Slice_types">slice</a> will change
+that element in the underlying array for all slices that share the array.
+</p>

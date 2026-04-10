@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package gluon;
+
+option go_package = "github.com/accretional/gluon/pb";
+
+// ASTDescriptor is a language-agnostic container for a serialized abstract
+// syntax tree. It pairs the source language identity with the tree itself,
+// enabling cross-language AST manipulation and transpilation via protobuf
+// as the common interchange format.
+message ASTDescriptor {
+  // Language this AST was parsed from (e.g. "go", "proto", "ebnf").
+  string language = 1;
+
+  // Language spec version used during parsing (e.g. "1.26", "3").
+  string version = 2;
+
+  // Root node of the abstract syntax tree.
+  // TODO: Design and implement once GrammarDescriptor/ProductionDescriptor
+  // are fleshed out. The node structure will mirror the production rules
+  // of the source language's grammar, making it possible to mechanically
+  // derive AST node types from EBNF definitions.
+  ASTNodeDescriptor root = 3;
+}
+
+// ASTNodeDescriptor represents a single node in a language-agnostic AST.
+// TODO: Define fields. Expected structure:
+//   string kind = 1;                    // node type (maps to a production name)
+//   string value = 2;                   // terminal value, if leaf node
+//   repeated ASTNodeDescriptor children = 3; // child nodes
+//   SourceLocation location = 4;        // source position
+message ASTNodeDescriptor {
+}

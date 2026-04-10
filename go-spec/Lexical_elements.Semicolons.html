@@ -1,0 +1,52 @@
+<h3 id="Semicolons">Semicolons</h3>
+
+<p>
+The formal syntax uses semicolons <code>&#34;;&#34;</code> as terminators in
+a number of productions. Go programs may omit most of these semicolons
+using the following two rules:
+</p>
+
+<ol>
+<li>
+When the input is broken into tokens, a semicolon is automatically inserted
+into the token stream immediately after a line&#39;s final token if that token is
+<ul>
+	<li>an
+	    <a href="#Identifiers">identifier</a>
+	</li>
+
+	<li>an
+	    <a href="#Integer_literals">integer</a>,
+	    <a href="#Floating-point_literals">floating-point</a>,
+	    <a href="#Imaginary_literals">imaginary</a>,
+	    <a href="#Rune_literals">rune</a>, or
+	    <a href="#String_literals">string</a> literal
+	</li>
+
+	<li>one of the <a href="#Keywords">keywords</a>
+	    <code>break</code>,
+	    <code>continue</code>,
+	    <code>fallthrough</code>, or
+	    <code>return</code>
+	</li>
+
+	<li>one of the <a href="#Operators_and_punctuation">operators and punctuation</a>
+	    <code>++</code>,
+	    <code>--</code>,
+	    <code>)</code>,
+	    <code>]</code>, or
+	    <code>}</code>
+	</li>
+</ul>
+</li>
+
+<li>
+To allow complex statements to occupy a single line, a semicolon
+may be omitted before a closing <code>&#34;)&#34;</code> or <code>&#34;}&#34;</code>.
+</li>
+</ol>
+
+<p>
+To reflect idiomatic use, code examples in this document elide semicolons
+using these rules.
+</p>

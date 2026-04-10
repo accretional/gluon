@@ -1,0 +1,27 @@
+<h3 id="Function_literals">Function literals</h3>
+
+<p>
+A function literal represents an anonymous <a href="#Function_declarations">function</a>.
+Function literals cannot declare type parameters.
+</p>
+
+<pre class="ebnf">FunctionLit = &#34;func&#34; Signature FunctionBody .
+</pre>
+
+<pre>func(a, b int, z float64) bool { return a*b &lt; int(z) }
+</pre>
+
+<p>
+A function literal can be assigned to a variable or invoked directly.
+</p>
+
+<pre>f := func(x, y int) int { return x + y }
+func(ch chan int) { ch &lt;- ACK }(replyChan)
+</pre>
+
+<p>
+Function literals are <i>closures</i>: they may refer to variables
+declared in a surrounding function. Those variables are then shared between
+the surrounding function and the function literal, and they survive as long
+as they are accessible.
+</p>

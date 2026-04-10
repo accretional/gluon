@@ -1,0 +1,28 @@
+<h3 id="Continue_statements">Continue statements</h3>
+
+<p>
+A &#34;continue&#34; statement begins the next iteration of the
+innermost enclosing <a href="#For_statements">&#34;for&#34; loop</a>
+by advancing control to the end of the loop block.
+The &#34;for&#34; loop must be within the same function.
+</p>
+
+<pre class="ebnf">ContinueStmt = &#34;continue&#34; [ Label ] .
+</pre>
+
+<p>
+If there is a label, it must be that of an enclosing
+&#34;for&#34; statement, and that is the one whose execution
+advances.
+</p>
+
+<pre>RowLoop:
+	for y, row := range rows {
+		for x, data := range row {
+			if data == endOfRow {
+				continue RowLoop
+			}
+			row[x] = data + bias(x, y)
+		}
+	}
+</pre>

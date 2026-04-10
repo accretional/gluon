@@ -1,0 +1,35 @@
+<h3 id="Imaginary_literals">Imaginary literals</h3>
+
+<p>
+An imaginary literal represents the imaginary part of a
+<a href="#Constants">complex constant</a>.
+It consists of an <a href="#Integer_literals">integer</a> or
+<a href="#Floating-point_literals">floating-point</a> literal
+followed by the lowercase letter <code>i</code>.
+The value of an imaginary literal is the value of the respective
+integer or floating-point literal multiplied by the imaginary unit <i>i</i>
+[<a href="#Go_1.13">Go 1.13</a>]
+</p>
+
+<pre class="ebnf">imaginary_lit = (decimal_digits | int_lit | float_lit) &#34;i&#34; .
+</pre>
+
+<p>
+For backward compatibility, an imaginary literal&#39;s integer part consisting
+entirely of decimal digits (and possibly underscores) is considered a decimal
+integer, even if it starts with a leading <code>0</code>.
+</p>
+
+<pre>0i
+0123i         // == 123i for backward-compatibility
+0o123i        // == 0o123 * 1i == 83i
+0xabci        // == 0xabc * 1i == 2748i
+0.i
+2.71828i
+1.e+0i
+6.67428e-11i
+1E6i
+.25i
+.12345E+5i
+0x1p-2i       // == 0x1p-2 * 1i == 0.25i
+</pre>

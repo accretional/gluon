@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package gluon;
+
+option go_package = "github.com/accretional/gluon/pb";
+
+import "grammar.proto";
+
+// LanguageDescriptor defines a programming language in terms of its grammar,
+// version, and compiler. This is the top-level entry point for describing
+// a language that gluon can transpile to/from.
+message LanguageDescriptor {
+  // Human-readable name of the language (e.g. "Go", "Protocol Buffers").
+  string name = 1;
+
+  // Version of the language specification this descriptor covers.
+  VersionDescriptor version = 2;
+
+  // Formal grammar of the language in EBNF.
+  GrammarDescriptor grammar = 3;
+
+  // Compiler or code generator for this language.
+  Compiler compiler = 4;
+}
+
+// VersionDescriptor identifies a specific version of a language spec.
+message VersionDescriptor {
+  // Major version number.
+  int32 major = 1;
+
+  // Minor version number.
+  int32 minor = 2;
+
+  // Patch version number.
+  int32 patch = 3;
+
+  // Version string as written in the spec (e.g. "go1.26", "proto3").
+  string label = 4;
+}
+
+// Compiler describes how to compile or generate code for a language.
+message Compiler {
+  oneof kind {
+    // URI pointing to a compiler binary or service (e.g. "go", "protoc",
+    // or a full path like "/usr/local/go/bin/go").
+    string uri = 1;
+
+    // Embedded compiler binary (for hermetic/self-contained builds).
+    bytes binary = 2;
+  }
+}

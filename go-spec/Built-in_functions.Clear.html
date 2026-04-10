@@ -1,0 +1,30 @@
+<h3 id="Clear">Clear</h3>
+
+<p>
+The built-in function <code>clear</code> takes an argument of <a href="#Map_types">map</a>,
+<a href="#Slice_types">slice</a>, or <a href="#Type_parameter_declarations">type parameter</a> type,
+and deletes or zeroes out all elements
+[<a href="#Go_1.21">Go 1.21</a>].
+</p>
+
+<pre class="grammar">Call        Argument type     Result
+
+clear(m)    map[K]T           deletes all entries, resulting in an
+                              empty map (len(m) == 0)
+
+clear(s)    []T               sets all elements up to the length of
+                              <code>s</code> to the zero value of T
+
+clear(t)    type parameter    see below
+</pre>
+
+<p>
+If the type of the argument to <code>clear</code> is a
+<a href="#Type_parameter_declarations">type parameter</a>,
+all types in its type set must be maps or slices, and <code>clear</code>
+performs the operation corresponding to the actual type argument.
+</p>
+
+<p>
+If the map or slice is <code>nil</code>, <code>clear</code> is a no-op.
+</p>

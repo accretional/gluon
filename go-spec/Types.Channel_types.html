@@ -1,0 +1,81 @@
+<h3 id="Channel_types">Channel types</h3>
+
+<p>
+A channel provides a mechanism for
+<a href="#Go_statements">concurrently executing functions</a>
+to communicate by
+<a href="#Send_statements">sending</a> and
+<a href="#Receive_operator">receiving</a>
+values of a specified element type.
+The <a href="#Representation_of_values">value</a> of an uninitialized channel is <code>nil</code>.
+</p>
+
+<pre class="ebnf">ChannelType = ( &#34;chan&#34; | &#34;chan&#34; &#34;&lt;-&#34; | &#34;&lt;-&#34; &#34;chan&#34; ) ElementType .
+</pre>
+
+<p>
+The optional <code>&lt;-</code> operator specifies the channel <i>direction</i>,
+<i>send</i> or <i>receive</i>. If a direction is given, the channel is <i>directional</i>,
+otherwise it is <i>bidirectional</i>.
+A channel may be constrained only to send or only to receive by
+<a href="#Assignment_statements">assignment</a> or
+explicit <a href="#Conversions">conversion</a>.
+</p>
+
+<pre>chan T          // can be used to send and receive values of type T
+chan&lt;- float64  // can only be used to send float64s
+&lt;-chan int      // can only be used to receive ints
+</pre>
+
+<p>
+The <code>&lt;-</code> operator associates with the leftmost <code>chan</code>
+possible:
+</p>
+
+<pre>chan&lt;- chan int    // same as chan&lt;- (chan int)
+chan&lt;- &lt;-chan int  // same as chan&lt;- (&lt;-chan int)
+&lt;-chan &lt;-chan int  // same as &lt;-chan (&lt;-chan int)
+chan (&lt;-chan int)
+</pre>
+
+<p>
+A new, initialized channel
+value can be made using the built-in function
+<a href="#Making_slices_maps_and_channels"><code>make</code></a>,
+which takes the channel type and an optional <i>capacity</i> as arguments:
+</p>
+
+<pre>make(chan int, 100)
+</pre>
+
+<p>
+The capacity, in number of elements, sets the size of the buffer in the channel.
+If the capacity is zero or absent, the channel is unbuffered and communication
+succeeds only when both a sender and receiver are ready. Otherwise, the channel
+is buffered and communication succeeds without blocking if the buffer
+is not full (sends) or not empty (receives).
+A <code>nil</code> channel is never ready for communication.
+</p>
+
+<p>
+A channel may be closed with the built-in function
+<a href="#Close"><code>close</code></a>.
+The multi-valued assignment form of the
+<a href="#Receive_operator">receive operator</a>
+reports whether a received value was sent before
+the channel was closed.
+</p>
+
+<p>
+A single channel may be used in
+<a href="#Send_statements">send statements</a>,
+<a href="#Receive_operator">receive operations</a>,
+and calls to the built-in functions
+<a href="#Length_and_capacity"><code>cap</code></a> and
+<a href="#Length_and_capacity"><code>len</code></a>
+by any number of goroutines without further synchronization.
+Channels act as first-in-first-out queues.
+For example, if one goroutine sends values on a channel
+and a second goroutine receives them, the values are
+received in the order sent.
+</p>

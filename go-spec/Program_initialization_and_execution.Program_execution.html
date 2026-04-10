@@ -1,0 +1,19 @@
+<h3 id="Program_execution">Program execution</h3>
+<p>
+A complete program is created by linking a single, unimported package
+called the <i>main package</i> with all the packages it imports, transitively.
+The main package must
+have package name <code>main</code> and
+declare a function <code>main</code> that takes no
+arguments and returns no value.
+</p>
+
+<pre>func main() { … }
+</pre>
+
+<p>
+Program execution begins by <a href="#Program_initialization">initializing the program</a>
+and then invoking the function <code>main</code> in package <code>main</code>.
+When that function invocation returns, the program exits.
+It does not wait for other (non-<code>main</code>) goroutines to complete.
+</p>

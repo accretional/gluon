@@ -1,0 +1,13 @@
+<h3 id="Label_scopes">Label scopes</h3>
+
+<p>
+Labels are declared by <a href="#Labeled_statements">labeled statements</a> and are
+used in the <a href="#Break_statements">&#34;break&#34;</a>,
+<a href="#Continue_statements">&#34;continue&#34;</a>, and
+<a href="#Goto_statements">&#34;goto&#34;</a> statements.
+It is illegal to define a label that is never used.
+In contrast to other identifiers, labels are not block scoped and do
+not conflict with identifiers that are not labels. The scope of a label
+is the body of the function in which it is declared and excludes
+the body of any nested function.
+</p>

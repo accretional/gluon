@@ -1,0 +1,33 @@
+<h3 id="Break_statements">Break statements</h3>
+
+<p>
+A &#34;break&#34; statement terminates execution of the innermost
+<a href="#For_statements">&#34;for&#34;</a>,
+<a href="#Switch_statements">&#34;switch&#34;</a>, or
+<a href="#Select_statements">&#34;select&#34;</a> statement
+within the same function.
+</p>
+
+<pre class="ebnf">BreakStmt = &#34;break&#34; [ Label ] .
+</pre>
+
+<p>
+If there is a label, it must be that of an enclosing
+&#34;for&#34;, &#34;switch&#34;, or &#34;select&#34; statement,
+and that is the one whose execution terminates.
+</p>
+
+<pre>OuterLoop:
+	for i = 0; i &lt; n; i++ {
+		for j = 0; j &lt; m; j++ {
+			switch a[i][j] {
+			case nil:
+				state = Error
+				break OuterLoop
+			case item:
+				state = Found
+				break OuterLoop
+			}
+		}
+	}
+</pre>

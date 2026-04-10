@@ -1,0 +1,86 @@
+<h3 id="Appending_and_copying_slices">Appending to and copying slices</h3>
+
+<p>
+The built-in functions <code>append</code> and <code>copy</code> assist in
+common slice operations.
+For both functions, the result is independent of whether the memory referenced
+by the arguments overlaps.
+</p>
+
+<p>
+The <a href="#Function_types">variadic</a> function <code>append</code>
+appends zero or more values <code>x</code> to a slice <code>s</code> of
+type <code>S</code> and returns the resulting slice, also of type
+<code>S</code>.
+The values <code>x</code> are passed to a parameter of type <code>...E</code>
+where <code>E</code> is the element type of <code>S</code>
+and the respective <a href="#Passing_arguments_to_..._parameters">parameter
+passing rules</a> apply.
+As a special case, <code>append</code> also accepts a slice whose type is assignable to
+type <code>[]byte</code> with a second argument of <code>string</code> type followed by
+<code>...</code>.
+This form appends the bytes of the string.
+</p>
+
+<pre class="grammar">append(s S, x ...E) S  // E is the element type of S
+</pre>
+
+<p>
+If <code>S</code> is a <a href="#Type_parameter_declarations">type parameter</a>,
+all types in its type set must have the same underlying slice type <code>[]E</code>.
+</p>
+
+<p>
+If the capacity of <code>s</code> is not large enough to fit the additional
+values, <code>append</code> <a href="#Allocation">allocates</a> a new, sufficiently large underlying
+array that fits both the existing slice elements and the additional values.
+Otherwise, <code>append</code> re-uses the underlying array.
+</p>
+
+<pre>s0 := []int{0, 0}
+s1 := append(s0, 2)                // append a single element     s1 is []int{0, 0, 2}
+s2 := append(s1, 3, 5, 7)          // append multiple elements    s2 is []int{0, 0, 2, 3, 5, 7}
+s3 := append(s2, s0...)            // append a slice              s3 is []int{0, 0, 2, 3, 5, 7, 0, 0}
+s4 := append(s3[3:6], s3[2:]...)   // append overlapping slice    s4 is []int{3, 5, 7, 2, 3, 5, 7, 0, 0}
+
+var t []interface{}
+t = append(t, 42, 3.1415, &#34;foo&#34;)   //                             t is []interface{}{42, 3.1415, &#34;foo&#34;}
+
+var b []byte
+b = append(b, &#34;bar&#34;...)            // append string contents      b is []byte{&#39;b&#39;, &#39;a&#39;, &#39;r&#39; }
+</pre>
+
+<p>
+The function <code>copy</code> copies slice elements from
+a source <code>src</code> to a destination <code>dst</code> and returns the
+number of elements copied.
+Both arguments must have <a href="#Type_identity">identical</a> element type
+<code>E</code> and must be assignable to a slice of type <code>[]E</code>.
+The number of elements copied is the minimum of
+<code>len(src)</code> and <code>len(dst)</code>.
+As a special case, <code>copy</code> also accepts a destination argument
+assignable to type <code>[]byte</code> with a source argument of a
+<code>string</code> type.
+This form copies the bytes from the string into the byte slice.
+</p>
+
+<pre class="grammar">copy(dst, src []T) int
+copy(dst []byte, src string) int
+</pre>
+
+<p>
+If the type of one or both arguments is a <a href="#Type_parameter_declarations">type parameter</a>,
+all types in their respective type sets must have the same underlying slice type <code>[]E</code>.
+</p>
+
+<p>
+Examples:
+</p>
+
+<pre>var a = [...]int{0, 1, 2, 3, 4, 5, 6, 7}
+var s = make([]int, 6)
+var b = make([]byte, 5)
+n1 := copy(s, a[0:])            // n1 == 6, s is []int{0, 1, 2, 3, 4, 5}
+n2 := copy(s, s[2:])            // n2 == 4, s is []int{2, 3, 4, 5, 4, 5}
+n3 := copy(b, &#34;Hello, World!&#34;)  // n3 == 5, b is []byte(&#34;Hello&#34;)
+</pre>

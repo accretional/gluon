@@ -1,0 +1,327 @@
+<h3 id="Type_inference">Type inference</h3>
+
+<p>
+A use of a generic function may omit some or all type arguments if they can be
+<i>inferred</i> from the context within which the function is used, including
+the constraints of the function&#39;s type parameters.
+Type inference succeeds if it can infer the missing type arguments
+and <a href="#Instantiations">instantiation</a> succeeds with the
+inferred type arguments.
+Otherwise, type inference fails and the program is invalid.
+</p>
+
+<p>
+Type inference uses the type relationships between pairs of types for inference:
+For instance, a function argument must be <a href="#Assignability">assignable</a>
+to its respective function parameter; this establishes a relationship between the
+type of the argument and the type of the parameter.
+If either of these two types contains type parameters, type inference looks for the
+type arguments to substitute the type parameters with such that the assignability
+relationship is satisfied.
+Similarly, type inference uses the fact that a type argument must
+<a href="#Satisfying_a_type_constraint">satisfy</a> the constraint of its respective
+type parameter.
+</p>
+
+<p>
+Each such pair of matched types corresponds to a <i>type equation</i> containing
+one or multiple type parameters, from one or possibly multiple generic functions.
+Inferring the missing type arguments means solving the resulting set of type
+equations for the respective type parameters.
+</p>
+
+<p>
+For example, given
+</p>
+
+<pre>// dedup returns a copy of the argument slice with any duplicate entries removed.
+func dedup[S ~[]E, E comparable](S) S { … }
+
+type Slice []int
+var s Slice
+s = dedup(s)   // same as s = dedup[Slice, int](s)
+</pre>
+
+<p>
+the variable <code>s</code> of type <code>Slice</code> must be assignable to
+the function parameter type <code>S</code> for the program to be valid.
+To reduce complexity, type inference ignores the directionality of assignments,
+so the type relationship between <code>Slice</code> and <code>S</code> can be
+expressed via the (symmetric) type equation <code>Slice ≡<sub>A</sub> S</code>
+(or <code>S ≡<sub>A</sub> Slice</code> for that matter),
+where the <code><sub>A</sub></code> in <code>≡<sub>A</sub></code>
+indicates that the LHS and RHS types must match per assignability rules
+(see the section on <a href="#Type_unification">type unification</a> for
+details).
+Similarly, the type parameter <code>S</code> must satisfy its constraint
+<code>~[]E</code>. This can be expressed as <code>S ≡<sub>C</sub> ~[]E</code>
+where <code>X ≡<sub>C</sub> Y</code> stands for
+&#34;<code>X</code> satisfies constraint <code>Y</code>&#34;.
+These observations lead to a set of two equations
+</p>
+
+<pre>	Slice ≡<sub>A</sub> S      (1)
+	S     ≡<sub>C</sub> ~[]E   (2)
+</pre>
+
+<p>
+which now can be solved for the type parameters <code>S</code> and <code>E</code>.
+From (1) a compiler can infer that the type argument for <code>S</code> is <code>Slice</code>.
+Similarly, because the underlying type of <code>Slice</code> is <code>[]int</code>
+and <code>[]int</code> must match <code>[]E</code> of the constraint,
+a compiler can infer that <code>E</code> must be <code>int</code>.
+Thus, for these two equations, type inference infers
+</p>
+
+<pre>	S ➞ Slice
+	E ➞ int
+</pre>
+
+<p>
+Given a set of type equations, the type parameters to solve for are
+the type parameters of the functions that need to be instantiated
+and for which no explicit type arguments is provided.
+These type parameters are called <i>bound</i> type parameters.
+For instance, in the <code>dedup</code> example above, the type parameters
+<code>S</code> and <code>E</code> are bound to <code>dedup</code>.
+An argument to a generic function call may be a generic function itself.
+The type parameters of that function are included in the set of bound
+type parameters.
+The types of function arguments may contain type parameters from other
+functions (such as a generic function enclosing a function call).
+Those type parameters may also appear in type equations but they are
+not bound in that context.
+Type equations are always solved for the bound type parameters only.
+</p>
+
+<p>
+Type inference supports calls of generic functions and assignments
+of generic functions to (explicitly function-typed) variables.
+This includes passing generic functions as arguments to other
+(possibly also generic) functions, and returning generic functions
+as results.
+Type inference operates on a set of equations specific to each of
+these cases.
+The equations are as follows (type argument lists are omitted for clarity):
+</p>
+
+<ul>
+<li>
+	<p>
+	For a function call <code>f(a<sub>0</sub>, a<sub>1</sub>, …)</code> where
+	<code>f</code> or a function argument <code>a<sub>i</sub></code> is
+	a generic function:
+	<br/>
+	Each pair <code>(a<sub>i</sub>, p<sub>i</sub>)</code> of corresponding
+	function arguments and parameters where <code>a<sub>i</sub></code> is not an
+	<a href="#Constants">untyped constant</a> yields an equation
+	<code>typeof(p<sub>i</sub>) ≡<sub>A</sub> typeof(a<sub>i</sub>)</code>.
+	<br/>
+	If <code>a<sub>i</sub></code> is an untyped constant <code>c<sub>j</sub></code>,
+	and <code>typeof(p<sub>i</sub>)</code> is a bound type parameter <code>P<sub>k</sub></code>,
+	the pair <code>(c<sub>j</sub>, P<sub>k</sub>)</code> is collected separately from
+	the type equations.
+	</p>
+</li>
+<li>
+	<p>
+	For an assignment <code>v = f</code> of a generic function <code>f</code> to a
+	(non-generic) variable <code>v</code> of function type:
+	<br/>
+	<code>typeof(v) ≡<sub>A</sub> typeof(f)</code>.
+	</p>
+</li>
+<li>
+	<p>
+	For a return statement <code>return …, f, … </code> where <code>f</code> is a
+	generic function returned as a result to a (non-generic) result variable
+	<code>r</code> of function type:
+	<br/>
+	<code>typeof(r) ≡<sub>A</sub> typeof(f)</code>.
+	</p>
+</li>
+</ul>
+
+<p>
+Additionally, each type parameter <code>P<sub>k</sub></code> and corresponding type constraint
+<code>C<sub>k</sub></code> yields the type equation
+<code>P<sub>k</sub> ≡<sub>C</sub> C<sub>k</sub></code>.
+</p>
+
+<p>
+Type inference gives precedence to type information obtained from typed operands
+before considering untyped constants.
+Therefore, inference proceeds in two phases:
+</p>
+
+<ol>
+<li>
+	<p>
+	The type equations are solved for the bound
+	type parameters using <a href="#Type_unification">type unification</a>.
+	If unification fails, type inference fails.
+	</p>
+</li>
+<li>
+	<p>
+	For each bound type parameter <code>P<sub>k</sub></code> for which no type argument
+	has been inferred yet and for which one or more pairs
+	<code>(c<sub>j</sub>, P<sub>k</sub>)</code> with that same type parameter
+	were collected, determine the <a href="#Constant_expressions">constant kind</a>
+	of the constants <code>c<sub>j</sub></code> in all those pairs the same way as for
+	<a href="#Constant_expressions">constant expressions</a>.
+	The type argument for <code>P<sub>k</sub></code> is the
+	<a href="#Constants">default type</a> for the determined constant kind.
+	If a constant kind cannot be determined due to conflicting constant kinds,
+	type inference fails.
+	</p>
+</li>
+</ol>
+
+<p>
+If not all type arguments have been found after these two phases, type inference fails.
+</p>
+
+<p>
+If the two phases are successful, type inference determined a type argument for each
+bound type parameter:
+</p>
+
+<pre>	P<sub>k</sub> ➞ A<sub>k</sub>
+</pre>
+
+<p>
+A type argument <code>A<sub>k</sub></code> may be a composite type,
+containing other bound type parameters <code>P<sub>k</sub></code> as element types
+(or even be just another bound type parameter).
+In a process of repeated simplification, the bound type parameters in each type
+argument are substituted with the respective type arguments for those type
+parameters until each type argument is free of bound type parameters.
+</p>
+
+<p>
+If type arguments contain cyclic references to themselves
+through bound type parameters, simplification and thus type
+inference fails.
+Otherwise, type inference succeeds.
+</p>
+
+<h4 id="Type_unification">Type unification</h4>
+
+<p>
+Type inference solves type equations through <i>type unification</i>.
+Type unification recursively compares the LHS and RHS types of an
+equation, where either or both types may be or contain bound type parameters,
+and looks for type arguments for those type parameters such that the LHS
+and RHS match (become identical or assignment-compatible, depending on
+context).
+To that effect, type inference maintains a map of bound type parameters
+to inferred type arguments; this map is consulted and updated during type unification.
+Initially, the bound type parameters are known but the map is empty.
+During type unification, if a new type argument <code>A</code> is inferred,
+the respective mapping <code>P ➞ A</code> from type parameter to argument
+is added to the map.
+Conversely, when comparing types, a known type argument
+(a type argument for which a map entry already exists)
+takes the place of its corresponding type parameter.
+As type inference progresses, the map is populated more and more
+until all equations have been considered, or until unification fails.
+Type inference succeeds if no unification step fails and the map has
+an entry for each type parameter.
+</p>
+
+<p>
+For example, given the type equation with the bound type parameter
+<code>P</code>
+</p>
+
+<pre>	[10]struct{ elem P, list []P } ≡<sub>A</sub> [10]struct{ elem string; list []string }
+</pre>
+
+<p>
+type inference starts with an empty map.
+Unification first compares the top-level structure of the LHS and RHS
+types.
+Both are arrays of the same length; they unify if the element types unify.
+Both element types are structs; they unify if they have
+the same number of fields with the same names and if the
+field types unify.
+The type argument for <code>P</code> is not known yet (there is no map entry),
+so unifying <code>P</code> with <code>string</code> adds
+the mapping <code>P ➞ string</code> to the map.
+Unifying the types of the <code>list</code> field requires
+unifying <code>[]P</code> and <code>[]string</code> and
+thus <code>P</code> and <code>string</code>.
+Since the type argument for <code>P</code> is known at this point
+(there is a map entry for <code>P</code>), its type argument
+<code>string</code> takes the place of <code>P</code>.
+And since <code>string</code> is identical to <code>string</code>,
+this unification step succeeds as well.
+Unification of the LHS and RHS of the equation is now finished.
+Type inference succeeds because there is only one type equation,
+no unification step failed, and the map is fully populated.
+</p>
+
+<p>
+Unification uses a combination of <i>exact</i> and <i>loose</i>
+unification depending on whether two types have to be
+<a href="#Type_identity">identical</a>,
+<a href="#Assignability">assignment-compatible</a>, or
+only structurally equal.
+The respective <a href="#Type_unification_rules">type unification rules</a>
+are spelled out in detail in the <a href="#Appendix">Appendix</a>.
+</p>
+
+<p>
+For an equation of the form <code>X ≡<sub>A</sub> Y</code>,
+where <code>X</code> and <code>Y</code> are types involved
+in an assignment (including parameter passing and return statements),
+the top-level type structures may unify loosely but element types
+must unify exactly, matching the rules for assignments.
+</p>
+
+<p>
+For an equation of the form <code>P ≡<sub>C</sub> C</code>,
+where <code>P</code> is a type parameter and <code>C</code>
+its corresponding constraint, the unification rules are bit
+more complicated:
+</p>
+
+<ul>
+<li>
+	If all types in <code>C</code>&#39;s type set have the same
+	underlying type <code>U</code>,
+	and <code>P</code> has a known type argument <code>A</code>,
+	<code>U</code> and <code>A</code> must unify loosely.
+</li>
+<li>
+	Similarly, if all types in <code>C</code>&#39;s type set are
+	channel types with the same element type and non-conflicting
+	channel directions,
+	and <code>P</code> has a known type argument <code>A</code>,
+	the most restrictive channel type in <code>C</code>&#39;s type
+	set and <code>A</code> must unify loosely.
+</li>
+<li>
+	If <code>P</code> does not have a known type argument
+	and <code>C</code> contains exactly one type term <code>T</code>
+	that is not an underlying (tilde) type, unification adds the
+	mapping <code>P ➞ T</code> to the map.
+</li>
+<li>
+	If <code>C</code> does not have a type <code>U</code>
+	as described above
+	and <code>P</code> has a known type argument <code>A</code>,
+	<code>A</code> must have all methods of <code>C</code>, if any,
+	and corresponding method types must unify exactly.
+</li>
+</ul>
+
+<p>
+When solving type equations from type constraints,
+solving one equation may infer additional type arguments,
+which in turn may enable solving other equations that depend
+on those type arguments.
+Type inference repeats type unification as long as new type
+arguments are inferred.
+</p>

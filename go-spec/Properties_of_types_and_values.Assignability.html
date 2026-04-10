@@ -1,0 +1,60 @@
+<h3 id="Assignability">Assignability</h3>
+
+<p>
+A value <code>x</code> of type <code>V</code> is <i>assignable</i> to a <a href="#Variables">variable</a> of type <code>T</code>
+(&#34;<code>x</code> is assignable to <code>T</code>&#34;) if one of the following conditions applies:
+</p>
+
+<ul>
+<li>
+<code>V</code> and <code>T</code> are identical.
+</li>
+<li>
+<code>V</code> and <code>T</code> have identical
+<a href="#Underlying_types">underlying types</a>
+but are not type parameters and at least one of <code>V</code>
+or <code>T</code> is not a <a href="#Types">named type</a>.
+</li>
+<li>
+<code>V</code> and <code>T</code> are channel types with
+identical element types, <code>V</code> is a bidirectional channel,
+and at least one of <code>V</code> or <code>T</code> is not a <a href="#Types">named type</a>.
+</li>
+<li>
+<code>T</code> is an interface type, but not a type parameter, and
+<code>x</code> <a href="#Implementing_an_interface">implements</a> <code>T</code>.
+</li>
+<li>
+<code>x</code> is the predeclared identifier <code>nil</code> and <code>T</code>
+is a pointer, function, slice, map, channel, or interface type,
+but not a type parameter.
+</li>
+<li>
+<code>x</code> is an untyped <a href="#Constants">constant</a>
+<a href="#Representability">representable</a>
+by a value of type <code>T</code>.
+</li>
+</ul>
+
+<p>
+Additionally, if <code>x</code>&#39;s type <code>V</code> or <code>T</code> are type parameters, <code>x</code>
+is assignable to a variable of type <code>T</code> if one of the following conditions applies:
+</p>
+
+<ul>
+<li>
+<code>x</code> is the predeclared identifier <code>nil</code>, <code>T</code> is
+a type parameter, and <code>x</code> is assignable to each type in
+<code>T</code>&#39;s type set.
+</li>
+<li>
+<code>V</code> is not a <a href="#Types">named type</a>, <code>T</code> is
+a type parameter, and <code>x</code> is assignable to each type in
+<code>T</code>&#39;s type set.
+</li>
+<li>
+<code>V</code> is a type parameter and <code>T</code> is not a named type,
+and values of each type in <code>V</code>&#39;s type set are assignable
+to <code>T</code>.
+</li>
+</ul>

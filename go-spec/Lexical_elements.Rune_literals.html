@@ -1,0 +1,95 @@
+<h3 id="Rune_literals">Rune literals</h3>
+
+<p>
+A rune literal represents a <a href="#Constants">rune constant</a>,
+an integer value identifying a Unicode code point.
+A rune literal is expressed as one or more characters enclosed in single quotes,
+as in <code>&#39;x&#39;</code> or <code>&#39;\n&#39;</code>.
+Within the quotes, any character may appear except newline and unescaped single
+quote. A single quoted character represents the Unicode value
+of the character itself,
+while multi-character sequences beginning with a backslash encode
+values in various formats.
+</p>
+
+<p>
+The simplest form represents the single character within the quotes;
+since Go source text is Unicode characters encoded in UTF-8, multiple
+UTF-8-encoded bytes may represent a single integer value.  For
+instance, the literal <code>&#39;a&#39;</code> holds a single byte representing
+a literal <code>a</code>, Unicode U+0061, value <code>0x61</code>, while
+<code>&#39;ä&#39;</code> holds two bytes (<code>0xc3</code> <code>0xa4</code>) representing
+a literal <code>a</code>-dieresis, U+00E4, value <code>0xe4</code>.
+</p>
+
+<p>
+Several backslash escapes allow arbitrary values to be encoded as
+ASCII text.  There are four ways to represent the integer value
+as a numeric constant: <code>\x</code> followed by exactly two hexadecimal
+digits; <code>\u</code> followed by exactly four hexadecimal digits;
+<code>\U</code> followed by exactly eight hexadecimal digits, and a
+plain backslash <code>\</code> followed by exactly three octal digits.
+In each case the value of the literal is the value represented by
+the digits in the corresponding base.
+</p>
+
+<p>
+Although these representations all result in an integer, they have
+different valid ranges.  Octal escapes must represent a value between
+0 and 255 inclusive.  Hexadecimal escapes satisfy this condition
+by construction. The escapes <code>\u</code> and <code>\U</code>
+represent Unicode code points so within them some values are illegal,
+in particular those above <code>0x10FFFF</code> and surrogate halves.
+</p>
+
+<p>
+After a backslash, certain single-character escapes represent special values:
+</p>
+
+<pre class="grammar">\a   U+0007 alert or bell
+\b   U+0008 backspace
+\f   U+000C form feed
+\n   U+000A line feed or newline
+\r   U+000D carriage return
+\t   U+0009 horizontal tab
+\v   U+000B vertical tab
+\\   U+005C backslash
+\&#39;   U+0027 single quote  (valid escape only within rune literals)
+\&#34;   U+0022 double quote  (valid escape only within string literals)
+</pre>
+
+<p>
+An unrecognized character following a backslash in a rune literal is illegal.
+</p>
+
+<pre class="ebnf">rune_lit         = &#34;&#39;&#34; ( unicode_value | byte_value ) &#34;&#39;&#34; .
+unicode_value    = unicode_char | little_u_value | big_u_value | escaped_char .
+byte_value       = octal_byte_value | hex_byte_value .
+octal_byte_value = `\` octal_digit octal_digit octal_digit .
+hex_byte_value   = `\` &#34;x&#34; hex_digit hex_digit .
+little_u_value   = `\` &#34;u&#34; hex_digit hex_digit hex_digit hex_digit .
+big_u_value      = `\` &#34;U&#34; hex_digit hex_digit hex_digit hex_digit
+                           hex_digit hex_digit hex_digit hex_digit .
+escaped_char     = `\` ( &#34;a&#34; | &#34;b&#34; | &#34;f&#34; | &#34;n&#34; | &#34;r&#34; | &#34;t&#34; | &#34;v&#34; | `\` | &#34;&#39;&#34; | `&#34;` ) .
+</pre>
+
+<pre>&#39;a&#39;
+&#39;ä&#39;
+&#39;本&#39;
+&#39;\t&#39;
+&#39;\000&#39;
+&#39;\007&#39;
+&#39;\377&#39;
+&#39;\x07&#39;
+&#39;\xff&#39;
+&#39;\u12e4&#39;
+&#39;\U00101234&#39;
+&#39;\&#39;&#39;         // rune literal containing single quote character
+&#39;aa&#39;         // illegal: too many characters
+&#39;\k&#39;         // illegal: k is not recognized after a backslash
+&#39;\xa&#39;        // illegal: too few hexadecimal digits
+&#39;\0&#39;         // illegal: too few octal digits
+&#39;\400&#39;       // illegal: octal value over 255
+&#39;\uDFFF&#39;     // illegal: surrogate half
+&#39;\U00110000&#39; // illegal: invalid Unicode code point
+</pre>

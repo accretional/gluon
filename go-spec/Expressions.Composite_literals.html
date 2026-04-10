@@ -1,0 +1,232 @@
+<h3 id="Composite_literals">Composite literals</h3>
+
+<p>
+Composite literals construct new values for structs, arrays, slices, and maps
+each time they are evaluated.
+They consist of the type of the literal followed by a (possibly empty)
+brace-bound list of elements.
+Each element may optionally be preceded by a corresponding key.
+</p>
+
+<pre class="ebnf">CompositeLit = LiteralType LiteralValue .
+LiteralType  = StructType | ArrayType | &#34;[&#34; &#34;...&#34; &#34;]&#34; ElementType |
+               SliceType | MapType | TypeName [ TypeArgs ] .
+LiteralValue = &#34;{&#34; [ ElementList [ &#34;,&#34; ] ] &#34;}&#34; .
+ElementList  = KeyedElement { &#34;,&#34; KeyedElement } .
+KeyedElement = [ Key &#34;:&#34; ] Element .
+Key          = FieldName | Expression | LiteralValue .
+FieldName    = identifier .
+Element      = Expression | LiteralValue .
+</pre>
+
+<p>
+Unless the LiteralType is a type parameter,
+its <a href="#Underlying_types">underlying type</a>
+must be a struct, array, slice, or map type
+(the syntax enforces this constraint except when the type is given
+as a TypeName).
+If the LiteralType is a type parameter, all types in its type set
+must have the same underlying type which must be
+a valid composite literal type.
+</p>
+
+<p>
+The types of the elements and keys must be <a href="#Assignability">assignable</a>
+to the respective field, element, and key types of the LiteralType;
+there is no additional conversion.
+The key is interpreted as a field <a href="#Selectors">selector</a> for struct literals,
+an index for array and slice literals, and a key for map literals.
+It is an error to specify multiple elements with the same field selector
+or constant key value.
+A literal may omit the element list; such a literal evaluates
+to the zero value for its type.
+</p>
+
+<p>
+A parsing ambiguity arises when a composite literal using the
+TypeName form of the LiteralType appears as an operand between the
+<a href="#Keywords">keyword</a> and the opening brace of the block
+of an &#34;if&#34;, &#34;for&#34;, or &#34;switch&#34; statement, and the composite literal
+is not enclosed in parentheses, square brackets, or curly braces.
+In this rare case, the opening brace of the literal is erroneously parsed
+as the one introducing the block of statements. To resolve the ambiguity,
+the composite literal must appear within parentheses.
+</p>
+
+<pre>if x == (T{a,b,c}[i]) { … }
+if (x == T{a,b,c}[i]) { … }
+</pre>
+
+<h4>Struct literals</h4>
+
+<p>
+For struct literals without keys, the element list must contain an element
+for each struct field in the order in which the fields are declared.
+</p>
+
+<p>
+For struct literals with keys the following rules apply:
+</p>
+<ul>
+	<li>Every element must have a key.
+	</li>
+	<li>Each key must be a valid field <a href="#Selectors">selector</a>
+	    [<a href="#Go_1.27">Go 1.27</a>] for a (possibly promoted) field
+	    of the struct; the key selects that field.
+	</li>
+	<li>The types of the embedded fields (if any) <a href="#Selectors">traversed</a>
+	    to reach a selected field must not be pointer types.
+	</li>
+	<li>A key must not denote a promoted field inside an embedded struct if
+	    that struct is also specified by another key.
+	</li>
+	<li>The element list does not need to have an element for each struct field.
+	    Omitted fields get the zero value for that field.
+	</li>
+</ul>
+
+<p>
+Given the declarations
+</p>
+<pre>type Object  struct { name, color string }
+type Point3D struct { Object; x, y, z float64 }
+type Line    struct { Object; p, q Point3D }
+</pre>
+
+<p>
+one may write
+</p>
+
+<pre>origin := Point3D{}                                       // zero value for Point3D
+line1 := Line{Object{}, origin, Point3D{y: -4, z: 12.3}}  // zero value for line1.q.x
+line2 := Line{name: &#34;diagonal&#34;, q: Point3D{1, 1, 1}}      // zero value for line2.Object.color, line2.p
+</pre>
+
+<p>
+but field selectors may not denote overlapping fields:
+</p>
+
+<pre>obj   := Object{&#34;edge&#34;, &#34;black&#34;}
+line3 := Line{Object: obj, name: &#34;diagonal&#34;}              // invalid: name denotes a field inside Object
+</pre>
+
+<h4>Array and slice literals</h4>
+
+<p>
+For array and slice literals the following rules apply:
+</p>
+<ul>
+	<li>Each element has an associated integer index marking
+	    its position in the array.
+	</li>
+	<li>An element with a key uses the key as its index. The
+	    key must be a non-negative constant
+	    <a href="#Representability">representable</a> by
+	    a value of type <code>int</code>; and if it is typed
+	    it must be of <a href="#Numeric_types">integer type</a>.
+	</li>
+	<li>An element without a key uses the previous element&#39;s index plus one.
+	    If the first element has no key, its index is zero.
+	</li>
+</ul>
+
+<p>
+<a href="#Address_operators">Taking the address</a> of a composite literal
+generates a pointer to a unique <a href="#Variables">variable</a> initialized
+with the literal&#39;s value.
+</p>
+
+<pre>var pointer *Point3D = &amp;Point3D{y: 1000}
+</pre>
+
+<p>
+Note that the <a href="#The_zero_value">zero value</a> for a slice or map
+type is not the same as an initialized but empty value of the same type.
+Consequently, taking the address of an empty slice or map composite literal
+does not have the same effect as allocating a new slice or map value with
+<a href="#Allocation">new</a>.
+</p>
+
+<pre>p1 := &amp;[]int{}    // p1 points to an initialized, empty slice with value []int{} and length 0
+p2 := new([]int)  // p2 points to an uninitialized slice with value nil and length 0
+</pre>
+
+<p>
+The length of an array literal is the length specified in the literal type.
+If fewer elements than the length are provided in the literal, the missing
+elements are set to the zero value for the array element type.
+It is an error to provide elements with index values outside the index range
+of the array. The notation <code>...</code> specifies an array length equal
+to the maximum element index plus one.
+</p>
+
+<pre>buffer := [10]string{}             // len(buffer) == 10
+intSet := [6]int{1, 2, 3, 5}       // len(intSet) == 6
+days := [...]string{&#34;Sat&#34;, &#34;Sun&#34;}  // len(days) == 2
+</pre>
+
+<p>
+A slice literal describes the entire underlying array literal.
+Thus the length and capacity of a slice literal are the maximum
+element index plus one. A slice literal has the form
+</p>
+
+<pre>[]T{x1, x2, … xn}
+</pre>
+
+<p>
+and is shorthand for a slice operation applied to an array:
+</p>
+
+<pre>tmp := [n]T{x1, x2, … xn}
+tmp[0 : n]
+</pre>
+
+<h4>Map literals</h4>
+
+<p>
+For map literals, each element must have a key.
+For non-constant map keys, see the section on
+<a href="#Order_of_evaluation">evaluation order</a>.
+</p>
+
+<h4>Elision of element types</h4>
+
+<p>
+Within a composite literal of array, slice, or map type <code>T</code>,
+elements or map keys that are themselves composite literals may elide the respective
+literal type if it is identical to the element or key type of <code>T</code>.
+Similarly, elements or keys that are addresses of composite literals may elide
+the <code>&amp;T</code> when the element or key type is <code>*T</code>.
+</p>
+
+<pre>[...]Point{{1.5, -3.5}, {0, 0}}     // same as [...]Point{Point{1.5, -3.5}, Point{0, 0}}
+[][]int{{1, 2, 3}, {4, 5}}          // same as [][]int{[]int{1, 2, 3}, []int{4, 5}}
+[][]Point{{{0, 1}, {1, 2}}}         // same as [][]Point{[]Point{Point{0, 1}, Point{1, 2}}}
+map[string]Point{&#34;orig&#34;: {0, 0}}    // same as map[string]Point{&#34;orig&#34;: Point{0, 0}}
+map[Point]string{{0, 0}: &#34;orig&#34;}    // same as map[Point]string{Point{0, 0}: &#34;orig&#34;}
+
+type PPoint *Point
+[2]*Point{{1.5, -3.5}, {}}          // same as [2]*Point{&amp;Point{1.5, -3.5}, &amp;Point{}}
+[2]PPoint{{1.5, -3.5}, {}}          // same as [2]PPoint{PPoint(&amp;Point{1.5, -3.5}), PPoint(&amp;Point{})}
+</pre>
+
+<p>
+Examples of valid array, slice, and map literals:
+</p>
+
+<pre>// list of prime numbers
+primes := []int{2, 3, 5, 7, 9, 2147483647}
+
+// vowels[ch] is true if ch is a vowel
+vowels := [128]bool{&#39;a&#39;: true, &#39;e&#39;: true, &#39;i&#39;: true, &#39;o&#39;: true, &#39;u&#39;: true, &#39;y&#39;: true}
+
+// the array [10]float32{-1, 0, 0, 0, -0.1, -0.1, 0, 0, 0, -1}
+filter := [10]float32{-1, 4: -0.1, -0.1, 9: -1}
+
+// frequencies in Hz for equal-tempered scale (A4 = 440Hz)
+noteFrequency := map[string]float32{
+	&#34;C0&#34;: 16.35, &#34;D0&#34;: 18.35, &#34;E0&#34;: 20.60, &#34;F0&#34;: 21.83,
+	&#34;G0&#34;: 24.50, &#34;A0&#34;: 27.50, &#34;B0&#34;: 30.87,
+}
+</pre>

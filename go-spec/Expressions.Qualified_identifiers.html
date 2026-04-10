@@ -1,0 +1,20 @@
+<h3 id="Qualified_identifiers">Qualified identifiers</h3>
+
+<p>
+A <i>qualified identifier</i> is an identifier qualified with a package name prefix.
+Both the package name and the identifier must not be
+<a href="#Blank_identifier">blank</a>.
+</p>
+
+<pre class="ebnf">QualifiedIdent = PackageName &#34;.&#34; identifier .
+</pre>
+
+<p>
+A qualified identifier accesses an identifier in a different package, which
+must be <a href="#Import_declarations">imported</a>.
+The identifier must be <a href="#Exported_identifiers">exported</a> and
+declared in the <a href="#Blocks">package block</a> of that package.
+</p>
+
+<pre>math.Sin // denotes the Sin function in package math
+</pre>

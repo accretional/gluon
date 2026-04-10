@@ -1,0 +1,44 @@
+<h3 id="An_example_package">An example package</h3>
+
+<p>
+Here is a complete Go package that implements a concurrent prime sieve.
+</p>
+
+<pre>package main
+
+import &#34;fmt&#34;
+
+// Send the sequence 2, 3, 4, … to channel &#39;ch&#39;.
+func generate(ch chan&lt;- int) {
+	for i := 2; ; i++ {
+		ch &lt;- i  // Send &#39;i&#39; to channel &#39;ch&#39;.
+	}
+}
+
+// Copy the values from channel &#39;src&#39; to channel &#39;dst&#39;,
+// removing those divisible by &#39;prime&#39;.
+func filter(src &lt;-chan int, dst chan&lt;- int, prime int) {
+	for i := range src {  // Loop over values received from &#39;src&#39;.
+		if i%prime != 0 {
+			dst &lt;- i  // Send &#39;i&#39; to channel &#39;dst&#39;.
+		}
+	}
+}
+
+// The prime sieve: Daisy-chain filter processes together.
+func sieve() {
+	ch := make(chan int)  // Create a new channel.
+	go generate(ch)       // Start generate() as a subprocess.
+	for {
+		prime := &lt;-ch
+		fmt.Print(prime, &#34;\n&#34;)
+		ch1 := make(chan int)
+		go filter(ch, ch1, prime)
+		ch = ch1
+	}
+}
+
+func main() {
+	sieve()
+}
+</pre>

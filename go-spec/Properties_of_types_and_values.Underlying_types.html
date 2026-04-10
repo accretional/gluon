@@ -1,0 +1,33 @@
+<h3 id="Underlying_types">Underlying types</h3>
+
+<p>
+Each type <code>T</code> has an <i>underlying type</i>: If <code>T</code>
+is one of the predeclared boolean, numeric, or string types, or a type literal,
+the corresponding underlying type is <code>T</code> itself.
+Otherwise, <code>T</code>&#39;s underlying type is the underlying type of the
+type to which <code>T</code> refers in its declaration.
+For a type parameter that is the underlying type of its
+<a href="#Type_constraints">type constraint</a>, which is always an interface.
+</p>
+
+<pre>type (
+	A1 = string
+	A2 = A1
+)
+
+type (
+	B1 string
+	B2 B1
+	B3 []B1
+	B4 B3
+)
+
+func f[P any](x P) { … }
+</pre>
+
+<p>
+The underlying type of <code>string</code>, <code>A1</code>, <code>A2</code>, <code>B1</code>,
+and <code>B2</code> is <code>string</code>.
+The underlying type of <code>[]B1</code>, <code>B3</code>, and <code>B4</code> is <code>[]B1</code>.
+The underlying type of <code>P</code> is <code>interface{}</code>.
+</p>

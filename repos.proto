@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package gluon;
+
+option go_package = "github.com/accretional/gluon/pb";
+
+// GithubRepo identifies a repository on GitHub.
+message GithubRepo {
+  string owner = 1;
+  string name = 2;
+}
+
+// Repo identifies a source code repository from any supported host.
+message Repo {
+  oneof source {
+    GithubRepo gh = 1;
+  }
+}
+
+// RepoList is a collection of repositories.
+message RepoList {
+  repeated Repo repos = 1;
+}

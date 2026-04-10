@@ -1,0 +1,50 @@
+<h3 id="Goto_statements">Goto statements</h3>
+
+<p>
+A &#34;goto&#34; statement transfers control to the statement with the corresponding label
+within the same function.
+</p>
+
+<pre class="ebnf">GotoStmt = &#34;goto&#34; Label .
+</pre>
+
+<pre>goto Error
+</pre>
+
+<p>
+Executing the &#34;goto&#34; statement must not cause any variables to come into
+<a href="#Declarations_and_scope">scope</a> that were not already in scope at the point of the goto.
+For instance, this example:
+</p>
+
+<pre>	goto L  // BAD
+	v := 3
+L:
+</pre>
+
+<p>
+is erroneous because the jump to label <code>L</code> skips
+the creation of <code>v</code>.
+</p>
+
+<p>
+A &#34;goto&#34; statement outside a <a href="#Blocks">block</a> cannot jump to a label inside that block.
+For instance, this example:
+</p>
+
+<pre>if n%2 == 1 {
+	goto L1
+}
+for n &gt; 0 {
+	f()
+	n--
+L1:
+	f()
+	n--
+}
+</pre>
+
+<p>
+is erroneous because the label <code>L1</code> is inside
+the &#34;for&#34; statement&#39;s block but the <code>goto</code> is not.
+</p>

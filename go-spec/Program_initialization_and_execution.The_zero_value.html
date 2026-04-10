@@ -1,0 +1,45 @@
+<h3 id="The_zero_value">The zero value</h3>
+<p>
+When storage is allocated for a <a href="#Variables">variable</a>,
+either through a declaration or a call of <code>new</code>, or when
+a new value is created, either through a composite literal or a call
+of <code>make</code>,
+and no explicit initialization is provided, the variable or value is
+given a default value.  Each element of such a variable or value is
+set to the <i>zero value</i> for its type: <code>false</code> for booleans,
+<code>0</code> for numeric types, <code>&#34;&#34;</code>
+for strings, and <code>nil</code> for pointers, functions, interfaces, slices, channels, and maps.
+This initialization is done recursively, so for instance each element of an
+array of structs will have its fields zeroed if no value is specified.
+</p>
+<p>
+These two simple declarations are equivalent:
+</p>
+
+<pre>var i int
+var i int = 0
+</pre>
+
+<p>
+After
+</p>
+
+<pre>type T struct { i int; f float64; next *T }
+t := new(T)
+</pre>
+
+<p>
+the following holds:
+</p>
+
+<pre>t.i == 0
+t.f == 0.0
+t.next == nil
+</pre>
+
+<p>
+The same would also be true after
+</p>
+
+<pre>var t T
+</pre>

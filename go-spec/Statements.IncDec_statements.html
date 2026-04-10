@@ -1,0 +1,21 @@
+<h3 id="IncDec_statements">IncDec statements</h3>
+
+<p>
+The &#34;++&#34; and &#34;--&#34; statements increment or decrement their operands
+by the untyped <a href="#Constants">constant</a> <code>1</code>.
+As with an assignment, the operand must be <a href="#Address_operators">addressable</a>
+or a map index expression.
+</p>
+
+<pre class="ebnf">IncDecStmt = Expression ( &#34;++&#34; | &#34;--&#34; ) .
+</pre>
+
+<p>
+The following <a href="#Assignment_statements">assignment statements</a> are semantically
+equivalent:
+</p>
+
+<pre class="grammar">IncDec statement    Assignment
+x++                 x += 1
+x--                 x -= 1
+</pre>

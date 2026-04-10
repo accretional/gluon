@@ -1,0 +1,29 @@
+<h3 id="Program_initialization">Program initialization</h3>
+
+<p>
+The packages of a complete program are initialized stepwise, one package at a time.
+If a package has imports, the imported packages are initialized
+before initializing the package itself. If multiple packages import
+a package, the imported package will be initialized only once.
+The importing of packages, by construction, guarantees that there
+can be no cyclic initialization dependencies.
+More precisely:
+</p>
+
+<p>
+Given the list of all packages, sorted by import path, in each step the first
+uninitialized package in the list for which all imported packages (if any) are
+already initialized is <a href="#Package_initialization">initialized</a>.
+This step is repeated until all packages are initialized.
+</p>
+
+<p>
+Package initialization—variable initialization and the invocation of
+<code>init</code> functions—happens in a single goroutine,
+sequentially, one package at a time.
+An <code>init</code> function may launch other goroutines, which can run
+concurrently with the initialization code. However, initialization
+always sequences
+the <code>init</code> functions: it will not invoke the next one
+until the previous one has returned.
+</p>

@@ -1,0 +1,71 @@
+<h3 id="Handling_panics">Handling panics</h3>
+
+<p> Two built-in functions, <code>panic</code> and <code>recover</code>,
+assist in reporting and handling <a href="#Run_time_panics">run-time panics</a>
+and program-defined error conditions.
+</p>
+
+<pre class="grammar">func panic(interface{})
+func recover() interface{}
+</pre>
+
+<p>
+While executing a function <code>F</code>,
+an explicit call to <code>panic</code> or a <a href="#Run_time_panics">run-time panic</a>
+terminates the execution of <code>F</code>.
+Any functions <a href="#Defer_statements">deferred</a> by <code>F</code>
+are then executed as usual.
+Next, any deferred functions run by <code>F</code>&#39;s caller are run,
+and so on up to any deferred by the top-level function in the executing goroutine.
+At that point, the program is terminated and the error
+condition is reported, including the value of the argument to <code>panic</code>.
+This termination sequence is called <i>panicking</i>.
+</p>
+
+<pre>panic(42)
+panic(&#34;unreachable&#34;)
+panic(Error(&#34;cannot parse&#34;))
+</pre>
+
+<p>
+The <code>recover</code> function allows a program to manage behavior
+of a panicking goroutine.
+Suppose a function <code>G</code> defers a function <code>D</code> that calls
+<code>recover</code> and a panic occurs in a function on the same goroutine in which <code>G</code>
+is executing.
+When the running of deferred functions reaches <code>D</code>,
+the return value of <code>D</code>&#39;s call to <code>recover</code> will be the value passed to the call of <code>panic</code>.
+If <code>D</code> returns normally, without starting a new
+<code>panic</code>, the panicking sequence stops. In that case,
+the state of functions called between <code>G</code> and the call to <code>panic</code>
+is discarded, and normal execution resumes.
+Any functions deferred by <code>G</code> before <code>D</code> are then run and <code>G</code>&#39;s
+execution terminates by returning to its caller.
+</p>
+
+<p>
+The return value of <code>recover</code> is <code>nil</code> when the
+goroutine is not panicking or <code>recover</code> was not called directly by a deferred function.
+Conversely, if a goroutine is panicking and <code>recover</code> was called directly by a deferred function,
+the return value of <code>recover</code> is guaranteed not to be <code>nil</code>.
+To ensure this, calling <code>panic</code> with a <code>nil</code> interface value (or an untyped <code>nil</code>)
+causes a <a href="#Run_time_panics">run-time panic</a>.
+</p>
+
+<p>
+The <code>protect</code> function in the example below invokes
+the function argument <code>g</code> and protects callers from
+run-time panics caused by <code>g</code>.
+</p>
+
+<pre>func protect(g func()) {
+	defer func() {
+		log.Println(&#34;done&#34;)  // Println executes normally even if there is a panic
+		if x := recover(); x != nil {
+			log.Printf(&#34;run time panic: %v&#34;, x)
+		}
+	}()
+	log.Println(&#34;start&#34;)
+	g()
+}
+</pre>

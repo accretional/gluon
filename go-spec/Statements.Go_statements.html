@@ -1,0 +1,33 @@
+<h3 id="Go_statements">Go statements</h3>
+
+<p>
+A &#34;go&#34; statement starts the execution of a function call
+as an independent concurrent thread of control, or <i>goroutine</i>,
+within the same address space.
+</p>
+
+<pre class="ebnf">GoStmt = &#34;go&#34; Expression .
+</pre>
+
+<p>
+The expression must be a function or method call; it cannot be parenthesized.
+Calls of built-in functions are restricted as for
+<a href="#Expression_statements">expression statements</a>.
+</p>
+
+<p>
+The function value and parameters are
+<a href="#Calls">evaluated as usual</a>
+in the calling goroutine, but
+unlike with a regular call, program execution does not wait
+for the invoked function to complete.
+Instead, the function begins executing independently
+in a new goroutine.
+When the function terminates, its goroutine also terminates.
+If the function has any return values, they are discarded when the
+function completes.
+</p>
+
+<pre>go Server()
+go func(ch chan&lt;- bool) { for { sleep(10); ch &lt;- true }} (c)
+</pre>

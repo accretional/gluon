@@ -1,0 +1,26 @@
+<h3 id="Expression_statements">Expression statements</h3>
+
+<p>
+With the exception of specific built-in functions,
+function and method <a href="#Calls">calls</a> and
+<a href="#Receive_operator">receive operations</a>
+can appear in statement context. Such statements may be parenthesized.
+</p>
+
+<pre class="ebnf">ExpressionStmt = Expression .
+</pre>
+
+<p>
+The following built-in functions are not permitted in statement context:
+</p>
+
+<pre>append cap complex imag len make max min new real
+unsafe.Add unsafe.Alignof unsafe.Offsetof unsafe.Sizeof unsafe.Slice unsafe.SliceData unsafe.String unsafe.StringData
+</pre>
+
+<pre>h(x+y)
+f.Close()
+&lt;-ch
+(&lt;-ch)
+len(&#34;foo&#34;)  // illegal if len is the built-in function
+</pre>

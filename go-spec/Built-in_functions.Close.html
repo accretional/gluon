@@ -1,0 +1,21 @@
+<h3 id="Close">Close</h3>
+
+<p>
+For a channel <code>ch</code>, the built-in function <code>close(ch)</code>
+records that no more values will be sent on the channel.
+It is an error if <code>ch</code> is a receive-only channel.
+Sending to or closing a closed channel causes a <a href="#Run_time_panics">run-time panic</a>.
+Closing the nil channel also causes a <a href="#Run_time_panics">run-time panic</a>.
+After calling <code>close</code>, and after any previously
+sent values have been received, receive operations will return
+the zero value for the channel&#39;s type without blocking.
+The multi-valued <a href="#Receive_operator">receive operation</a>
+returns a received value along with an indication of whether the channel is closed.
+</p>
+
+<p>
+If the type of the argument to <code>close</code> is a
+<a href="#Type_parameter_declarations">type parameter</a>,
+all types in its type set must be channels.
+It is an error if any of those channels is a receive-only channel.
+</p>

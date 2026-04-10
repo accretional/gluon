@@ -1,0 +1,33 @@
+<h3 id="Send_statements">Send statements</h3>
+
+<p>
+A send statement sends a value on a channel.
+The channel expression must be of <a href="#Channel_types">channel type</a>,
+the channel direction must permit send operations,
+and the type of the value to be sent must be <a href="#Assignability">assignable</a>
+to the channel&#39;s element type.
+</p>
+
+<pre class="ebnf">SendStmt = Channel &#34;&lt;-&#34; Expression .
+Channel  = Expression .
+</pre>
+
+<p>
+Both the channel and the value expression are evaluated before communication
+begins. Communication blocks until the send can proceed.
+A send on an unbuffered channel can proceed if a receiver is ready.
+A send on a buffered channel can proceed if there is room in the buffer.
+A send on a closed channel proceeds by causing a <a href="#Run_time_panics">run-time panic</a>.
+A send on a <code>nil</code> channel blocks forever.
+</p>
+
+<pre>ch &lt;- 3  // send value 3 to channel ch
+</pre>
+
+<p>
+If the type of the channel expression is a
+<a href="#Type_parameter_declarations">type parameter</a>,
+all types in its type set must be channel types that permit send operations,
+they must all have the same element type,
+and the type of the value to be sent must be assignable to that element type.
+</p>

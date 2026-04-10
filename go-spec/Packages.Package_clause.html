@@ -1,0 +1,22 @@
+<h3 id="Package_clause">Package clause</h3>
+
+<p>
+A package clause begins each source file and defines the package
+to which the file belongs.
+</p>
+
+<pre class="ebnf">PackageClause = &#34;package&#34; PackageName .
+PackageName   = identifier .
+</pre>
+
+<p>
+The PackageName must not be the <a href="#Blank_identifier">blank identifier</a>.
+</p>
+
+<pre>package math
+</pre>
+
+<p>
+A set of files sharing the same PackageName form the implementation of a package.
+An implementation may require that all source files for a package inhabit the same directory.
+</p>

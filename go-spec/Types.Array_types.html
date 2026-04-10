@@ -1,0 +1,54 @@
+<h3 id="Array_types">Array types</h3>
+
+<p>
+An array is a numbered sequence of elements of a single
+type, called the element type.
+The number of elements is called the length of the array and is never negative.
+</p>
+
+<pre class="ebnf">ArrayType   = &#34;[&#34; ArrayLength &#34;]&#34; ElementType .
+ArrayLength = Expression .
+ElementType = Type .
+</pre>
+
+<p>
+The length is part of the array&#39;s type; it must evaluate to a
+non-negative <a href="#Constants">constant</a>
+<a href="#Representability">representable</a> by a value
+of type <code>int</code>.
+The length of array <code>a</code> can be discovered
+using the built-in function <a href="#Length_and_capacity"><code>len</code></a>.
+The elements can be addressed by integer <a href="#Index_expressions">indices</a>
+0 through <code>len(a)-1</code>.
+Array types are always one-dimensional but may be composed to form
+multi-dimensional types.
+</p>
+
+<pre>[32]byte
+[2*N] struct { x, y int32 }
+[1000]*float64
+[3][5]int
+[2][2][2]float64  // same as [2]([2]([2]float64))
+</pre>
+
+<p>
+An array type <code>T</code> may not have an element of type <code>T</code>,
+or of a type containing <code>T</code> as a component, directly or indirectly,
+if those containing types are only array or struct types.
+</p>
+
+<pre>// invalid array types
+type (
+	T1 [10]T1                 // element type of T1 is T1
+	T2 [10]struct{ f T2 }     // T2 contains T2 as component of a struct
+	T3 [10]T4                 // T3 contains T3 as component of a struct in T4
+	T4 struct{ f T3 }         // T4 contains T4 as component of array T3 in a struct
+)
+
+// valid array types
+type (
+	T5 [10]*T5                // T5 contains T5 as component of a pointer
+	T6 [10]func() T6          // T6 contains T6 as component of a function type
+	T7 [10]struct{ f []T7 }   // T7 contains T7 as component of a slice in a struct
+)
+</pre>

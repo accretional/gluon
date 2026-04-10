@@ -1,0 +1,128 @@
+<h3 id="Index_expressions">Index expressions</h3>
+
+<p>
+A primary expression of the form
+</p>
+
+<pre>a[x]
+</pre>
+
+<p>
+denotes the element of the array, pointer to array, slice, string or map <code>a</code> indexed by <code>x</code>.
+The value <code>x</code> is called the <i>index</i> or <i>map key</i>, respectively.
+The following rules apply:
+</p>
+
+<p>
+If <code>a</code> is neither a map nor a <a href="#Type_parameter_declarations">type parameter</a>:
+</p>
+<ul>
+	<li>the index <code>x</code> must be an untyped constant, or its type must be
+	    an <a href="#Numeric_types">integer</a> or a type parameter whose type set
+	    contains only integer types</li>
+	<li>a constant index must be non-negative and
+	    <a href="#Representability">representable</a> by a value of type <code>int</code></li>
+	<li>a constant index that is untyped is given type <code>int</code></li>
+	<li>the index <code>x</code> is <i>in range</i> if <code>0 &lt;= x &lt; len(a)</code>,
+	    otherwise it is <i>out of range</i></li>
+</ul>
+
+<p>
+For <code>a</code> of <a href="#Array_types">array type</a> <code>A</code>:
+</p>
+<ul>
+	<li>a <a href="#Constants">constant</a> index must be in range</li>
+	<li>if <code>x</code> is out of range at run time,
+	    a <a href="#Run_time_panics">run-time panic</a> occurs</li>
+	<li><code>a[x]</code> is the array element at index <code>x</code> and the type of
+	    <code>a[x]</code> is the element type of <code>A</code></li>
+</ul>
+
+<p>
+For <code>a</code> of <a href="#Pointer_types">pointer</a> to array type:
+</p>
+<ul>
+	<li><code>a[x]</code> is shorthand for <code>(*a)[x]</code></li>
+</ul>
+
+<p>
+For <code>a</code> of <a href="#Slice_types">slice type</a> <code>S</code>:
+</p>
+<ul>
+	<li>if <code>x</code> is out of range at run time,
+	    a <a href="#Run_time_panics">run-time panic</a> occurs</li>
+	<li><code>a[x]</code> is the slice element at index <code>x</code> and the type of
+	    <code>a[x]</code> is the element type of <code>S</code></li>
+</ul>
+
+<p>
+For <code>a</code> of <a href="#String_types">string type</a>:
+</p>
+<ul>
+	<li>a <a href="#Constants">constant</a> index must be in range
+	    if the string <code>a</code> is also constant</li>
+	<li>if <code>x</code> is out of range at run time,
+	    a <a href="#Run_time_panics">run-time panic</a> occurs</li>
+	<li><code>a[x]</code> is the non-constant byte value at index <code>x</code> and the type of
+	    <code>a[x]</code> is <code>byte</code></li>
+	<li><code>a[x]</code> may not be assigned to</li>
+</ul>
+
+<p>
+For <code>a</code> of <a href="#Map_types">map type</a> <code>M</code>:
+</p>
+<ul>
+	<li><code>x</code>&#39;s type must be
+	    <a href="#Assignability">assignable</a>
+	    to the key type of <code>M</code></li>
+	<li>if the map contains an entry with key <code>x</code>,
+	    <code>a[x]</code> is the map element with key <code>x</code>
+	    and the type of <code>a[x]</code> is the element type of <code>M</code></li>
+	<li>if the map is <code>nil</code> or does not contain such an entry,
+	    <code>a[x]</code> is the <a href="#The_zero_value">zero value</a>
+	    for the element type of <code>M</code></li>
+</ul>
+
+<p>
+For <code>a</code> of <a href="#Type_parameter_declarations">type parameter type</a> <code>P</code>:
+</p>
+<ul>
+	<li>The index expression <code>a[x]</code> must be valid for values
+	    of all types in <code>P</code>&#39;s type set.</li>
+	<li>The element types of all types in <code>P</code>&#39;s type set must be identical.
+	    In this context, the element type of a string type is <code>byte</code>.</li>
+	<li>If there is a map type in the type set of <code>P</code>,
+	    all types in that type set must be map types, and the respective key types
+	    must be all identical.</li>
+	<li><code>a[x]</code> is the array, slice, or string element at index <code>x</code>,
+	    or the map element with key <code>x</code> of the type argument
+	    that <code>P</code> is instantiated with, and the type of <code>a[x]</code> is
+	    the type of the (identical) element types.</li>
+	<li><code>a[x]</code> may not be assigned to if <code>P</code>&#39;s type set
+	    includes string types.</li>
+</ul>
+
+<p>
+Otherwise <code>a[x]</code> is illegal.
+</p>
+
+<p>
+An index expression on a map <code>a</code> of type <code>map[K]V</code>
+used in an <a href="#Assignment_statements">assignment statement</a> or initialization of the special form
+</p>
+
+<pre>v, ok = a[x]
+v, ok := a[x]
+var v, ok = a[x]
+</pre>
+
+<p>
+yields an additional untyped boolean value. The value of <code>ok</code> is
+<code>true</code> if the key <code>x</code> is present in the map, and
+<code>false</code> otherwise.
+</p>
+
+<p>
+Assigning to an element of a <code>nil</code> map causes a
+<a href="#Run_time_panics">run-time panic</a>.
+</p>

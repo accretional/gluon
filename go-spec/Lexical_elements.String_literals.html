@@ -1,0 +1,75 @@
+<h3 id="String_literals">String literals</h3>
+
+<p>
+A string literal represents a <a href="#Constants">string constant</a>
+obtained from concatenating a sequence of characters. There are two forms:
+raw string literals and interpreted string literals.
+</p>
+
+<p>
+Raw string literals are character sequences between back quotes, as in
+<code>`foo`</code>.  Within the quotes, any character may appear except
+back quote. The value of a raw string literal is the
+string composed of the uninterpreted (implicitly UTF-8-encoded) characters
+between the quotes;
+in particular, backslashes have no special meaning and the string may
+contain newlines.
+Carriage return characters (&#39;\r&#39;) inside raw string literals
+are discarded from the raw string value.
+</p>
+
+<p>
+Interpreted string literals are character sequences between double
+quotes, as in <code>&#34;bar&#34;</code>.
+Within the quotes, any character may appear except newline and unescaped double quote.
+The text between the quotes forms the
+value of the literal, with backslash escapes interpreted as they
+are in <a href="#Rune_literals">rune literals</a> (except that <code>\&#39;</code> is illegal and
+<code>\&#34;</code> is legal), with the same restrictions.
+The three-digit octal (<code>\</code><i>nnn</i>)
+and two-digit hexadecimal (<code>\x</code><i>nn</i>) escapes represent individual
+<i>bytes</i> of the resulting string; all other escapes represent
+the (possibly multi-byte) UTF-8 encoding of individual <i>characters</i>.
+Thus inside a string literal <code>\377</code> and <code>\xFF</code> represent
+a single byte of value <code>0xFF</code>=255, while <code>ÿ</code>,
+<code>\u00FF</code>, <code>\U000000FF</code> and <code>\xc3\xbf</code> represent
+the two bytes <code>0xc3</code> <code>0xbf</code> of the UTF-8 encoding of character
+U+00FF.
+</p>
+
+<pre class="ebnf">string_lit             = raw_string_lit | interpreted_string_lit .
+raw_string_lit         = &#34;`&#34; { unicode_char | newline } &#34;`&#34; .
+interpreted_string_lit = `&#34;` { unicode_value | byte_value } `&#34;` .
+</pre>
+
+<pre>`abc`                // same as &#34;abc&#34;
+`\n
+\n`                  // same as &#34;\\n\n\\n&#34;
+&#34;\n&#34;
+&#34;\&#34;&#34;                 // same as `&#34;`
+&#34;Hello, world!\n&#34;
+&#34;日本語&#34;
+&#34;\u65e5本\U00008a9e&#34;
+&#34;\xff\u00FF&#34;
+&#34;\uD800&#34;             // illegal: surrogate half
+&#34;\U00110000&#34;         // illegal: invalid Unicode code point
+</pre>
+
+<p>
+These examples all represent the same string:
+</p>
+
+<pre>&#34;日本語&#34;                                 // UTF-8 input text
+`日本語`                                 // UTF-8 input text as a raw literal
+&#34;\u65e5\u672c\u8a9e&#34;                    // the explicit Unicode code points
+&#34;\U000065e5\U0000672c\U00008a9e&#34;        // the explicit Unicode code points
+&#34;\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e&#34;  // the explicit UTF-8 bytes
+</pre>
+
+<p>
+If the source code represents a character as two code points, such as
+a combining form involving an accent and a letter, the result will be
+an error if placed in a rune literal (it is not a single code
+point), and will appear as two code points if placed in a string
+literal.
+</p>

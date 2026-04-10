@@ -1,0 +1,127 @@
+// Protocol Buffers version 3 grammar in EBNF.
+//
+// Proto's EBNF notation (as used at protobuf.dev/reference/protobuf/proto3-spec/):
+//   =   definition
+//       concatenation is implicit (juxtaposition)
+//   |   alternation
+//   [ ] optional (0 or 1)
+//   { } repetition (0 or more)
+//   ( ) grouping
+//   " " or ' ' terminal strings
+//   // comments
+//
+// NOTE: The official spec uses no explicit termination character — productions
+// end implicitly at the next production name. We add ';' terminators here so
+// lexkit can parse it with a standard LexDescriptor. We also use '...' (three
+// dots, matching the spec) for character ranges.
+//
+// Source: Protocol Buffers Language Specification (proto3)
+// https://protobuf.dev/reference/protobuf/proto3-spec/
+
+// Lexical elements — Letters and Digits
+letter = "A" ... "Z" | "a" ... "z" ;
+decimalDigit = "0" ... "9" ;
+octalDigit = "0" ... "7" ;
+hexDigit = "0" ... "9" | "A" ... "F" | "a" ... "f" ;
+
+// Identifiers
+ident = letter { letter | decimalDigit | "_" } ;
+fullIdent = ident { "." ident } ;
+messageName = ident ;
+enumName = ident ;
+fieldName = ident ;
+oneofName = ident ;
+mapName = ident ;
+serviceName = ident ;
+rpcName = ident ;
+messageType = [ "." ] { ident "." } messageName ;
+enumType = [ "." ] { ident "." } enumName ;
+
+// Integer Literals
+intLit = decimalLit | octalLit | hexLit ;
+decimalLit = [ "-" ] ( "1" ... "9" ) { decimalDigit } ;
+octalLit = [ "-" ] "0" { octalDigit } ;
+hexLit = [ "-" ] "0" ( "x" | "X" ) hexDigit { hexDigit } ;
+
+// Floating-point Literals
+floatLit = [ "-" ] ( decimals "." [ decimals ] [ exponent ] | decimals exponent | "." decimals [ exponent ] ) | "inf" | "nan" ;
+decimals = [ "-" ] decimalDigit { decimalDigit } ;
+exponent = ( "e" | "E" ) [ "+" | "-" ] decimals ;
+
+// Boolean
+boolLit = "true" | "false" ;
+
+// String Literals
+strLit = strLitSingle { strLitSingle } ;
+strLitSingle = ( "'" { charValue } "'" ) | ( '"' { charValue } '"' ) ;
+charValue = hexEscape | octEscape | charEscape | unicodeEscape | unicodeLongEscape ;
+hexEscape = "\" ( "x" | "X" ) hexDigit [ hexDigit ] ;
+octEscape = "\" octalDigit [ octalDigit [ octalDigit ] ] ;
+charEscape = "\" ( "a" | "b" | "f" | "n" | "r" | "t" | "v" | "\" | "'" | '"' ) ;
+unicodeEscape = "\" "u" hexDigit hexDigit hexDigit hexDigit ;
+unicodeLongEscape = "\" "U" ( "000" hexDigit hexDigit hexDigit hexDigit hexDigit | "0010" hexDigit hexDigit hexDigit hexDigit ) ;
+
+// Empty Statement
+emptyStatement = ";" ;
+
+// Constant
+constant = fullIdent | ( [ "-" | "+" ] intLit ) | ( [ "-" | "+" ] floatLit ) | strLit | boolLit | MessageValue ;
+
+// Syntax
+syntax = "syntax" "=" ( "'" "proto3" "'" | '"' "proto3" '"' ) ";" ;
+
+// Import Statement
+import = "import" [ "weak" | "public" ] strLit ";" ;
+
+// Package
+package = "package" fullIdent ";" ;
+
+// Option
+option = "option" optionName "=" constant ";" ;
+optionName = ( ident | bracedFullIdent ) { "." ( ident | bracedFullIdent ) } ;
+bracedFullIdent = "(" [ "." ] fullIdent ")" ;
+
+// Fields
+type = "double" | "float" | "int32" | "int64" | "uint32" | "uint64"
+     | "sint32" | "sint64" | "fixed32" | "fixed64" | "sfixed32" | "sfixed64"
+     | "bool" | "string" | "bytes" | messageType | enumType ;
+fieldNumber = intLit ;
+
+// Normal Field
+field = [ "repeated" | "optional" ] type fieldName "=" fieldNumber [ "[" fieldOptions "]" ] ";" ;
+fieldOptions = fieldOption { "," fieldOption } ;
+fieldOption = optionName "=" constant ;
+
+// Oneof and Oneof Field
+oneof = "oneof" oneofName "{" { option | oneofField } "}" ;
+oneofField = type fieldName "=" fieldNumber [ "[" fieldOptions "]" ] ";" ;
+
+// Map Field
+mapField = "map" "<" keyType "," type ">" mapName "=" fieldNumber [ "[" fieldOptions "]" ] ";" ;
+keyType = "int32" | "int64" | "uint32" | "uint64" | "sint32" | "sint64"
+        | "fixed32" | "fixed64" | "sfixed32" | "sfixed64" | "bool" | "string" ;
+
+// Reserved
+reserved = "reserved" ( ranges | strFieldNames ) ";" ;
+ranges = range { "," range } ;
+range = intLit [ "to" ( intLit | "max" ) ] ;
+strFieldNames = strFieldName { "," strFieldName } ;
+strFieldName = "'" fieldName "'" | '"' fieldName '"' ;
+
+// Enum Definition
+enum = "enum" enumName enumBody ;
+enumBody = "{" { option | enumField | emptyStatement | reserved } "}" ;
+enumField = ident "=" [ "-" ] intLit [ "[" enumValueOption { "," enumValueOption } "]" ] ";" ;
+enumValueOption = optionName "=" constant ;
+
+// Message Definition
+message = "message" messageName messageBody ;
+messageBody = "{" { field | enum | message | option | oneof | mapField | reserved | emptyStatement } "}" ;
+
+// Service Definition
+service = "service" serviceName "{" { option | rpc | emptyStatement } "}" ;
+rpc = "rpc" rpcName "(" [ "stream" ] messageType ")" "returns" "(" [ "stream" ] messageType ")" ( ( "{" { option | emptyStatement } "}" ) | ";" ) ;
+
+// Proto File
+proto = [ syntax ] { import | package | option | topLevelDef | emptyStatement } ;
+topLevelDef = message | enum | service ;

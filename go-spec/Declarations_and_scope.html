@@ -1,0 +1,80 @@
+<h2 id="Declarations_and_scope">Declarations and scope</h2>
+
+<p>
+A <i>declaration</i> binds a non-<a href="#Blank_identifier">blank</a> identifier to a
+<a href="#Constant_declarations">constant</a>,
+<a href="#Type_declarations">type</a>,
+<a href="#Type_parameter_declarations">type parameter</a>,
+<a href="#Variable_declarations">variable</a>,
+<a href="#Function_declarations">function</a>,
+<a href="#Labeled_statements">label</a>, or
+<a href="#Import_declarations">package</a>.
+Every identifier in a program must be declared.
+No identifier may be declared twice in the same block, and
+no identifier may be declared in both the file and package block.
+</p>
+
+<p>
+The <a href="#Blank_identifier">blank identifier</a> may be used like any other identifier
+in a declaration, but it does not introduce a binding and thus is not declared.
+In the package block, the identifier <code>init</code> may only be used for
+<a href="#Package_initialization"><code>init</code> function</a> declarations,
+and like the blank identifier it does not introduce a new binding.
+</p>
+
+<pre class="ebnf">Declaration  = ConstDecl | TypeDecl | VarDecl .
+TopLevelDecl = Declaration | FunctionDecl | MethodDecl .
+</pre>
+
+<p>
+The <i>scope</i> of a declared identifier is the extent of source text in which
+the identifier denotes the specified constant, type, variable, function, label, or package.
+</p>
+
+<p>
+Go is lexically scoped using <a href="#Blocks">blocks</a>:
+</p>
+
+<ol>
+	<li>The scope of a <a href="#Predeclared_identifiers">predeclared identifier</a> is the universe block.</li>
+
+	<li>The scope of an identifier denoting a constant, type, variable,
+	    or function (but not method) declared at top level (outside any
+	    function) is the package block.</li>
+
+	<li>The scope of the package name of an imported package is the file block
+	    of the file containing the import declaration.</li>
+
+	<li>The scope of an identifier denoting a method receiver, function parameter,
+	    or result variable is the function body.</li>
+
+	<li>The scope of an identifier denoting a type parameter of a function
+	    or declared by a method receiver begins after the name of the function
+	    and ends at the end of the function body.</li>
+
+	<li>The scope of an identifier denoting a type parameter of a type
+	    begins after the name of the type and ends at the end
+	    of the TypeSpec.</li>
+
+	<li>The scope of a constant or variable identifier declared
+	    inside a function begins at the end of the ConstSpec or VarSpec
+	    (ShortVarDecl for short variable declarations)
+	    and ends at the end of the innermost containing block.</li>
+
+	<li>The scope of a type identifier declared inside a function
+	    begins at the identifier in the TypeSpec
+	    and ends at the end of the innermost containing block.</li>
+</ol>
+
+<p>
+An identifier declared in a block may be redeclared in an inner block.
+While the identifier of the inner declaration is in scope, it denotes
+the entity declared by the inner declaration.
+</p>
+
+<p>
+The <a href="#Package_clause">package clause</a> is not a declaration; the package name
+does not appear in any scope. Its purpose is to identify the files belonging
+to the same <a href="#Packages">package</a> and to specify the default package name for import
+declarations.
+</p>

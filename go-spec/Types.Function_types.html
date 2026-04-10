@@ -1,0 +1,44 @@
+<h3 id="Function_types">Function types</h3>
+
+<p>
+A function type denotes the set of all functions with the same parameter and result types.
+The <a href="#Representation_of_values">value</a> of an uninitialized variable of function
+type is <code>nil</code>.
+</p>
+
+<pre class="ebnf">FunctionType  = &#34;func&#34; Signature .
+Signature     = Parameters [ Result ] .
+Result        = Parameters | Type .
+Parameters    = &#34;(&#34; [ ParameterList [ &#34;,&#34; ] ] &#34;)&#34; .
+ParameterList = ParameterDecl { &#34;,&#34; ParameterDecl } .
+ParameterDecl = [ IdentifierList ] [ &#34;...&#34; ] Type .
+</pre>
+
+<p>
+Within a list of parameters or results, the names (IdentifierList)
+must either all be present or all be absent. If present, each name
+stands for one item (parameter or result) of the specified type and
+all non-<a href="#Blank_identifier">blank</a> names in the signature
+must be <a href="#Uniqueness_of_identifiers">unique</a>.
+If absent, each type stands for one item of that type.
+Parameter and result
+lists are always parenthesized except that if there is exactly
+one unnamed result it may be written as an unparenthesized type.
+</p>
+
+<p>
+The final incoming parameter in a function signature may have
+a type prefixed with <code>...</code>.
+A function with such a parameter is called <i>variadic</i> and
+may be invoked with zero or more arguments for that parameter.
+</p>
+
+<pre>func()
+func(x int) int
+func(a, _ int, z float32) bool
+func(a, b int, z float32) (bool)
+func(prefix string, values ...int)
+func(a, b int, z float64, opt ...interface{}) (success bool)
+func(int, int, float64) (float64, *[]int)
+func(n int) func(p *T)
+</pre>

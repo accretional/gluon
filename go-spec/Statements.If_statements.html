@@ -1,0 +1,30 @@
+<h3 id="If_statements">If statements</h3>
+
+<p>
+&#34;If&#34; statements specify the conditional execution of two branches
+according to the value of a boolean expression.  If the expression
+evaluates to true, the &#34;if&#34; branch is executed, otherwise, if
+present, the &#34;else&#34; branch is executed.
+</p>
+
+<pre class="ebnf">IfStmt = &#34;if&#34; [ SimpleStmt &#34;;&#34; ] Expression Block [ &#34;else&#34; ( IfStmt | Block ) ] .
+</pre>
+
+<pre>if x &gt; max {
+	x = max
+}
+</pre>
+
+<p>
+The expression may be preceded by a simple statement, which
+executes before the expression is evaluated.
+</p>
+
+<pre>if x := f(); x &lt; y {
+	return x
+} else if x &gt; z {
+	return z
+} else {
+	return y
+}
+</pre>

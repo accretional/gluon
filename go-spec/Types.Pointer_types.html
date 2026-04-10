@@ -1,0 +1,15 @@
+<h3 id="Pointer_types">Pointer types</h3>
+
+<p>
+A pointer type denotes the set of all pointers to <a href="#Variables">variables</a> of a given
+type, called the <i>base type</i> of the pointer.
+The <a href="#Representation_of_values">value</a> of an uninitialized pointer is <code>nil</code>.
+</p>
+
+<pre class="ebnf">PointerType = &#34;*&#34; BaseType .
+BaseType    = Type .
+</pre>
+
+<pre>*Point
+*[4]int
+</pre>

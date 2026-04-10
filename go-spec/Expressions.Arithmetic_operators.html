@@ -1,0 +1,199 @@
+<h3 id="Arithmetic_operators">Arithmetic operators</h3>
+<p>
+Arithmetic operators apply to numeric values and yield a result of the same
+type as the first operand. The four standard arithmetic operators (<code>+</code>,
+<code>-</code>, <code>*</code>, <code>/</code>) apply to
+<a href="#Numeric_types">integer</a>, <a href="#Numeric_types">floating-point</a>, and
+<a href="#Numeric_types">complex</a> types; <code>+</code> also applies to <a href="#String_types">strings</a>.
+The bitwise logical and shift operators apply to integers only.
+</p>
+
+<pre class="grammar">+    sum                    integers, floats, complex values, strings
+-    difference             integers, floats, complex values
+*    product                integers, floats, complex values
+/    quotient               integers, floats, complex values
+%    remainder              integers
+
+&amp;    bitwise AND            integers
+|    bitwise OR             integers
+^    bitwise XOR            integers
+&amp;^   bit clear (AND NOT)    integers
+
+&lt;&lt;   left shift             integer &lt;&lt; integer &gt;= 0
+&gt;&gt;   right shift            integer &gt;&gt; integer &gt;= 0
+</pre>
+
+<p>
+If the operand type is a <a href="#Type_parameter_declarations">type parameter</a>,
+the operator must apply to each type in that type set.
+The operands are represented as values of the type argument that the type parameter
+is <a href="#Instantiations">instantiated</a> with, and the operation is computed
+with the precision of that type argument. For example, given the function:
+</p>
+
+<pre>func dotProduct[F ~float32|~float64](v1, v2 []F) F {
+	var s F
+	for i, x := range v1 {
+		y := v2[i]
+		s += x * y
+	}
+	return s
+}
+</pre>
+
+<p>
+the product <code>x * y</code> and the addition <code>s += x * y</code>
+are computed with <code>float32</code> or <code>float64</code> precision,
+respectively, depending on the type argument for <code>F</code>.
+</p>
+
+<h4 id="Integer_operators">Integer operators</h4>
+
+<p>
+For two integer values <code>x</code> and <code>y</code>, the integer quotient
+<code>q = x / y</code> and remainder <code>r = x % y</code> satisfy the following
+relationships:
+</p>
+
+<pre>x = q*y + r  and  |r| &lt; |y|
+</pre>
+
+<p>
+with <code>x / y</code> truncated towards zero
+(<a href="https://en.wikipedia.org/wiki/Modulo_operation">&#34;truncated division&#34;</a>).
+</p>
+
+<pre> x     y     x / y     x % y
+ 5     3       1         2
+-5     3      -1        -2
+ 5    -3      -1         2
+-5    -3       1        -2
+</pre>
+
+<p>
+The one exception to this rule is that if the dividend <code>x</code> is
+the most negative value for the int type of <code>x</code>, the quotient
+<code>q = x / -1</code> is equal to <code>x</code> (and <code>r = 0</code>)
+due to two&#39;s-complement <a href="#Integer_overflow">integer overflow</a>:
+</p>
+
+<pre>                         x, q
+int8                     -128
+int16                  -32768
+int32             -2147483648
+int64    -9223372036854775808
+</pre>
+
+<p>
+If the divisor is a <a href="#Constants">constant</a>, it must not be zero.
+If the divisor is zero at run time, a <a href="#Run_time_panics">run-time panic</a> occurs.
+If the dividend is non-negative and the divisor is a constant power of 2,
+the division may be replaced by a right shift, and computing the remainder may
+be replaced by a bitwise AND operation:
+</p>
+
+<pre> x     x / 4     x % 4     x &gt;&gt; 2     x &amp; 3
+ 11      2         3         2          3
+-11     -2        -3        -3          1
+</pre>
+
+<p>
+The shift operators shift the left operand by the shift count specified by the
+right operand, which must be non-negative. If the shift count is negative at run time,
+a <a href="#Run_time_panics">run-time panic</a> occurs.
+The shift operators implement arithmetic shifts if the left operand is a signed
+integer and logical shifts if it is an unsigned integer.
+There is no upper limit on the shift count. Shifts behave
+as if the left operand is shifted <code>n</code> times by 1 for a shift
+count of <code>n</code>.
+As a result, <code>x &lt;&lt; 1</code> is the same as <code>x*2</code>
+and <code>x &gt;&gt; 1</code> is the same as
+<code>x/2</code> but truncated towards negative infinity.
+</p>
+
+<p>
+For integer operands, the unary operators
+<code>+</code>, <code>-</code>, and <code>^</code> are defined as
+follows:
+</p>
+
+<pre class="grammar">+x                          is 0 + x
+-x    negation              is 0 - x
+^x    bitwise complement    is m ^ x  with m = &#34;all bits set to 1&#34; for unsigned x
+                                      and  m = -1 for signed x
+</pre>
+
+
+<h4 id="Integer_overflow">Integer overflow</h4>
+
+<p>
+For <a href="#Numeric_types">unsigned integer</a> values, the operations <code>+</code>,
+<code>-</code>, <code>*</code>, and <code>&lt;&lt;</code> are
+computed modulo 2<sup><i>n</i></sup>, where <i>n</i> is the bit width of
+the unsigned integer&#39;s type.
+Loosely speaking, these unsigned integer operations
+discard high bits upon overflow, and programs may rely on &#34;wrap around&#34;.
+</p>
+
+<p>
+For signed integers, the operations <code>+</code>,
+<code>-</code>, <code>*</code>, <code>/</code>, and <code>&lt;&lt;</code> may legally
+overflow and the resulting value exists and is deterministically defined
+by the signed integer representation, the operation, and its operands.
+Overflow does not cause a <a href="#Run_time_panics">run-time panic</a>.
+A compiler may not optimize code under the assumption that overflow does
+not occur. For instance, it may not assume that <code>x &lt; x + 1</code> is always true.
+</p>
+
+<h4 id="Floating_point_operators">Floating-point operators</h4>
+
+<p>
+For floating-point and complex numbers,
+<code>+x</code> is the same as <code>x</code>,
+while <code>-x</code> is the negation of <code>x</code>.
+The result of a floating-point or complex division by zero is not specified beyond the
+IEEE 754 standard; whether a <a href="#Run_time_panics">run-time panic</a>
+occurs is implementation-specific.
+</p>
+
+<p>
+An implementation may combine multiple floating-point operations into a single
+fused operation, possibly across statements, and produce a result that differs
+from the value obtained by executing and rounding the instructions individually.
+An explicit <a href="#Numeric_types">floating-point type</a> <a href="#Conversions">conversion</a> rounds to
+the precision of the target type, preventing fusion that would discard that rounding.
+</p>
+
+<p>
+For instance, some architectures provide a &#34;fused multiply and add&#34; (FMA) instruction
+that computes <code>x*y + z</code> without rounding the intermediate result <code>x*y</code>.
+These examples show when a Go implementation can use that instruction:
+</p>
+
+<pre>// FMA allowed for computing r, because x*y is not explicitly rounded:
+r  = x*y + z
+r  = z;   r += x*y
+t  = x*y; r = t + z
+*p = x*y; r = *p + z
+r  = x*y + float64(z)
+
+// FMA disallowed for computing r, because it would omit rounding of x*y:
+r  = float64(x*y) + z
+r  = z; r += float64(x*y)
+t  = float64(x*y); r = t + z
+</pre>
+
+<h4 id="String_concatenation">String concatenation</h4>
+
+<p>
+Strings can be concatenated using the <code>+</code> operator
+or the <code>+=</code> assignment operator:
+</p>
+
+<pre>s := &#34;hi&#34; + string(c)
+s += &#34; and good bye&#34;
+</pre>
+
+<p>
+String addition creates a new string by concatenating the operands.
+</p>

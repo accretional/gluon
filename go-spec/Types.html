@@ -1,0 +1,34 @@
+<h2 id="Types">Types</h2>
+
+<p>
+A type determines a set of values together with operations and methods specific
+to those values. A type may be denoted by a <i>type name</i>, if it has one, which must be
+followed by <a href="#Instantiations">type arguments</a> if the type is generic.
+A type may also be specified using a <i>type literal</i>, which composes a type
+from existing types.
+</p>
+
+<pre class="ebnf">Type     = TypeName [ TypeArgs ] | TypeLit | &#34;(&#34; Type &#34;)&#34; .
+TypeName = identifier | QualifiedIdent .
+TypeArgs = &#34;[&#34; TypeList [ &#34;,&#34; ] &#34;]&#34; .
+TypeList = Type { &#34;,&#34; Type } .
+TypeLit  = ArrayType | StructType | PointerType | FunctionType | InterfaceType |
+           SliceType | MapType | ChannelType .
+</pre>
+
+<p>
+The language <a href="#Predeclared_identifiers">predeclares</a> certain type names.
+Others are introduced with <a href="#Type_declarations">type declarations</a>
+or <a href="#Type_parameter_declarations">type parameter lists</a>.
+<i>Composite types</i>—array, struct, pointer, function,
+interface, slice, map, and channel types—may be constructed using
+type literals.
+</p>
+
+<p>
+<a href="#Predeclared_identifiers">Predeclared</a> types (excluding <code>any</code>),
+<a href="#Type_definitions">defined types</a>, and
+<a href="#Type_parameter_declarations">type parameters</a> are called <i>named types</i>.
+An <a href="#Alias_declarations">alias</a> denotes a named type if the type given in the alias declaration is a named type.
+All named types are <a href="#Type_identity">distinct</a>.
+</p>

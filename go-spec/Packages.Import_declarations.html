@@ -1,0 +1,74 @@
+<h3 id="Import_declarations">Import declarations</h3>
+
+<p>
+An import declaration states that the source file containing the declaration
+depends on functionality of the <i>imported</i> package
+(<a href="#Program_initialization_and_execution">§Program initialization and execution</a>)
+and enables access to <a href="#Exported_identifiers">exported</a> identifiers
+of that package.
+The import names an identifier (PackageName) to be used for access and an ImportPath
+that specifies the package to be imported.
+</p>
+
+<pre class="ebnf">ImportDecl = &#34;import&#34; ( ImportSpec | &#34;(&#34; { ImportSpec &#34;;&#34; } &#34;)&#34; ) .
+ImportSpec = [ &#34;.&#34; | PackageName ] ImportPath .
+ImportPath = string_lit .
+</pre>
+
+<p>
+The PackageName is used in <a href="#Qualified_identifiers">qualified identifiers</a>
+to access exported identifiers of the package within the importing source file.
+It is declared in the <a href="#Blocks">file block</a>.
+If the PackageName is omitted, it defaults to the identifier specified in the
+<a href="#Package_clause">package clause</a> of the imported package.
+If an explicit period (<code>.</code>) appears instead of a name, all the
+package&#39;s exported identifiers declared in that package&#39;s
+<a href="#Blocks">package block</a> will be declared in the importing source
+file&#39;s file block and must be accessed without a qualifier.
+</p>
+
+<p>
+The interpretation of the ImportPath is implementation-dependent but
+it is typically a substring of the full file name of the compiled
+package and may be relative to a repository of installed packages.
+</p>
+
+<p>
+Implementation restriction: A compiler may restrict ImportPaths to
+non-empty strings using only characters belonging to
+<a href="https://www.unicode.org/versions/Unicode6.3.0/">Unicode&#39;s</a>
+L, M, N, P, and S general categories (the Graphic characters without
+spaces) and may also exclude the characters
+<code>!&#34;#$%&amp;&#39;()*,:;&lt;=&gt;?[\]^`{|}</code>
+and the Unicode replacement character U+FFFD.
+</p>
+
+<p>
+Consider a compiled a package containing the package clause
+<code>package math</code>, which exports function <code>Sin</code>, and
+installed the compiled package in the file identified by
+<code>&#34;lib/math&#34;</code>.
+This table illustrates how <code>Sin</code> is accessed in files
+that import the package after the
+various types of import declaration.
+</p>
+
+<pre class="grammar">Import declaration          Local name of Sin
+
+import   &#34;lib/math&#34;         math.Sin
+import m &#34;lib/math&#34;         m.Sin
+import . &#34;lib/math&#34;         Sin
+</pre>
+
+<p>
+An import declaration declares a dependency relation between
+the importing and imported package.
+It is illegal for a package to import itself, directly or indirectly,
+or to directly import a package without
+referring to any of its exported identifiers. To import a package solely for
+its side-effects (initialization), use the <a href="#Blank_identifier">blank</a>
+identifier as explicit package name:
+</p>
+
+<pre>import _ &#34;lib/math&#34;
+</pre>

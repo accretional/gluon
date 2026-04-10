@@ -1,0 +1,168 @@
+<h3 id="Type_declarations">Type declarations</h3>
+
+<p>
+A type declaration binds an identifier, the <i>type name</i>, to a <a href="#Types">type</a>.
+Type declarations come in two forms: alias declarations and type definitions.
+</p>
+
+<pre class="ebnf">TypeDecl = &#34;type&#34; ( TypeSpec | &#34;(&#34; { TypeSpec &#34;;&#34; } &#34;)&#34; ) .
+TypeSpec = AliasDecl | TypeDef .
+</pre>
+
+<h4 id="Alias_declarations">Alias declarations</h4>
+
+<p>
+An alias declaration binds an identifier to the given type
+[<a href="#Go_1.9">Go 1.9</a>].
+</p>
+
+<pre class="ebnf">AliasDecl = identifier [ TypeParameters ] &#34;=&#34; Type .
+</pre>
+
+<p>
+Within the <a href="#Declarations_and_scope">scope</a> of
+the identifier, it serves as an <i>alias</i> for the given type.
+</p>
+
+<pre>type (
+	nodeList = []*Node  // nodeList and []*Node are identical types
+	Polar    = polar    // Polar and polar denote identical types
+)
+</pre>
+
+<p>
+If the alias declaration specifies <a href="#Type_parameter_declarations">type parameters</a>
+[<a href="#Go_1.24">Go 1.24</a>], the type name denotes a <i>generic alias</i>.
+Generic aliases must be <a href="#Instantiations">instantiated</a> when they
+are used.
+</p>
+
+<pre>type set[P comparable] = map[P]bool
+</pre>
+
+<p>
+In an alias declaration the given type cannot be a type parameter declared in the same declaration.
+</p>
+
+<pre>type A[P any] = P   // illegal: P is a type parameter declared in the declaration of A
+
+func f[P any]() {
+	type A = P  // ok: T is a type parameter declared by the enclosing function
+}
+</pre>
+
+<h4 id="Type_definitions">Type definitions</h4>
+
+<p>
+A type definition creates a new, distinct type with the same
+<a href="#Underlying_types">underlying type</a> and operations as the given type
+and binds an identifier, the <i>type name</i>, to it.
+</p>
+
+<pre class="ebnf">TypeDef = identifier [ TypeParameters ] Type .
+</pre>
+
+<p>
+The new type is called a <i>defined type</i>.
+It is <a href="#Type_identity">different</a> from any other type,
+including the type it is created from.
+</p>
+
+<pre>type (
+	Point struct{ x, y float64 }  // Point and struct{ x, y float64 } are different types
+	polar Point                   // polar and Point denote different types
+)
+
+type TreeNode struct {
+	left, right *TreeNode
+	value any
+}
+
+type Block interface {
+	BlockSize() int
+	Encrypt(src, dst []byte)
+	Decrypt(src, dst []byte)
+}
+</pre>
+
+<p>
+A defined type may have <a href="#Method_declarations">methods</a> associated with it.
+It does not inherit any methods bound to the given type,
+but the <a href="#Method_sets">method set</a>
+of an interface type or of elements of a composite type remains unchanged:
+</p>
+
+<pre>// A Mutex is a data type with two methods, Lock and Unlock.
+type Mutex struct         { /* Mutex fields */ }
+func (m *Mutex) Lock()    { /* Lock implementation */ }
+func (m *Mutex) Unlock()  { /* Unlock implementation */ }
+
+// NewMutex has the same composition as Mutex but its method set is empty.
+type NewMutex Mutex
+
+// The method set of PtrMutex&#39;s underlying type *Mutex remains unchanged,
+// but the method set of PtrMutex is empty.
+type PtrMutex *Mutex
+
+// The method set of *PrintableMutex contains the methods
+// Lock and Unlock bound to its embedded field Mutex.
+type PrintableMutex struct {
+	Mutex
+}
+
+// MyBlock is an interface type that has the same method set as Block.
+type MyBlock Block
+</pre>
+
+<p>
+Type definitions may be used to define different boolean, numeric,
+or string types and associate methods with them:
+</p>
+
+<pre>type TimeZone int
+
+const (
+	EST TimeZone = -(5 + iota)
+	CST
+	MST
+	PST
+)
+
+func (tz TimeZone) String() string {
+	return fmt.Sprintf(&#34;GMT%+dh&#34;, tz)
+}
+</pre>
+
+<p>
+If the type definition specifies <a href="#Type_parameter_declarations">type parameters</a>,
+the type name denotes a <i>generic type</i>.
+Generic types must be <a href="#Instantiations">instantiated</a> when they
+are used.
+</p>
+
+<pre>type List[T any] struct {
+	next  *List[T]
+	value T
+}
+</pre>
+
+<p>
+In a type definition the given type cannot be a type parameter.
+</p>
+
+<pre>type T[P any] P    // illegal: P is a type parameter
+
+func f[P any]() {
+	type L P   // illegal: P is a type parameter declared by the enclosing function
+}
+</pre>
+
+<p>
+A generic type may also have <a href="#Method_declarations">methods</a> associated with it.
+In this case, the method receivers must declare the same number of type parameters as
+present in the generic type definition.
+</p>
+
+<pre>// The method Len returns the number of elements in the linked list l.
+func (l *List[T]) Len() int  { … }
+</pre>

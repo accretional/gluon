@@ -1,0 +1,60 @@
+<h3 id="Min_and_max">Min and max</h3>
+
+<p>
+The built-in functions <code>min</code> and <code>max</code> compute the
+smallest—or largest, respectively—value of a fixed number of
+arguments of <a href="#Comparison_operators">ordered types</a>.
+There must be at least one argument
+[<a href="#Go_1.21">Go 1.21</a>].
+</p>
+
+<p>
+The same type rules as for <a href="#Operators">operators</a> apply:
+for <a href="#Comparison_operators">ordered</a> arguments <code>x</code> and
+<code>y</code>, <code>min(x, y)</code> is valid if <code>x + y</code> is valid,
+and the type of <code>min(x, y)</code> is the type of <code>x + y</code>
+(and similarly for <code>max</code>).
+If all arguments are constant, the result is constant.
+</p>
+
+<pre>var x, y int
+m := min(x)                 // m == x
+m := min(x, y)              // m is the smaller of x and y
+m := max(x, y, 10)          // m is the larger of x and y but at least 10
+c := max(1, 2.0, 10)        // c == 10.0 (floating-point kind)
+f := max(0, float32(x))     // type of f is float32
+var s []string
+_ = min(s...)               // invalid: slice arguments are not permitted
+t := max(&#34;&#34;, &#34;foo&#34;, &#34;bar&#34;)  // t == &#34;foo&#34; (string kind)
+</pre>
+
+<p>
+For numeric arguments, assuming all NaNs are equal, <code>min</code> and <code>max</code> are
+commutative and associative:
+</p>
+
+<pre>min(x, y)    == min(y, x)
+min(x, y, z) == min(min(x, y), z) == min(x, min(y, z))
+</pre>
+
+<p>
+For floating-point arguments negative zero, NaN, and infinity the following rules apply:
+</p>
+
+<pre>   x        y    min(x, y)    max(x, y)
+
+  -0.0    0.0         -0.0          0.0    // negative zero is smaller than (non-negative) zero
+  -Inf      y         -Inf            y    // negative infinity is smaller than any other number
+  +Inf      y            y         +Inf    // positive infinity is larger than any other number
+   NaN      y          NaN          NaN    // if any argument is a NaN, the result is a NaN
+</pre>
+
+<p>
+For string arguments the result for <code>min</code> is the first argument
+with the smallest (or for <code>max</code>, largest) value,
+compared lexically byte-wise:
+</p>
+
+<pre>min(x, y)    == if x &lt;= y then x else y
+min(x, y, z) == min(min(x, y), z)
+</pre>

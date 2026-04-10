@@ -1,0 +1,105 @@
+<h3 id="Select_statements">Select statements</h3>
+
+<p>
+A &#34;select&#34; statement chooses which of a set of possible
+<a href="#Send_statements">send</a> or
+<a href="#Receive_operator">receive</a>
+operations will proceed.
+It looks similar to a
+<a href="#Switch_statements">&#34;switch&#34;</a> statement but with the
+cases all referring to communication operations.
+</p>
+
+<pre class="ebnf">SelectStmt = &#34;select&#34; &#34;{&#34; { CommClause } &#34;}&#34; .
+CommClause = CommCase &#34;:&#34; StatementList .
+CommCase   = &#34;case&#34; ( SendStmt | RecvStmt ) | &#34;default&#34; .
+RecvStmt   = [ ExpressionList &#34;=&#34; | IdentifierList &#34;:=&#34; ] RecvExpr .
+RecvExpr   = Expression .
+</pre>
+
+<p>
+A case with a RecvStmt may assign the result of a RecvExpr to one or
+two variables, which may be declared using a
+<a href="#Short_variable_declarations">short variable declaration</a>.
+The RecvExpr must be a (possibly parenthesized) receive operation.
+There can be at most one default case and it may appear anywhere
+in the list of cases.
+</p>
+
+<p>
+Execution of a &#34;select&#34; statement proceeds in several steps:
+</p>
+
+<ol>
+<li>
+For all the cases in the statement, the channel operands of receive operations
+and the channel and right-hand-side expressions of send statements are
+evaluated exactly once, in source order, upon entering the &#34;select&#34; statement.
+The result is a set of channels to receive from or send to,
+and the corresponding values to send.
+Any side effects in that evaluation will occur irrespective of which (if any)
+communication operation is selected to proceed.
+Expressions on the left-hand side of a RecvStmt with a short variable declaration
+or assignment are not yet evaluated.
+</li>
+
+<li>
+If one or more of the communications can proceed,
+a single one that can proceed is chosen via a uniform pseudo-random selection.
+Otherwise, if there is a default case, that case is chosen.
+If there is no default case, the &#34;select&#34; statement blocks until
+at least one of the communications can proceed.
+</li>
+
+<li>
+Unless the selected case is the default case, the respective communication
+operation is executed.
+</li>
+
+<li>
+If the selected case is a RecvStmt with a short variable declaration or
+an assignment, the left-hand side expressions are evaluated and the
+received value (or values) are assigned.
+</li>
+
+<li>
+The statement list of the selected case is executed.
+</li>
+</ol>
+
+<p>
+Since communication on <code>nil</code> channels can never proceed,
+a select with only <code>nil</code> channels and no default case blocks forever.
+</p>
+
+<pre>var a []int
+var c, c1, c2, c3, c4 chan int
+var i1, i2 int
+select {
+case i1 = &lt;-c1:
+	print(&#34;received &#34;, i1, &#34; from c1\n&#34;)
+case c2 &lt;- i2:
+	print(&#34;sent &#34;, i2, &#34; to c2\n&#34;)
+case i3, ok := (&lt;-c3):  // same as: i3, ok := &lt;-c3
+	if ok {
+		print(&#34;received &#34;, i3, &#34; from c3\n&#34;)
+	} else {
+		print(&#34;c3 is closed\n&#34;)
+	}
+case a[f()] = &lt;-c4:
+	// same as:
+	// case t := &lt;-c4
+	//	a[f()] = t
+default:
+	print(&#34;no communication\n&#34;)
+}
+
+for {  // send random sequence of bits to c
+	select {
+	case c &lt;- 0:  // note: no statement, no fallthrough, no folding of cases
+	case c &lt;- 1:
+	}
+}
+
+select {}  // block forever
+</pre>

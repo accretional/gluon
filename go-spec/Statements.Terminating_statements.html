@@ -1,0 +1,79 @@
+<h3 id="Terminating_statements">Terminating statements</h3>
+
+<p>
+A <i>terminating statement</i> interrupts the regular flow of control in
+a <a href="#Blocks">block</a>. The following statements are terminating:
+</p>
+
+<ol>
+<li>
+	A <a href="#Return_statements">&#34;return&#34;</a> or
+    	<a href="#Goto_statements">&#34;goto&#34;</a> statement.
+	<!-- ul below only for regular layout -->
+	<ul> </ul>
+</li>
+
+<li>
+	A call to the built-in function
+	<a href="#Handling_panics"><code>panic</code></a>.
+	<!-- ul below only for regular layout -->
+	<ul> </ul>
+</li>
+
+<li>
+	A <a href="#Blocks">block</a> in which the statement list ends in a terminating statement.
+	<!-- ul below only for regular layout -->
+	<ul> </ul>
+</li>
+
+<li>
+	An <a href="#If_statements">&#34;if&#34; statement</a> in which:
+	<ul>
+	<li>the &#34;else&#34; branch is present, and</li>
+	<li>both branches are terminating statements.</li>
+	</ul>
+</li>
+
+<li>
+	A <a href="#For_statements">&#34;for&#34; statement</a> in which:
+	<ul>
+	<li>there are no &#34;break&#34; statements referring to the &#34;for&#34; statement, and</li>
+	<li>the loop condition is absent, and</li>
+	<li>the &#34;for&#34; statement does not use a range clause.</li>
+	</ul>
+</li>
+
+<li>
+	A <a href="#Switch_statements">&#34;switch&#34; statement</a> in which:
+	<ul>
+	<li>there are no &#34;break&#34; statements referring to the &#34;switch&#34; statement,</li>
+	<li>there is a default case, and</li>
+	<li>the statement lists in each case, including the default, end in a terminating
+	    statement, or a possibly labeled <a href="#Fallthrough_statements">&#34;fallthrough&#34;
+	    statement</a>.</li>
+	</ul>
+</li>
+
+<li>
+	A <a href="#Select_statements">&#34;select&#34; statement</a> in which:
+	<ul>
+	<li>there are no &#34;break&#34; statements referring to the &#34;select&#34; statement, and</li>
+	<li>the statement lists in each case, including the default if present,
+	    end in a terminating statement.</li>
+	</ul>
+</li>
+
+<li>
+	A <a href="#Labeled_statements">labeled statement</a> labeling
+	a terminating statement.
+</li>
+</ol>
+
+<p>
+All other statements are not terminating.
+</p>
+
+<p>
+A <a href="#Blocks">statement list</a> ends in a terminating statement if the list
+is not empty and its final non-empty statement is terminating.
+</p>

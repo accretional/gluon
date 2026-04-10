@@ -1,0 +1,74 @@
+<h3 id="Floating-point_literals">Floating-point literals</h3>
+
+<p>
+A floating-point literal is a decimal or hexadecimal representation of a
+<a href="#Constants">floating-point constant</a>.
+</p>
+
+<p>
+A decimal floating-point literal consists of an integer part (decimal digits),
+a decimal point, a fractional part (decimal digits), and an exponent part
+(<code>e</code> or <code>E</code> followed by an optional sign and decimal digits).
+One of the integer part or the fractional part may be elided; one of the decimal point
+or the exponent part may be elided.
+An exponent value exp scales the mantissa (integer and fractional part) by 10<sup>exp</sup>.
+</p>
+
+<p>
+A hexadecimal floating-point literal consists of a <code>0x</code> or <code>0X</code>
+prefix, an integer part (hexadecimal digits), a radix point, a fractional part (hexadecimal digits),
+and an exponent part (<code>p</code> or <code>P</code> followed by an optional sign and decimal digits).
+One of the integer part or the fractional part may be elided; the radix point may be elided as well,
+but the exponent part is required. (This syntax matches the one given in IEEE 754-2008 §5.12.3.)
+An exponent value exp scales the mantissa (integer and fractional part) by 2<sup>exp</sup>
+[<a href="#Go_1.13">Go 1.13</a>].
+</p>
+
+<p>
+For readability, an underscore character <code>_</code> may appear after
+a base prefix or between successive digits; such underscores do not change
+the literal value.
+</p>
+
+<pre class="ebnf">float_lit         = decimal_float_lit | hex_float_lit .
+
+decimal_float_lit = decimal_digits &#34;.&#34; [ decimal_digits ] [ decimal_exponent ] |
+                    decimal_digits decimal_exponent |
+                    &#34;.&#34; decimal_digits [ decimal_exponent ] .
+decimal_exponent  = ( &#34;e&#34; | &#34;E&#34; ) [ &#34;+&#34; | &#34;-&#34; ] decimal_digits .
+
+hex_float_lit     = &#34;0&#34; ( &#34;x&#34; | &#34;X&#34; ) hex_mantissa hex_exponent .
+hex_mantissa      = [ &#34;_&#34; ] hex_digits &#34;.&#34; [ hex_digits ] |
+                    [ &#34;_&#34; ] hex_digits |
+                    &#34;.&#34; hex_digits .
+hex_exponent      = ( &#34;p&#34; | &#34;P&#34; ) [ &#34;+&#34; | &#34;-&#34; ] decimal_digits .
+</pre>
+
+<pre>0.
+72.40
+072.40       // == 72.40
+2.71828
+1.e+0
+6.67428e-11
+1E6
+.25
+.12345E+5
+1_5.         // == 15.0
+0.15e+0_2    // == 15.0
+
+0x1p-2       // == 0.25
+0x2.p10      // == 2048.0
+0x1.Fp+0     // == 1.9375
+0X.8p-0      // == 0.5
+0X_1FFFP-16  // == 0.1249847412109375
+0x15e-2      // == 0x15e - 2 (integer subtraction)
+
+0x.p1        // invalid: mantissa has no digits
+1p-2         // invalid: p exponent requires hexadecimal mantissa
+0x1.5e-2     // invalid: hexadecimal mantissa requires p exponent
+1_.5         // invalid: _ must separate successive digits
+1._5         // invalid: _ must separate successive digits
+1.5_e1       // invalid: _ must separate successive digits
+1.5e_1       // invalid: _ must separate successive digits
+1.5e1_       // invalid: _ must separate successive digits
+</pre>

@@ -1,0 +1,352 @@
+<h3 id="Interface_types">Interface types</h3>
+
+<p>
+An interface type defines a <i>type set</i>.
+A variable of interface type can store a value of any type that is in the type
+set of the interface. Such a type is said to
+<a href="#Implementing_an_interface">implement the interface</a>.
+The <a href="#Representation_of_values">value</a> of an uninitialized variable of
+interface type is <code>nil</code>.
+</p>
+
+<pre class="ebnf">InterfaceType  = &#34;interface&#34; &#34;{&#34; { InterfaceElem &#34;;&#34; } &#34;}&#34; .
+InterfaceElem  = MethodElem | TypeElem .
+MethodElem     = MethodName Signature .
+MethodName     = identifier .
+TypeElem       = TypeTerm { &#34;|&#34; TypeTerm } .
+TypeTerm       = Type | UnderlyingType .
+UnderlyingType = &#34;~&#34; Type .
+</pre>
+
+<p>
+An interface type is specified by a list of <i>interface elements</i>.
+An interface element is either a <i>method</i> or a <i>type element</i>,
+where a type element is a union of one or more <i>type terms</i>.
+A type term is either a single type or a single underlying type.
+</p>
+
+<h4 id="Basic_interfaces">Basic interfaces</h4>
+
+<p>
+In its most basic form an interface specifies a (possibly empty) list of methods.
+The type set defined by such an interface is the set of types which implement all of
+those methods, and the corresponding <a href="#Method_sets">method set</a> consists
+exactly of the methods specified by the interface.
+Interfaces whose type sets can be defined entirely by a list of methods are called
+<i>basic interfaces.</i>
+Interface methods cannot declare <a href="#Type_parameter_declarations">type parameters</a>,
+but they may use type parameters from the interface declaration.
+</p>
+
+<pre>// A simple File interface.
+interface {
+	Read([]byte) (int, error)
+	Write([]byte) (int, error)
+	Close() error
+}
+</pre>
+
+<p>
+The name of each explicitly specified method must be <a href="#Uniqueness_of_identifiers">unique</a>
+and not <a href="#Blank_identifier">blank</a>.
+</p>
+
+<pre>interface {
+	String() string
+	String() string  // illegal: String not unique
+	_(x int)         // illegal: method must have non-blank name
+}
+</pre>
+
+<p>
+More than one type may implement an interface.
+For instance, if two types <code>S1</code> and <code>S2</code>
+have the method set
+</p>
+
+<pre>func (p T) Read(p []byte) (n int, err error)
+func (p T) Write(p []byte) (n int, err error)
+func (p T) Close() error
+</pre>
+
+<p>
+(where <code>T</code> stands for either <code>S1</code> or <code>S2</code>)
+then the <code>File</code> interface is implemented by both <code>S1</code> and
+<code>S2</code>, regardless of what other methods
+<code>S1</code> and <code>S2</code> may have or share.
+</p>
+
+<p>
+Every type that is a member of the type set of an interface implements that interface.
+Any given type may implement several distinct interfaces.
+For instance, all types implement the <i>empty interface</i> which stands for the set
+of all (non-interface) types:
+</p>
+
+<pre>interface{}
+</pre>
+
+<p>
+For convenience, the predeclared type <code>any</code> is an alias for the empty interface;
+it is not a <a href="#Types">named type</a>.
+[<a href="#Go_1.18">Go 1.18</a>]
+</p>
+
+<p>
+Similarly, consider this interface specification,
+which appears within a <a href="#Type_declarations">type declaration</a>
+to define an interface called <code>Locker</code>:
+</p>
+
+<pre>type Locker interface {
+	Lock()
+	Unlock()
+}
+</pre>
+
+<p>
+If <code>S1</code> and <code>S2</code> also implement
+</p>
+
+<pre>func (p T) Lock() { … }
+func (p T) Unlock() { … }
+</pre>
+
+<p>
+they implement the <code>Locker</code> interface as well
+as the <code>File</code> interface.
+</p>
+
+<h4 id="Embedded_interfaces">Embedded interfaces</h4>
+
+<p>
+In a slightly more general form
+an interface <code>T</code> may use a (possibly qualified) interface type
+name <code>E</code> as an interface element. This is called
+<i>embedding</i> interface <code>E</code> in <code>T</code>
+[<a href="#Go_1.14">Go 1.14</a>].
+The type set of <code>T</code> is the <i>intersection</i> of the type sets
+defined by <code>T</code>&#39;s explicitly declared methods and the type sets
+of <code>T</code>’s embedded interfaces.
+In other words, the type set of <code>T</code> is the set of all types that implement all the
+explicitly declared methods of <code>T</code> and also all the methods of
+<code>E</code>
+[<a href="#Go_1.18">Go 1.18</a>].
+</p>
+
+<pre>type Reader interface {
+	Read(p []byte) (n int, err error)
+	Close() error
+}
+
+type Writer interface {
+	Write(p []byte) (n int, err error)
+	Close() error
+}
+
+// ReadWriter&#39;s methods are Read, Write, and Close.
+type ReadWriter interface {
+	Reader  // includes methods of Reader in ReadWriter&#39;s method set
+	Writer  // includes methods of Writer in ReadWriter&#39;s method set
+}
+</pre>
+
+<p>
+When embedding interfaces, methods with the
+<a href="#Uniqueness_of_identifiers">same</a> names must
+have <a href="#Type_identity">identical</a> signatures.
+</p>
+
+<pre>type ReadCloser interface {
+	Reader   // includes methods of Reader in ReadCloser&#39;s method set
+	Close()  // illegal: signatures of Reader.Close and Close are different
+}
+</pre>
+
+<h4 id="General_interfaces">General interfaces</h4>
+
+<p>
+In their most general form, an interface element may also be an arbitrary type term
+<code>T</code>, or a term of the form <code>~T</code> specifying the underlying type <code>T</code>,
+or a union of terms <code>t<sub>1</sub>|t<sub>2</sub>|…|t<sub>n</sub></code>
+[<a href="#Go_1.18">Go 1.18</a>].
+Together with method specifications, these elements enable the precise
+definition of an interface&#39;s type set as follows:
+</p>
+
+<ul>
+	<li>The type set of the empty interface is the set of all non-interface types.
+	</li>
+
+	<li>The type set of a non-empty interface is the intersection of the type sets
+		of its interface elements.
+	</li>
+
+	<li>The type set of a method specification is the set of all non-interface types
+		whose method sets include that method.
+	</li>
+
+	<li>The type set of a non-interface type term is the set consisting
+		of just that type.
+	</li>
+
+	<li>The type set of a term of the form <code>~T</code>
+		is the set of all types whose underlying type is <code>T</code>.
+	</li>
+
+	<li>The type set of a <i>union</i> of terms
+		<code>t<sub>1</sub>|t<sub>2</sub>|…|t<sub>n</sub></code>
+		is the union of the type sets of the terms.
+	</li>
+</ul>
+
+<p>
+The quantification &#34;the set of all non-interface types&#34; refers not just to all (non-interface)
+types declared in the program at hand, but all possible types in all possible programs, and
+hence is infinite.
+Similarly, given the set of all non-interface types that implement a particular method, the
+intersection of the method sets of those types will contain exactly that method, even if all
+types in the program at hand always pair that method with another method.
+</p>
+
+<p>
+By construction, an interface&#39;s type set never contains an interface type.
+</p>
+
+<pre>// An interface representing only the type int.
+interface {
+	int
+}
+
+// An interface representing all types with underlying type int.
+interface {
+	~int
+}
+
+// An interface representing all types with underlying type int that implement the String method.
+interface {
+	~int
+	String() string
+}
+
+// An interface representing an empty type set: there is no type that is both an int and a string.
+interface {
+	int
+	string
+}
+</pre>
+
+<p>
+In a term of the form <code>~T</code>, the underlying type of <code>T</code>
+must be itself, and <code>T</code> cannot be an interface.
+</p>
+
+<pre>type MyInt int
+
+interface {
+	~[]byte  // the underlying type of []byte is itself
+	~MyInt   // illegal: the underlying type of MyInt is not MyInt
+	~error   // illegal: error is an interface
+}
+</pre>
+
+<p>
+Union elements denote unions of type sets:
+</p>
+
+<pre>// The Float interface represents all floating-point types
+// (including any named types whose underlying types are
+// either float32 or float64).
+type Float interface {
+	~float32 | ~float64
+}
+</pre>
+
+<p>
+The type <code>T</code> in a term of the form <code>T</code> or <code>~T</code> cannot
+be a <a href="#Type_parameter_declarations">type parameter</a>, and the type sets of all
+non-interface terms must be pairwise disjoint (the pairwise intersection of the type sets must be empty).
+Given a type parameter <code>P</code>:
+</p>
+
+<pre>interface {
+	P                // illegal: P is a type parameter
+	int | ~P         // illegal: P is a type parameter
+	~int | MyInt     // illegal: the type sets for ~int and MyInt are not disjoint (~int includes MyInt)
+	float32 | Float  // overlapping type sets but Float is an interface
+}
+</pre>
+
+<p>
+Implementation restriction:
+A union (with more than one term) cannot contain the
+<a href="#Predeclared_identifiers">predeclared identifier</a> <code>comparable</code>
+or interfaces that specify methods, or embed <code>comparable</code> or interfaces
+that specify methods.
+</p>
+
+<p>
+Interfaces that are not <a href="#Basic_interfaces">basic</a> may only be used as type
+constraints, or as elements of other interfaces used as constraints.
+They cannot be the types of values or variables, or components of other,
+non-interface types.
+</p>
+
+<pre>var x Float                     // illegal: Float is not a basic interface
+
+var x interface{} = Float(nil)  // illegal
+
+type Floatish struct {
+	f Float                 // illegal
+}
+</pre>
+
+<p>
+An interface type <code>T</code> may not embed a type element
+that is, contains, or embeds <code>T</code>, directly or indirectly.
+</p>
+
+<pre>// illegal: Bad may not embed itself
+type Bad interface {
+	Bad
+}
+
+// illegal: Bad1 may not embed itself using Bad2
+type Bad1 interface {
+	Bad2
+}
+type Bad2 interface {
+	Bad1
+}
+
+// illegal: Bad3 may not embed a union containing Bad3
+type Bad3 interface {
+	~int | ~string | Bad3
+}
+
+// illegal: Bad4 may not embed an array containing Bad4 as element type
+type Bad4 interface {
+	[10]Bad4
+}
+</pre>
+
+<h4 id="Implementing_an_interface">Implementing an interface</h4>
+
+<p>
+A type <code>T</code> implements an interface <code>I</code> if
+</p>
+
+<ul>
+<li>
+	<code>T</code> is not an interface and is an element of the type set of <code>I</code>; or
+</li>
+<li>
+	<code>T</code> is an interface and the type set of <code>T</code> is a subset of the
+	type set of <code>I</code>.
+</li>
+</ul>
+
+<p>
+A value of type <code>T</code> implements an interface if <code>T</code>
+implements the interface.
+</p>

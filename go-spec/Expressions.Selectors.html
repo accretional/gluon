@@ -1,0 +1,140 @@
+<h3 id="Selectors">Selectors</h3>
+
+<p>
+For a <a href="#Primary_expressions">primary expression</a> <code>x</code>
+that is not a <a href="#Package_clause">package name</a>, the
+<i>selector expression</i>
+</p>
+
+<pre>x.f
+</pre>
+
+<p>
+denotes the field or method <code>f</code> of the value <code>x</code>
+(or sometimes <code>*x</code>; see below).
+The identifier <code>f</code> is called the (field or method) <i>selector</i>;
+it must not be the <a href="#Blank_identifier">blank identifier</a>.
+The type of the selector expression is the type of <code>f</code>.
+If <code>x</code> is a package name, see the section on
+<a href="#Qualified_identifiers">qualified identifiers</a>.
+</p>
+
+<p>
+A selector <code>f</code> may denote a field or method <code>f</code> of
+a type <code>T</code>, or it may refer
+to a field or method <code>f</code> of a nested
+<a href="#Struct_types">embedded field</a> of <code>T</code>.
+The number of embedded fields traversed
+to reach <code>f</code> is called its <i>depth</i> in <code>T</code>.
+The depth of a field or method <code>f</code>
+declared in <code>T</code> is zero.
+The depth of a field or method <code>f</code> declared in
+an embedded field <code>A</code> in <code>T</code> is the
+depth of <code>f</code> in <code>A</code> plus one.
+</p>
+
+<p>
+The following rules apply to selectors:
+</p>
+
+<ol>
+<li>
+For a value <code>x</code> of type <code>T</code> or <code>*T</code>
+where <code>T</code> is not a pointer or interface type,
+<code>x.f</code> denotes the field or method at the shallowest depth
+in <code>T</code> where there is such an <code>f</code>.
+If there is not exactly <a href="#Uniqueness_of_identifiers">one <code>f</code></a>
+with shallowest depth, the selector expression is illegal.
+</li>
+
+<li>
+For a value <code>x</code> of type <code>I</code> where <code>I</code>
+is an interface type, <code>x.f</code> denotes the actual method with name
+<code>f</code> of the dynamic value of <code>x</code>.
+If there is no method with name <code>f</code> in the
+<a href="#Method_sets">method set</a> of <code>I</code>, the selector
+expression is illegal.
+</li>
+
+<li>
+As an exception, if the type of <code>x</code> is a <a href="#Type_definitions">defined</a>
+pointer type and <code>(*x).f</code> is a valid selector expression denoting a field
+(but not a method), <code>x.f</code> is shorthand for <code>(*x).f</code>.
+</li>
+
+<li>
+In all other cases, <code>x.f</code> is illegal.
+</li>
+
+<li>
+If <code>x</code> is of pointer type and has the value
+<code>nil</code> and <code>x.f</code> denotes a struct field,
+assigning to or evaluating <code>x.f</code>
+causes a <a href="#Run_time_panics">run-time panic</a>.
+</li>
+
+<li>
+If <code>x</code> is of interface type and has the value
+<code>nil</code>, <a href="#Calls">calling</a> or
+<a href="#Method_values">evaluating</a> the method <code>x.f</code>
+causes a <a href="#Run_time_panics">run-time panic</a>.
+</li>
+</ol>
+
+<p>
+For example, given the declarations:
+</p>
+
+<pre>type T0 struct {
+	x int
+}
+
+func (*T0) M0()
+
+type T1 struct {
+	y int
+}
+
+func (T1) M1()
+
+type T2 struct {
+	z int
+	T1
+	*T0
+}
+
+func (*T2) M2()
+
+type Q *T2
+
+var t T2     // with t.T0 != nil
+var p *T2    // with p != nil and (*p).T0 != nil
+var q Q = p
+</pre>
+
+<p>
+one may write:
+</p>
+
+<pre>t.z          // t.z
+t.y          // t.T1.y
+t.x          // (*t.T0).x
+
+p.z          // (*p).z
+p.y          // (*p).T1.y
+p.x          // (*(*p).T0).x
+
+q.x          // (*(*q).T0).x        (*q).x is a valid field selector
+
+p.M0()       // ((*p).T0).M0()      M0 expects *T0 receiver
+p.M1()       // ((*p).T1).M1()      M1 expects T1 receiver
+p.M2()       // p.M2()              M2 expects *T2 receiver
+t.M2()       // (&amp;t).M2()           M2 expects *T2 receiver, see section on Calls
+</pre>
+
+<p>
+but the following is invalid:
+</p>
+
+<pre>q.M0()       // (*q).M0 is valid but not a field selector
+</pre>

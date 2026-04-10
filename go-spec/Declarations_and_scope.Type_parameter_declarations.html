@@ -1,0 +1,168 @@
+<h3 id="Type_parameter_declarations">Type parameter declarations</h3>
+
+<p>
+A type parameter list declares the <i>type parameters</i> of a generic function, method, or type declaration.
+The type parameter list looks like an ordinary <a href="#Function_types">function parameter list</a>
+except that the type parameter names must all be present and the list is enclosed
+in square brackets rather than parentheses
+[<a href="#Go_1.18">Go 1.18</a>, <a href="#Go_1.27">Go 1.27</a>].
+</p>
+
+<pre class="ebnf">TypeParameters = &#34;[&#34; TypeParamList [ &#34;,&#34; ] &#34;]&#34; .
+TypeParamList  = TypeParamDecl { &#34;,&#34; TypeParamDecl } .
+TypeParamDecl  = IdentifierList TypeConstraint .
+</pre>
+
+<p>
+All non-blank names in the list must be unique.
+Each name declares a type parameter, which is a new and different <a href="#Types">named type</a>
+that acts as a placeholder for an (as of yet) unknown type in the declaration.
+The type parameter is replaced with a <i>type argument</i> upon
+<a href="#Instantiations">instantiation</a> of the generic function, method, or type.
+</p>
+
+<pre>[P any]
+[S interface{ ~[]byte|string }]
+[S ~[]E, E any]
+[P Constraint[int]]
+[_ any]
+</pre>
+
+<p>
+Just as each ordinary function parameter has a parameter type, each type parameter
+has a corresponding (meta-)type which is called its
+<a href="#Type_constraints"><i>type constraint</i></a>.
+</p>
+
+<p>
+A parsing ambiguity arises when the type parameter list for a generic type
+declares a single type parameter <code>P</code> with a constraint <code>C</code>
+such that the text <code>P C</code> forms a valid expression:
+</p>
+
+<pre>type T[P *C] …
+type T[P (C)] …
+type T[P *C|Q] …
+…
+</pre>
+
+<p>
+In these rare cases, the type parameter list is indistinguishable from an
+expression and the type declaration is parsed as an array type declaration.
+To resolve the ambiguity, embed the constraint in an
+<a href="#Interface_types">interface</a> or use a trailing comma:
+</p>
+
+<pre>type T[P interface{*C}] …
+type T[P *C,] …
+</pre>
+
+<p>
+Type parameters may also be declared by the receiver specification
+of a <a href="#Method_declarations">method declaration</a> associated
+with a generic type.
+</p>
+
+<h4 id="Type_constraints">Type constraints</h4>
+
+<p>
+A <i>type constraint</i> is an <a href="#Interface_types">interface</a> that defines the
+set of permissible type arguments for the respective type parameter and controls the
+operations supported by values of that type parameter
+[<a href="#Go_1.18">Go 1.18</a>].
+</p>
+
+<pre class="ebnf">TypeConstraint = TypeElem .
+</pre>
+
+<p>
+If the constraint is an interface literal of the form <code>interface{E}</code> where
+<code>E</code> is an embedded <a href="#Interface_types">type element</a> (not a method), in a type parameter list
+the enclosing <code>interface{ … }</code> may be omitted for convenience:
+</p>
+
+<pre>[T []P]                      // = [T interface{[]P}]
+[T ~int]                     // = [T interface{~int}]
+[T int|string]               // = [T interface{int|string}]
+type Constraint ~int         // illegal: ~int is not in a type parameter list
+</pre>
+
+<!--
+We should be able to simplify the rules for comparable or delegate some of them
+elsewhere since we have a section that clearly defines how interfaces implement
+other interfaces based on their type sets. But this should get us going for now.
+-->
+
+<p>
+The <a href="#Predeclared_identifiers">predeclared</a>
+<a href="#Interface_types">interface type</a> <code>comparable</code>
+denotes the set of all non-interface types that are
+<a href="#Comparison_operators">strictly comparable</a>
+[<a href="#Go_1.18">Go 1.18</a>].
+</p>
+
+<p>
+Even though interfaces that are not type parameters are <a href="#Comparison_operators">comparable</a>,
+they are not strictly comparable and therefore they do not implement <code>comparable</code>.
+However, they <a href="#Satisfying_a_type_constraint">satisfy</a> <code>comparable</code>.
+</p>
+
+<pre>int                          // implements comparable (int is strictly comparable)
+[]byte                       // does not implement comparable (slices cannot be compared)
+interface{}                  // does not implement comparable (see above)
+interface{ ~int | ~string }  // type parameter only: implements comparable (int, string types are strictly comparable)
+interface{ comparable }      // type parameter only: implements comparable (comparable implements itself)
+interface{ ~int | ~[]byte }  // type parameter only: does not implement comparable (slices are not comparable)
+interface{ ~struct{ any } }  // type parameter only: does not implement comparable (field any is not strictly comparable)
+</pre>
+
+<p>
+The <code>comparable</code> interface and interfaces that (directly or indirectly) embed
+<code>comparable</code> may only be used as type constraints. They cannot be the types of
+values or variables, or components of other, non-interface types.
+</p>
+
+<h4 id="Satisfying_a_type_constraint">Satisfying a type constraint</h4>
+
+<p>
+A type argument <code>T</code><i> satisfies</i> a type constraint <code>C</code>
+if <code>T</code> is an element of the type set defined by <code>C</code>; in other words,
+if <code>T</code> <a href="#Implementing_an_interface">implements</a> <code>C</code>.
+As an exception, a <a href="#Comparison_operators">strictly comparable</a>
+type constraint may also be satisfied by a <a href="#Comparison_operators">comparable</a>
+(not necessarily strictly comparable) type argument
+[<a href="#Go_1.20">Go 1.20</a>].
+More precisely:
+</p>
+
+<p>
+A type T <i>satisfies</i> a constraint <code>C</code> if
+</p>
+
+<ul>
+<li>
+	<code>T</code> <a href="#Implementing_an_interface">implements</a> <code>C</code>; or
+</li>
+<li>
+	<code>C</code> can be written in the form <code>interface{ comparable; E }</code>,
+	where <code>E</code> is a <a href="#Basic_interfaces">basic interface</a> and
+	<code>T</code> is <a href="#Comparison_operators">comparable</a> and implements <code>E</code>.
+</li>
+</ul>
+
+<pre>type argument      type constraint                // constraint satisfaction
+
+int                interface{ ~int }              // satisfied: int implements interface{ ~int }
+string             comparable                     // satisfied: string implements comparable (string is strictly comparable)
+[]byte             comparable                     // not satisfied: slices are not comparable
+any                interface{ comparable; int }   // not satisfied: any does not implement interface{ int }
+any                comparable                     // satisfied: any is comparable and implements the basic interface any
+struct{f any}      comparable                     // satisfied: struct{f any} is comparable and implements the basic interface any
+any                interface{ comparable; m() }   // not satisfied: any does not implement the basic interface interface{ m() }
+interface{ m() }   interface{ comparable; m() }   // satisfied: interface{ m() } is comparable and implements the basic interface interface{ m() }
+</pre>
+
+<p>
+Because of the exception in the constraint satisfaction rule, comparing operands of type parameter type
+may panic at run-time (even though comparable type parameters are always strictly comparable).
+</p>

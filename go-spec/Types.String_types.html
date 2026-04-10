@@ -1,0 +1,22 @@
+<h3 id="String_types">String types</h3>
+
+<p>
+A <i>string type</i> represents the set of string values.
+A string value is a (possibly empty) sequence of bytes.
+The number of bytes is called the length of the string and is never negative.
+Strings are immutable: once created,
+it is impossible to change the contents of a string.
+The predeclared string type is <code>string</code>;
+it is a <a href="#Types">named type</a>.
+</p>
+
+<p>
+The length of a string <code>s</code> can be discovered using
+the built-in function <a href="#Length_and_capacity"><code>len</code></a>.
+The length is a compile-time constant if the string is a constant.
+A string&#39;s bytes can be accessed by integer <a href="#Index_expressions">indices</a>
+0 through <code>len(s)-1</code>.
+It is illegal to take the address of such an element; if
+<code>s[i]</code> is the <code>i</code>&#39;th byte of a
+string, <code>&amp;s[i]</code> is invalid.
+</p>

@@ -1,0 +1,147 @@
+<h3 id="Slice_expressions">Slice expressions</h3>
+
+<p>
+Slice expressions construct a substring or slice from a string, array, pointer
+to array, or slice operand.
+There are two variants: a simple form that specifies a low
+and high bound, and a full form that also specifies a bound on the capacity.
+</p>
+
+<p>
+If the operand type is a <a href="#Type_parameter_declarations">type parameter</a>,
+unless its type set contains string types,
+all types in the type set must have the same underlying type, and the slice expression
+must be valid for an operand of that type.
+If the type set contains string types it may also contain byte slices with underlying
+type <code>[]byte</code>.
+In this case, the slice expression must be valid for an operand of <code>string</code>
+type.
+</p>
+
+<h4>Simple slice expressions</h4>
+
+<p>
+For a string, array, pointer to array, or slice <code>a</code>, the primary expression
+</p>
+
+<pre>a[low : high]
+</pre>
+
+<p>
+constructs a substring or slice.
+The <i>indices</i> <code>low</code> and
+<code>high</code> select which elements of operand <code>a</code> appear
+in the result. The result has indices starting at 0 and length equal to
+<code>high</code> - <code>low</code>.
+After slicing the array <code>a</code>
+</p>
+
+<pre>a := [5]int{1, 2, 3, 4, 5}
+s := a[1:4]
+</pre>
+
+<p>
+the slice <code>s</code> has type <code>[]int</code>, length 3, capacity 4, and elements
+</p>
+
+<pre>s[0] == 2
+s[1] == 3
+s[2] == 4
+</pre>
+
+<p>
+For convenience, any of the indices may be omitted. A missing <code>low</code>
+index defaults to zero; a missing <code>high</code> index defaults to the length of the
+sliced operand:
+</p>
+
+<pre>a[2:]  // same as a[2 : len(a)]
+a[:3]  // same as a[0 : 3]
+a[:]   // same as a[0 : len(a)]
+</pre>
+
+<p>
+If <code>a</code> is a pointer to an array, <code>a[low : high]</code> is shorthand for
+<code>(*a)[low : high]</code>.
+</p>
+
+<p>
+For arrays or strings, the indices are <i>in range</i> if
+<code>0</code> &lt;= <code>low</code> &lt;= <code>high</code> &lt;= <code>len(a)</code>,
+otherwise they are <i>out of range</i>.
+For slices, the upper index bound is the slice capacity <code>cap(a)</code> rather than the length.
+A <a href="#Constants">constant</a> index must be non-negative and
+<a href="#Representability">representable</a> by a value of type
+<code>int</code>; for arrays or constant strings, constant indices must also be in range.
+If both indices are constant, they must satisfy <code>low &lt;= high</code>.
+If the indices are out of range at run time, a <a href="#Run_time_panics">run-time panic</a> occurs.
+</p>
+
+<p>
+Except for <a href="#Constants">untyped strings</a>, if the sliced operand is a string or slice,
+the result of the slice operation is a non-constant value of the same type as the operand.
+For untyped string operands the result is a non-constant value of type <code>string</code>.
+If the sliced operand is an array, it must be <a href="#Address_operators">addressable</a>
+and the result of the slice operation is a slice with the same element type as the array.
+</p>
+
+<p>
+If the sliced operand of a valid slice expression is a <code>nil</code> slice, the result
+is a <code>nil</code> slice. Otherwise, if the result is a slice, it shares its underlying
+array with the operand.
+</p>
+
+<pre>var a [10]int
+s1 := a[3:7]   // underlying array of s1 is array a; &amp;s1[2] == &amp;a[5]
+s2 := s1[1:4]  // underlying array of s2 is underlying array of s1 which is array a; &amp;s2[1] == &amp;a[5]
+s2[1] = 42     // s2[1] == s1[2] == a[5] == 42; they all refer to the same underlying array element
+
+var s []int
+s3 := s[:0]    // s3 == nil
+</pre>
+
+
+<h4>Full slice expressions</h4>
+
+<p>
+For an array, pointer to array, or slice <code>a</code> (but not a string), the primary expression
+</p>
+
+<pre>a[low : high : max]
+</pre>
+
+<p>
+constructs a slice of the same type, and with the same length and elements as the simple slice
+expression <code>a[low : high]</code>. Additionally, it controls the resulting slice&#39;s capacity
+by setting it to <code>max - low</code>. Only the first index may be omitted; it defaults to 0.
+After slicing the array <code>a</code>
+</p>
+
+<pre>a := [5]int{1, 2, 3, 4, 5}
+t := a[1:3:5]
+</pre>
+
+<p>
+the slice <code>t</code> has type <code>[]int</code>, length 2, capacity 4, and elements
+</p>
+
+<pre>t[0] == 2
+t[1] == 3
+</pre>
+
+<p>
+As for simple slice expressions, if <code>a</code> is a pointer to an array,
+<code>a[low : high : max]</code> is shorthand for <code>(*a)[low : high : max]</code>.
+If the sliced operand is an array, it must be <a href="#Address_operators">addressable</a>.
+</p>
+
+<p>
+The indices are <i>in range</i> if <code>0 &lt;= low &lt;= high &lt;= max &lt;= cap(a)</code>,
+otherwise they are <i>out of range</i>.
+A <a href="#Constants">constant</a> index must be non-negative and
+<a href="#Representability">representable</a> by a value of type
+<code>int</code>; for arrays, constant indices must also be in range.
+If multiple indices are constant, the constants that are present must be in range relative to each
+other.
+If the indices are out of range at run time, a <a href="#Run_time_panics">run-time panic</a> occurs.
+</p>

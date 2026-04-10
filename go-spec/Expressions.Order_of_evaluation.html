@@ -1,0 +1,67 @@
+<h3 id="Order_of_evaluation">Order of evaluation</h3>
+
+<p>
+At package level, <a href="#Package_initialization">initialization dependencies</a>
+determine the evaluation order of individual initialization expressions in
+<a href="#Variable_declarations">variable declarations</a>.
+Otherwise, when evaluating the <a href="#Operands">operands</a> of an
+expression, assignment, or
+<a href="#Return_statements">return statement</a>,
+all function calls, method calls,
+<a href="#Receive_operator">receive operations</a>,
+and <a href="#Logical_operators">binary logical operations</a>
+are evaluated in lexical left-to-right order.
+</p>
+
+<p>
+For example, in the (function-local) assignment
+</p>
+<pre>y[f()], ok = g(z || h(), i()+x[j()], &lt;-c), k()
+</pre>
+<p>
+the function calls and communication happen in the order
+<code>f()</code>, <code>h()</code> (if <code>z</code>
+evaluates to false), <code>i()</code>, <code>j()</code>,
+<code>&lt;-c</code>, <code>g()</code>, and <code>k()</code>.
+However, the order of those events compared to the evaluation
+and indexing of <code>x</code> and the evaluation
+of <code>y</code> and <code>z</code> is not specified,
+except as required lexically. For instance, <code>g</code>
+cannot be called before its arguments are evaluated.
+</p>
+
+<pre>a := 1
+f := func() int { a++; return a }
+x := []int{a, f()}            // x may be [1, 2] or [2, 2]: evaluation order between a and f() is not specified
+m := map[int]int{a: 1, a: 2}  // m may be {2: 1} or {2: 2}: evaluation order between the two map assignments is not specified
+n := map[int]int{a: f()}      // n may be {2: 3} or {3: 3}: evaluation order between the key and the value is not specified
+</pre>
+
+<p>
+At package level, initialization dependencies override the left-to-right rule
+for individual initialization expressions, but not for operands within each
+expression:
+</p>
+
+<pre>var a, b, c = f() + v(), g(), sqr(u()) + v()
+
+func f() int        { return c }
+func g() int        { return a }
+func sqr(x int) int { return x*x }
+
+// functions u and v are independent of all other variables and functions
+</pre>
+
+<p>
+The function calls happen in the order
+<code>u()</code>, <code>sqr()</code>, <code>v()</code>,
+<code>f()</code>, <code>v()</code>, and <code>g()</code>.
+</p>
+
+<p>
+Floating-point operations within a single expression are evaluated according to
+the associativity of the operators.  Explicit parentheses affect the evaluation
+by overriding the default associativity.
+In the expression <code>x + (y + z)</code> the addition <code>y + z</code>
+is performed before adding <code>x</code>.
+</p>

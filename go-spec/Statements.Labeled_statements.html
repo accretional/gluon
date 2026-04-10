@@ -1,0 +1,13 @@
+<h3 id="Labeled_statements">Labeled statements</h3>
+
+<p>
+A labeled statement may be the target of a <code>goto</code>,
+<code>break</code> or <code>continue</code> statement.
+</p>
+
+<pre class="ebnf">LabeledStmt = Label &#34;:&#34; Statement .
+Label       = identifier .
+</pre>
+
+<pre>Error: log.Panic(&#34;error encountered&#34;)
+</pre>

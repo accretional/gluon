@@ -1,0 +1,56 @@
+<h3 id="Map_types">Map types</h3>
+
+<p>
+A map is an unordered group of elements of one type, called the
+element type, indexed by a set of unique <i>keys</i> of another type,
+called the key type.
+The <a href="#Representation_of_values">value</a> of an uninitialized map is <code>nil</code>.
+</p>
+
+<pre class="ebnf">MapType = &#34;map&#34; &#34;[&#34; KeyType &#34;]&#34; ElementType .
+KeyType = Type .
+</pre>
+
+<p>
+The <a href="#Comparison_operators">comparison operators</a>
+<code>==</code> and <code>!=</code> must be fully defined
+for operands of the key type; thus the key type must not be a function, map, or
+slice.
+If the key type is an interface type, these
+comparison operators must be defined for the dynamic key values;
+failure will cause a <a href="#Run_time_panics">run-time panic</a>.
+</p>
+
+<pre>map[string]int
+map[*T]struct{ x, y float64 }
+map[string]interface{}
+</pre>
+
+<p>
+The number of map elements is called its length.
+For a map <code>m</code>, it can be discovered using the
+built-in function <a href="#Length_and_capacity"><code>len</code></a>
+and may change during execution. Elements may be added during execution
+using <a href="#Assignment_statements">assignments</a> and retrieved with
+<a href="#Index_expressions">index expressions</a>; they may be removed with the
+<a href="#Deletion_of_map_elements"><code>delete</code></a> and
+<a href="#Clear"><code>clear</code></a> built-in function.
+</p>
+
+<p>
+A new, empty map value is made using the built-in
+function <a href="#Making_slices_maps_and_channels"><code>make</code></a>,
+which takes the map type and an optional capacity hint as arguments:
+</p>
+
+<pre>make(map[string]int)
+make(map[string]int, 100)
+</pre>
+
+<p>
+The initial capacity does not bound its size:
+maps grow to accommodate the number of items
+stored in them, with the exception of <code>nil</code> maps.
+A <code>nil</code> map is equivalent to an empty map except that no elements
+may be added.
+</p>

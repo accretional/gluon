@@ -1,0 +1,176 @@
+# google_repos.textproto
+#
+# Curated list of Google and related open-source repositories that contain
+# .proto files, used as a test corpus for protobuf lexing/parsing validation.
+
+repos {
+  gh { owner: "google" name: "xls" }
+}
+repos {
+  gh { owner: "google" name: "orbax" }
+}
+repos {
+  gh { owner: "google" name: "ecclesia-machine-management" }
+}
+repos {
+  gh { owner: "google" name: "vizier" }
+}
+repos {
+  gh { owner: "google" name: "gvisor" }
+}
+repos {
+  gh { owner: "google" name: "facade" }
+}
+repos {
+  gh { owner: "google" name: "perf_data_converter" }
+}
+repos {
+  gh { owner: "google" name: "googlesql" }
+}
+repos {
+  gh { owner: "google" name: "webrisk" }
+}
+repos {
+  gh { owner: "google" name: "zetasketch" }
+}
+repos {
+  gh { owner: "google" name: "paranoid_crypto" }
+}
+repos {
+  gh { owner: "google" name: "ground-platform" }
+}
+repos {
+  gh { owner: "google" name: "perfetto" }
+}
+repos {
+  gh { owner: "google" name: "binexport" }
+}
+repos {
+  gh { owner: "google" name: "bindiff" }
+}
+repos {
+  gh { owner: "google" name: "osv-scalibr" }
+}
+repos {
+  gh { owner: "google" name: "certificate-transparency-go" }
+}
+repos {
+  gh { owner: "transparency-dev" name: "tessera" }
+}
+repos {
+  gh { owner: "google" name: "nearby" }
+}
+repos {
+  gh { owner: "google" name: "or-tools" }
+}
+repos {
+  gh { owner: "google" name: "dawn" }
+}
+repos {
+  gh { owner: "google" name: "deps.dev" }
+}
+repos {
+  gh { owner: "google" name: "secure-aggregation" }
+}
+repos {
+  gh { owner: "google" name: "cluster-data" }
+}
+repos {
+  gh { owner: "google" name: "silifuzz" }
+}
+repos {
+  gh { owner: "google" name: "clusterfuzz" }
+}
+repos {
+  gh { owner: "google" name: "capslock" }
+}
+repos {
+  gh { owner: "google" name: "hintless_pir" }
+}
+repos {
+  gh { owner: "google" name: "sbsim" }
+}
+repos {
+  gh { owner: "google" name: "ink" }
+}
+repos {
+  gh { owner: "google" name: "graph-mining" }
+}
+repos {
+  gh { owner: "google" name: "crubit" }
+}
+repos {
+  gh { owner: "google" name: "gnostic" }
+}
+repos {
+  gh { owner: "google" name: "protobuf.dart" }
+}
+repos {
+  gh { owner: "google" name: "nsjail" }
+}
+repos {
+  gh { owner: "google" name: "ebpf-transport-monitoring" }
+}
+repos {
+  gh { owner: "google" name: "tcpgpudmarxd" }
+}
+repos {
+  gh { owner: "google" name: "oss-rebuild" }
+}
+repos {
+  gh { owner: "google" name: "distbench" }
+}
+repos {
+  gh { owner: "google" name: "j2objc" }
+}
+repos {
+  gh { owner: "google" name: "cabal2bazel" }
+}
+repos {
+  gh { owner: "google" name: "sentencepiece" }
+}
+repos {
+  gh { owner: "google" name: "yggdrasil-decision-forests" }
+}
+repos {
+  gh { owner: "google" name: "fscrypt" }
+}
+repos {
+  gh { owner: "google" name: "turbine" }
+}
+repos {
+  gh { owner: "google" name: "cel-spec" }
+}
+repos {
+  gh { owner: "google" name: "struct2tensor" }
+}
+repos {
+  gh { owner: "google" name: "distributed_point_functions" }
+}
+repos {
+  gh { owner: "google" name: "gce-tcb-verifier" }
+}
+repos {
+  gh { owner: "google" name: "libprotobuf-mutator" }
+}
+repos {
+  gh { owner: "google" name: "go-eventlog" }
+}
+repos {
+  gh { owner: "google" name: "s2a-proto" }
+}
+repos {
+  gh { owner: "google" name: "genc" }
+}
+repos {
+  gh { owner: "google" name: "x-sight" }
+}
+repos {
+  gh { owner: "google" name: "tensorstore" }
+}
+repos {
+  gh { owner: "google" name: "tsl" }
+}
+repos {
+  gh { owner: "openxla" name: "xla" }
+}
