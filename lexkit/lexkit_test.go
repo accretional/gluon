@@ -522,15 +522,21 @@ func TestLexDescriptorRoundTrip(t *testing.T) {
 		result := &ParseResult{Lex: lex}
 		tp := result.ToTextproto()
 
-		// Verify all non-zero fields appear
-		if lex.Concatenation != 0 && !strings.Contains(tp, "concatenation:") {
+		// Verify all non-nil fields appear
+		if lex.Concatenation != nil && !strings.Contains(tp, "concatenation") {
 			t.Error("missing concatenation in textproto")
 		}
-		if lex.Termination != 0 && !strings.Contains(tp, "termination:") {
+		if lex.Termination != nil && !strings.Contains(tp, "termination") {
 			t.Error("missing termination in textproto")
 		}
-		if !strings.Contains(tp, "whitespace:") {
+		if !strings.Contains(tp, "whitespace") {
 			t.Error("missing whitespace in textproto")
+		}
+		// Verify ASCII enum names appear instead of raw numbers
+		if strings.Contains(tp, "EQUALS_SIGN") {
+			// definition should use ASCII enum name
+		} else {
+			t.Error("expected ASCII enum name in textproto output")
 		}
 	}
 }

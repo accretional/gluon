@@ -22,11 +22,13 @@ const (
 )
 
 // LexDescriptor defines the lexical structure of an EBNF-based grammar
-// notation. Each field is an int32 Unicode code point for the character
-// that serves that role in the notation.
+// notation. Each field is a Unicode character (represented as UTF8) that
+// serves a specific role in the notation.
 //
-// For example, standard EBNF uses '=' (61) for definition, '|' (124) for
-// alternation, '.' (46) for termination, etc.
+// For example, standard EBNF uses '=' for definition, '|' for alternation,
+// '.' for termination, etc. Using unicode.UTF8 instead of raw int32 gives
+// each character a readable name via the ASCII enum (e.g. EQUALS_SIGN,
+// PIPE, FULL_STOP).
 //
 // This allows a single lexer implementation to handle different EBNF
 // variants (Go's spec notation, proto's notation, ISO 14977 EBNF) by
@@ -34,41 +36,41 @@ const (
 type LexDescriptor struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whitespace characters (typically space, tab, newline, carriage return).
-	Whitespace []int32 `protobuf:"varint,1,rep,packed,name=whitespace,proto3" json:"whitespace,omitempty"`
+	Whitespace []*UTF8 `protobuf:"bytes,1,rep,name=whitespace,proto3" json:"whitespace,omitempty"`
 	// Definition operator: separates production name from its expression.
-	// Standard EBNF: '=' (61). Some notations use '::=' or ':'.
-	Definition int32 `protobuf:"varint,2,opt,name=definition,proto3" json:"definition,omitempty"`
+	// Standard EBNF: '=' (EQUALS_SIGN). Some notations use '::=' or ':'.
+	Definition *UTF8 `protobuf:"bytes,2,opt,name=definition,proto3" json:"definition,omitempty"`
 	// Concatenation operator: separates sequential terms.
-	// Standard EBNF: ',' (44). Go/proto EBNF: implicit (juxtaposition).
-	// Set to 0 when concatenation is implicit.
-	Concatenation int32 `protobuf:"varint,3,opt,name=concatenation,proto3" json:"concatenation,omitempty"`
+	// Standard EBNF: ',' (COMMA). Go/proto EBNF: implicit (juxtaposition).
+	// Omit (nil) when concatenation is implicit.
+	Concatenation *UTF8 `protobuf:"bytes,3,opt,name=concatenation,proto3" json:"concatenation,omitempty"`
 	// Termination: marks the end of a production rule.
-	// Standard EBNF: ';' (59). Go EBNF: '.' (46). Proto: ';' (59).
-	Termination int32 `protobuf:"varint,4,opt,name=termination,proto3" json:"termination,omitempty"`
+	// Standard EBNF: ';' (SEMICOLON). Go EBNF: '.' (FULL_STOP). Proto: ';'.
+	Termination *UTF8 `protobuf:"bytes,4,opt,name=termination,proto3" json:"termination,omitempty"`
 	// Alternation: separates alternative choices.
-	// Universally: '|' (124).
-	Alternation int32 `protobuf:"varint,5,opt,name=alternation,proto3" json:"alternation,omitempty"`
+	// Universally: '|' (VERTICAL_LINE).
+	Alternation *UTF8 `protobuf:"bytes,5,opt,name=alternation,proto3" json:"alternation,omitempty"`
 	// Optional brackets: enclose optional expressions (0 or 1 times).
-	// Standard/Go EBNF: '[' (91) and ']' (93).
-	OptionalLhs int32 `protobuf:"varint,6,opt,name=optional_lhs,json=optionalLhs,proto3" json:"optional_lhs,omitempty"`
-	OptionalRhs int32 `protobuf:"varint,7,opt,name=optional_rhs,json=optionalRhs,proto3" json:"optional_rhs,omitempty"`
+	// Standard/Go EBNF: '[' and ']' (LEFT/RIGHT_SQUARE_BRACKET).
+	OptionalLhs *UTF8 `protobuf:"bytes,6,opt,name=optional_lhs,json=optionalLhs,proto3" json:"optional_lhs,omitempty"`
+	OptionalRhs *UTF8 `protobuf:"bytes,7,opt,name=optional_rhs,json=optionalRhs,proto3" json:"optional_rhs,omitempty"`
 	// Repetition brackets: enclose repeated expressions (0 to n times).
-	// Standard/Go EBNF: '{' (123) and '}' (125).
-	RepetitionLhs int32 `protobuf:"varint,8,opt,name=repetition_lhs,json=repetitionLhs,proto3" json:"repetition_lhs,omitempty"`
-	RepetitionRhs int32 `protobuf:"varint,9,opt,name=repetition_rhs,json=repetitionRhs,proto3" json:"repetition_rhs,omitempty"`
+	// Standard/Go EBNF: '{' and '}' (LEFT/RIGHT_CURLY_BRACKET).
+	RepetitionLhs *UTF8 `protobuf:"bytes,8,opt,name=repetition_lhs,json=repetitionLhs,proto3" json:"repetition_lhs,omitempty"`
+	RepetitionRhs *UTF8 `protobuf:"bytes,9,opt,name=repetition_rhs,json=repetitionRhs,proto3" json:"repetition_rhs,omitempty"`
 	// Grouping brackets: enclose grouped expressions.
-	// Standard/Go EBNF: '(' (40) and ')' (41).
-	GroupingLhs int32 `protobuf:"varint,10,opt,name=grouping_lhs,json=groupingLhs,proto3" json:"grouping_lhs,omitempty"`
-	GroupingRhs int32 `protobuf:"varint,11,opt,name=grouping_rhs,json=groupingRhs,proto3" json:"grouping_rhs,omitempty"`
+	// Standard/Go EBNF: '(' and ')' (LEFT/RIGHT_PARENTHESIS).
+	GroupingLhs *UTF8 `protobuf:"bytes,10,opt,name=grouping_lhs,json=groupingLhs,proto3" json:"grouping_lhs,omitempty"`
+	GroupingRhs *UTF8 `protobuf:"bytes,11,opt,name=grouping_rhs,json=groupingRhs,proto3" json:"grouping_rhs,omitempty"`
 	// Terminal delimiter: character used to quote terminal symbols.
-	// Standard EBNF: '"' (34) or "'" (39). Go also uses '`' (96).
-	Terminal int32 `protobuf:"varint,12,opt,name=terminal,proto3" json:"terminal,omitempty"`
+	// Standard EBNF: '"' (QUOTATION_MARK) or "'" (APOSTROPHE).
+	// Go also uses '`' (GRAVE_ACCENT).
+	Terminal *UTF8 `protobuf:"bytes,12,opt,name=terminal,proto3" json:"terminal,omitempty"`
 	// Comment delimiters: characters that open and close comments.
-	// Standard EBNF: '(' (40) paired with '*' (42) for '(*', then
-	// '*' (42) paired with ')' (41) for '*)'.
-	// Go EBNF uses '/' (47) paired with '*' (42) for '/* ... */'.
-	CommentLhs    int32 `protobuf:"varint,13,opt,name=comment_lhs,json=commentLhs,proto3" json:"comment_lhs,omitempty"`
-	CommentRhs    int32 `protobuf:"varint,14,opt,name=comment_rhs,json=commentRhs,proto3" json:"comment_rhs,omitempty"`
+	// Standard EBNF: '(' paired with '*' for '(*', then '*' paired with ')'.
+	// Go EBNF uses '/' paired with '*' for '/* ... */'.
+	CommentLhs    *UTF8 `protobuf:"bytes,13,opt,name=comment_lhs,json=commentLhs,proto3" json:"comment_lhs,omitempty"`
+	CommentRhs    *UTF8 `protobuf:"bytes,14,opt,name=comment_rhs,json=commentRhs,proto3" json:"comment_rhs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -103,130 +105,130 @@ func (*LexDescriptor) Descriptor() ([]byte, []int) {
 	return file_lex_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *LexDescriptor) GetWhitespace() []int32 {
+func (x *LexDescriptor) GetWhitespace() []*UTF8 {
 	if x != nil {
 		return x.Whitespace
 	}
 	return nil
 }
 
-func (x *LexDescriptor) GetDefinition() int32 {
+func (x *LexDescriptor) GetDefinition() *UTF8 {
 	if x != nil {
 		return x.Definition
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetConcatenation() int32 {
+func (x *LexDescriptor) GetConcatenation() *UTF8 {
 	if x != nil {
 		return x.Concatenation
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetTermination() int32 {
+func (x *LexDescriptor) GetTermination() *UTF8 {
 	if x != nil {
 		return x.Termination
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetAlternation() int32 {
+func (x *LexDescriptor) GetAlternation() *UTF8 {
 	if x != nil {
 		return x.Alternation
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetOptionalLhs() int32 {
+func (x *LexDescriptor) GetOptionalLhs() *UTF8 {
 	if x != nil {
 		return x.OptionalLhs
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetOptionalRhs() int32 {
+func (x *LexDescriptor) GetOptionalRhs() *UTF8 {
 	if x != nil {
 		return x.OptionalRhs
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetRepetitionLhs() int32 {
+func (x *LexDescriptor) GetRepetitionLhs() *UTF8 {
 	if x != nil {
 		return x.RepetitionLhs
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetRepetitionRhs() int32 {
+func (x *LexDescriptor) GetRepetitionRhs() *UTF8 {
 	if x != nil {
 		return x.RepetitionRhs
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetGroupingLhs() int32 {
+func (x *LexDescriptor) GetGroupingLhs() *UTF8 {
 	if x != nil {
 		return x.GroupingLhs
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetGroupingRhs() int32 {
+func (x *LexDescriptor) GetGroupingRhs() *UTF8 {
 	if x != nil {
 		return x.GroupingRhs
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetTerminal() int32 {
+func (x *LexDescriptor) GetTerminal() *UTF8 {
 	if x != nil {
 		return x.Terminal
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetCommentLhs() int32 {
+func (x *LexDescriptor) GetCommentLhs() *UTF8 {
 	if x != nil {
 		return x.CommentLhs
 	}
-	return 0
+	return nil
 }
 
-func (x *LexDescriptor) GetCommentRhs() int32 {
+func (x *LexDescriptor) GetCommentRhs() *UTF8 {
 	if x != nil {
 		return x.CommentRhs
 	}
-	return 0
+	return nil
 }
 
 var File_lex_proto protoreflect.FileDescriptor
 
 const file_lex_proto_rawDesc = "" +
 	"\n" +
-	"\tlex.proto\x12\x05gluon\"\xf1\x03\n" +
-	"\rLexDescriptor\x12\x1e\n" +
+	"\tlex.proto\x12\x05gluon\x1a\x13unicode/utf_8.proto\"\xc3\x05\n" +
+	"\rLexDescriptor\x12-\n" +
 	"\n" +
-	"whitespace\x18\x01 \x03(\x05R\n" +
-	"whitespace\x12\x1e\n" +
+	"whitespace\x18\x01 \x03(\v2\r.unicode.UTF8R\n" +
+	"whitespace\x12-\n" +
 	"\n" +
-	"definition\x18\x02 \x01(\x05R\n" +
-	"definition\x12$\n" +
-	"\rconcatenation\x18\x03 \x01(\x05R\rconcatenation\x12 \n" +
-	"\vtermination\x18\x04 \x01(\x05R\vtermination\x12 \n" +
-	"\valternation\x18\x05 \x01(\x05R\valternation\x12!\n" +
-	"\foptional_lhs\x18\x06 \x01(\x05R\voptionalLhs\x12!\n" +
-	"\foptional_rhs\x18\a \x01(\x05R\voptionalRhs\x12%\n" +
-	"\x0erepetition_lhs\x18\b \x01(\x05R\rrepetitionLhs\x12%\n" +
-	"\x0erepetition_rhs\x18\t \x01(\x05R\rrepetitionRhs\x12!\n" +
+	"definition\x18\x02 \x01(\v2\r.unicode.UTF8R\n" +
+	"definition\x123\n" +
+	"\rconcatenation\x18\x03 \x01(\v2\r.unicode.UTF8R\rconcatenation\x12/\n" +
+	"\vtermination\x18\x04 \x01(\v2\r.unicode.UTF8R\vtermination\x12/\n" +
+	"\valternation\x18\x05 \x01(\v2\r.unicode.UTF8R\valternation\x120\n" +
+	"\foptional_lhs\x18\x06 \x01(\v2\r.unicode.UTF8R\voptionalLhs\x120\n" +
+	"\foptional_rhs\x18\a \x01(\v2\r.unicode.UTF8R\voptionalRhs\x124\n" +
+	"\x0erepetition_lhs\x18\b \x01(\v2\r.unicode.UTF8R\rrepetitionLhs\x124\n" +
+	"\x0erepetition_rhs\x18\t \x01(\v2\r.unicode.UTF8R\rrepetitionRhs\x120\n" +
 	"\fgrouping_lhs\x18\n" +
-	" \x01(\x05R\vgroupingLhs\x12!\n" +
-	"\fgrouping_rhs\x18\v \x01(\x05R\vgroupingRhs\x12\x1a\n" +
-	"\bterminal\x18\f \x01(\x05R\bterminal\x12\x1f\n" +
-	"\vcomment_lhs\x18\r \x01(\x05R\n" +
-	"commentLhs\x12\x1f\n" +
-	"\vcomment_rhs\x18\x0e \x01(\x05R\n" +
+	" \x01(\v2\r.unicode.UTF8R\vgroupingLhs\x120\n" +
+	"\fgrouping_rhs\x18\v \x01(\v2\r.unicode.UTF8R\vgroupingRhs\x12)\n" +
+	"\bterminal\x18\f \x01(\v2\r.unicode.UTF8R\bterminal\x12.\n" +
+	"\vcomment_lhs\x18\r \x01(\v2\r.unicode.UTF8R\n" +
+	"commentLhs\x12.\n" +
+	"\vcomment_rhs\x18\x0e \x01(\v2\r.unicode.UTF8R\n" +
 	"commentRhsB!Z\x1fgithub.com/accretional/gluon/pbb\x06proto3"
 
 var (
@@ -244,13 +246,28 @@ func file_lex_proto_rawDescGZIP() []byte {
 var file_lex_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_lex_proto_goTypes = []any{
 	(*LexDescriptor)(nil), // 0: gluon.LexDescriptor
+	(*UTF8)(nil),          // 1: unicode.UTF8
 }
 var file_lex_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1,  // 0: gluon.LexDescriptor.whitespace:type_name -> unicode.UTF8
+	1,  // 1: gluon.LexDescriptor.definition:type_name -> unicode.UTF8
+	1,  // 2: gluon.LexDescriptor.concatenation:type_name -> unicode.UTF8
+	1,  // 3: gluon.LexDescriptor.termination:type_name -> unicode.UTF8
+	1,  // 4: gluon.LexDescriptor.alternation:type_name -> unicode.UTF8
+	1,  // 5: gluon.LexDescriptor.optional_lhs:type_name -> unicode.UTF8
+	1,  // 6: gluon.LexDescriptor.optional_rhs:type_name -> unicode.UTF8
+	1,  // 7: gluon.LexDescriptor.repetition_lhs:type_name -> unicode.UTF8
+	1,  // 8: gluon.LexDescriptor.repetition_rhs:type_name -> unicode.UTF8
+	1,  // 9: gluon.LexDescriptor.grouping_lhs:type_name -> unicode.UTF8
+	1,  // 10: gluon.LexDescriptor.grouping_rhs:type_name -> unicode.UTF8
+	1,  // 11: gluon.LexDescriptor.terminal:type_name -> unicode.UTF8
+	1,  // 12: gluon.LexDescriptor.comment_lhs:type_name -> unicode.UTF8
+	1,  // 13: gluon.LexDescriptor.comment_rhs:type_name -> unicode.UTF8
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_lex_proto_init() }
@@ -258,6 +275,7 @@ func file_lex_proto_init() {
 	if File_lex_proto != nil {
 		return
 	}
+	file_unicode_utf_8_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

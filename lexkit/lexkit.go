@@ -13,6 +13,29 @@ import (
 	pb "github.com/accretional/gluon/pb"
 )
 
+// Char constructs a UTF8 message from a rune. For ASCII range (0-127),
+// it uses the ASCII enum. For values >127, it uses the Symbol field.
+func Char(r rune) *pb.UTF8 {
+	if r >= 0 && r <= 127 {
+		return &pb.UTF8{Char: &pb.UTF8_Ascii{Ascii: pb.ASCII(r)}}
+	}
+	return &pb.UTF8{Char: &pb.UTF8_Symbol{Symbol: uint32(r)}}
+}
+
+// RuneOf extracts the rune from a UTF8 message. Returns 0 for nil.
+func RuneOf(u *pb.UTF8) rune {
+	if u == nil {
+		return 0
+	}
+	switch v := u.Char.(type) {
+	case *pb.UTF8_Ascii:
+		return rune(v.Ascii)
+	case *pb.UTF8_Symbol:
+		return rune(v.Symbol)
+	}
+	return 0
+}
+
 // Predefined LexDescriptors for supported EBNF variants.
 
 // GoLex returns the LexDescriptor for Go's EBNF variant.
@@ -20,20 +43,19 @@ import (
 // terminals in '"' or '`', comments in /* */.
 func GoLex() *pb.LexDescriptor {
 	return &pb.LexDescriptor{
-		Whitespace:    []int32{' ', '\t', '\n', '\r'},
-		Definition:    '=',
-		Concatenation: 0, // implicit
-		Termination:   '.',
-		Alternation:   '|',
-		OptionalLhs:   '[',
-		OptionalRhs:   ']',
-		RepetitionLhs: '{',
-		RepetitionRhs: '}',
-		GroupingLhs:   '(',
-		GroupingRhs:   ')',
-		Terminal:      '"',
-		CommentLhs:    '/',
-		CommentRhs:    '/',
+		Whitespace:    []*pb.UTF8{Char(' '), Char('\t'), Char('\n'), Char('\r')},
+		Definition:    Char('='),
+		Termination:   Char('.'),
+		Alternation:   Char('|'),
+		OptionalLhs:   Char('['),
+		OptionalRhs:   Char(']'),
+		RepetitionLhs: Char('{'),
+		RepetitionRhs: Char('}'),
+		GroupingLhs:   Char('('),
+		GroupingRhs:   Char(')'),
+		Terminal:      Char('"'),
+		CommentLhs:    Char('/'),
+		CommentRhs:    Char('/'),
 	}
 }
 
@@ -41,20 +63,19 @@ func GoLex() *pb.LexDescriptor {
 // Same as Go except termination is ';' instead of '.'.
 func ProtoLex() *pb.LexDescriptor {
 	return &pb.LexDescriptor{
-		Whitespace:    []int32{' ', '\t', '\n', '\r'},
-		Definition:    '=',
-		Concatenation: 0, // implicit
-		Termination:   ';',
-		Alternation:   '|',
-		OptionalLhs:   '[',
-		OptionalRhs:   ']',
-		RepetitionLhs: '{',
-		RepetitionRhs: '}',
-		GroupingLhs:   '(',
-		GroupingRhs:   ')',
-		Terminal:      '"',
-		CommentLhs:    '/',
-		CommentRhs:    '/',
+		Whitespace:    []*pb.UTF8{Char(' '), Char('\t'), Char('\n'), Char('\r')},
+		Definition:    Char('='),
+		Termination:   Char(';'),
+		Alternation:   Char('|'),
+		OptionalLhs:   Char('['),
+		OptionalRhs:   Char(']'),
+		RepetitionLhs: Char('{'),
+		RepetitionRhs: Char('}'),
+		GroupingLhs:   Char('('),
+		GroupingRhs:   Char(')'),
+		Terminal:      Char('"'),
+		CommentLhs:    Char('/'),
+		CommentRhs:    Char('/'),
 	}
 }
 
@@ -62,20 +83,20 @@ func ProtoLex() *pb.LexDescriptor {
 // Uses ',' for concatenation, ';' for termination, (* *) for comments.
 func StandardLex() *pb.LexDescriptor {
 	return &pb.LexDescriptor{
-		Whitespace:    []int32{' ', '\t', '\n', '\r'},
-		Definition:    '=',
-		Concatenation: ',',
-		Termination:   ';',
-		Alternation:   '|',
-		OptionalLhs:   '[',
-		OptionalRhs:   ']',
-		RepetitionLhs: '{',
-		RepetitionRhs: '}',
-		GroupingLhs:   '(',
-		GroupingRhs:   ')',
-		Terminal:      '"',
-		CommentLhs:    '(',
-		CommentRhs:    ')',
+		Whitespace:    []*pb.UTF8{Char(' '), Char('\t'), Char('\n'), Char('\r')},
+		Definition:    Char('='),
+		Concatenation: Char(','),
+		Termination:   Char(';'),
+		Alternation:   Char('|'),
+		OptionalLhs:   Char('['),
+		OptionalRhs:   Char(']'),
+		RepetitionLhs: Char('{'),
+		RepetitionRhs: Char('}'),
+		GroupingLhs:   Char('('),
+		GroupingRhs:   Char(')'),
+		Terminal:      Char('"'),
+		CommentLhs:    Char('('),
+		CommentRhs:    Char(')'),
 	}
 }
 
@@ -126,6 +147,9 @@ func (pr *ParseResult) ToGrammarDescriptor() *pb.GrammarDescriptor {
 // ToTextproto serializes a ParseResult as a human-readable textproto
 // representation of a GrammarDescriptor. Since ProductionDescriptor has
 // no fields yet, productions are represented as comments.
+//
+// UTF8 characters in the ASCII range are emitted using ASCII enum names
+// (e.g. "ascii: EQUALS_SIGN") rather than raw numbers.
 func (pr *ParseResult) ToTextproto() string {
 	var b strings.Builder
 
@@ -135,47 +159,21 @@ func (pr *ParseResult) ToTextproto() string {
 	// Lex descriptor
 	b.WriteString("lex {\n")
 	for _, ws := range pr.Lex.Whitespace {
-		fmt.Fprintf(&b, "  whitespace: %d  # %s\n", ws, charName(ws))
+		writeUTF8Field(&b, "whitespace", ws)
 	}
-	if pr.Lex.Definition != 0 {
-		fmt.Fprintf(&b, "  definition: %d  # '%c'\n", pr.Lex.Definition, pr.Lex.Definition)
-	}
-	if pr.Lex.Concatenation != 0 {
-		fmt.Fprintf(&b, "  concatenation: %d  # '%c'\n", pr.Lex.Concatenation, pr.Lex.Concatenation)
-	}
-	if pr.Lex.Termination != 0 {
-		fmt.Fprintf(&b, "  termination: %d  # '%c'\n", pr.Lex.Termination, pr.Lex.Termination)
-	}
-	if pr.Lex.Alternation != 0 {
-		fmt.Fprintf(&b, "  alternation: %d  # '%c'\n", pr.Lex.Alternation, pr.Lex.Alternation)
-	}
-	if pr.Lex.OptionalLhs != 0 {
-		fmt.Fprintf(&b, "  optional_lhs: %d  # '%c'\n", pr.Lex.OptionalLhs, pr.Lex.OptionalLhs)
-	}
-	if pr.Lex.OptionalRhs != 0 {
-		fmt.Fprintf(&b, "  optional_rhs: %d  # '%c'\n", pr.Lex.OptionalRhs, pr.Lex.OptionalRhs)
-	}
-	if pr.Lex.RepetitionLhs != 0 {
-		fmt.Fprintf(&b, "  repetition_lhs: %d  # '%c'\n", pr.Lex.RepetitionLhs, pr.Lex.RepetitionLhs)
-	}
-	if pr.Lex.RepetitionRhs != 0 {
-		fmt.Fprintf(&b, "  repetition_rhs: %d  # '%c'\n", pr.Lex.RepetitionRhs, pr.Lex.RepetitionRhs)
-	}
-	if pr.Lex.GroupingLhs != 0 {
-		fmt.Fprintf(&b, "  grouping_lhs: %d  # '%c'\n", pr.Lex.GroupingLhs, pr.Lex.GroupingLhs)
-	}
-	if pr.Lex.GroupingRhs != 0 {
-		fmt.Fprintf(&b, "  grouping_rhs: %d  # '%c'\n", pr.Lex.GroupingRhs, pr.Lex.GroupingRhs)
-	}
-	if pr.Lex.Terminal != 0 {
-		fmt.Fprintf(&b, "  terminal: %d  # '%c'\n", pr.Lex.Terminal, pr.Lex.Terminal)
-	}
-	if pr.Lex.CommentLhs != 0 {
-		fmt.Fprintf(&b, "  comment_lhs: %d  # '%c'\n", pr.Lex.CommentLhs, pr.Lex.CommentLhs)
-	}
-	if pr.Lex.CommentRhs != 0 {
-		fmt.Fprintf(&b, "  comment_rhs: %d  # '%c'\n", pr.Lex.CommentRhs, pr.Lex.CommentRhs)
-	}
+	writeUTF8Field(&b, "definition", pr.Lex.Definition)
+	writeUTF8Field(&b, "concatenation", pr.Lex.Concatenation)
+	writeUTF8Field(&b, "termination", pr.Lex.Termination)
+	writeUTF8Field(&b, "alternation", pr.Lex.Alternation)
+	writeUTF8Field(&b, "optional_lhs", pr.Lex.OptionalLhs)
+	writeUTF8Field(&b, "optional_rhs", pr.Lex.OptionalRhs)
+	writeUTF8Field(&b, "repetition_lhs", pr.Lex.RepetitionLhs)
+	writeUTF8Field(&b, "repetition_rhs", pr.Lex.RepetitionRhs)
+	writeUTF8Field(&b, "grouping_lhs", pr.Lex.GroupingLhs)
+	writeUTF8Field(&b, "grouping_rhs", pr.Lex.GroupingRhs)
+	writeUTF8Field(&b, "terminal", pr.Lex.Terminal)
+	writeUTF8Field(&b, "comment_lhs", pr.Lex.CommentLhs)
+	writeUTF8Field(&b, "comment_rhs", pr.Lex.CommentRhs)
 	b.WriteString("}\n\n")
 
 	// Productions as comments + empty proto messages
@@ -189,18 +187,17 @@ func (pr *ParseResult) ToTextproto() string {
 	return b.String()
 }
 
-func charName(c int32) string {
-	switch c {
-	case ' ':
-		return "space"
-	case '\t':
-		return "tab"
-	case '\n':
-		return "newline"
-	case '\r':
-		return "carriage return"
-	default:
-		return fmt.Sprintf("'%c'", c)
+// writeUTF8Field writes a textproto field for a UTF8 value, using ASCII
+// enum names when the character is in the ASCII range.
+func writeUTF8Field(b *strings.Builder, name string, u *pb.UTF8) {
+	if u == nil {
+		return
+	}
+	switch v := u.Char.(type) {
+	case *pb.UTF8_Ascii:
+		fmt.Fprintf(b, "  %s { ascii: %s }\n", name, v.Ascii.String())
+	case *pb.UTF8_Symbol:
+		fmt.Fprintf(b, "  %s { symbol: %d }\n", name, v.Symbol)
 	}
 }
 
@@ -250,7 +247,7 @@ func (p *parser) parse() ([]Production, error) {
 			break
 		}
 		r, sz := utf8.DecodeRuneInString(p.src[p.pos:])
-		if r != rune(p.lex.Definition) {
+		if r != RuneOf(p.lex.Definition) {
 			// Not a production start — restore position and skip
 			// past this identifier (it was part of something else).
 			p.pos = saved + len(name)
@@ -297,7 +294,7 @@ func (p *parser) parseName() (string, error) {
 
 func (p *parser) parseExpression() (string, error) {
 	start := p.pos
-	term := rune(p.lex.Termination)
+	term := RuneOf(p.lex.Termination)
 	depth := 0 // track bracket nesting
 
 	for p.pos < len(p.src) {
@@ -317,10 +314,10 @@ func (p *parser) parseExpression() (string, error) {
 		}
 
 		// Track bracket depth
-		if r == rune(p.lex.GroupingLhs) || r == rune(p.lex.OptionalLhs) || r == rune(p.lex.RepetitionLhs) {
+		if r == RuneOf(p.lex.GroupingLhs) || r == RuneOf(p.lex.OptionalLhs) || r == RuneOf(p.lex.RepetitionLhs) {
 			depth++
 		}
-		if r == rune(p.lex.GroupingRhs) || r == rune(p.lex.OptionalRhs) || r == rune(p.lex.RepetitionRhs) {
+		if r == RuneOf(p.lex.GroupingRhs) || r == RuneOf(p.lex.OptionalRhs) || r == RuneOf(p.lex.RepetitionRhs) {
 			depth--
 		}
 
@@ -360,7 +357,7 @@ func (p *parser) skipWhitespaceAndComments() {
 		// Check whitespace
 		isWS := false
 		for _, ws := range p.lex.Whitespace {
-			if r == rune(ws) {
+			if r == RuneOf(ws) {
 				isWS = true
 				break
 			}
@@ -384,7 +381,7 @@ func (p *parser) isCommentStart() bool {
 	if p.pos >= len(p.src) {
 		return false
 	}
-	clhs := rune(p.lex.CommentLhs)
+	clhs := RuneOf(p.lex.CommentLhs)
 	if clhs == 0 {
 		return false
 	}
@@ -409,7 +406,7 @@ func (p *parser) isCommentStart() bool {
 }
 
 func (p *parser) skipComment() {
-	clhs := rune(p.lex.CommentLhs)
+	clhs := RuneOf(p.lex.CommentLhs)
 
 	if clhs == '/' && p.pos+1 < len(p.src) {
 		if p.src[p.pos+1] == '/' {

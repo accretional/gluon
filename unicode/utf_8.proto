@@ -1,0 +1,17 @@
+// Source: https://github.com/accretional/proto-symbol
+syntax = "proto3";
+
+package unicode;
+
+option go_package = "github.com/accretional/gluon/pb";
+
+import "unicode/ascii.proto";
+
+// Unicode uses variable-length encoding, ASCII is a 7-bit encoding with a
+// 1-bit signal so that ASCII characters get encoded as 1 byte.
+message UTF8 {
+  oneof char {
+    ASCII ascii = 1;
+    uint32 symbol = 2;
+  }
+}

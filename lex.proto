@@ -4,62 +4,66 @@ package gluon;
 
 option go_package = "github.com/accretional/gluon/pb";
 
+import "unicode/utf_8.proto";
+
 // LexDescriptor defines the lexical structure of an EBNF-based grammar
-// notation. Each field is an int32 Unicode code point for the character
-// that serves that role in the notation.
+// notation. Each field is a Unicode character (represented as UTF8) that
+// serves a specific role in the notation.
 //
-// For example, standard EBNF uses '=' (61) for definition, '|' (124) for
-// alternation, '.' (46) for termination, etc.
+// For example, standard EBNF uses '=' for definition, '|' for alternation,
+// '.' for termination, etc. Using unicode.UTF8 instead of raw int32 gives
+// each character a readable name via the ASCII enum (e.g. EQUALS_SIGN,
+// PIPE, FULL_STOP).
 //
 // This allows a single lexer implementation to handle different EBNF
 // variants (Go's spec notation, proto's notation, ISO 14977 EBNF) by
 // swapping the LexDescriptor configuration.
 message LexDescriptor {
   // Whitespace characters (typically space, tab, newline, carriage return).
-  repeated int32 whitespace = 1;
+  repeated unicode.UTF8 whitespace = 1;
 
   // Definition operator: separates production name from its expression.
-  // Standard EBNF: '=' (61). Some notations use '::=' or ':'.
-  int32 definition = 2;
+  // Standard EBNF: '=' (EQUALS_SIGN). Some notations use '::=' or ':'.
+  unicode.UTF8 definition = 2;
 
   // Concatenation operator: separates sequential terms.
-  // Standard EBNF: ',' (44). Go/proto EBNF: implicit (juxtaposition).
-  // Set to 0 when concatenation is implicit.
-  int32 concatenation = 3;
+  // Standard EBNF: ',' (COMMA). Go/proto EBNF: implicit (juxtaposition).
+  // Omit (nil) when concatenation is implicit.
+  unicode.UTF8 concatenation = 3;
 
   // Termination: marks the end of a production rule.
-  // Standard EBNF: ';' (59). Go EBNF: '.' (46). Proto: ';' (59).
-  int32 termination = 4;
+  // Standard EBNF: ';' (SEMICOLON). Go EBNF: '.' (FULL_STOP). Proto: ';'.
+  unicode.UTF8 termination = 4;
 
   // Alternation: separates alternative choices.
-  // Universally: '|' (124).
-  int32 alternation = 5;
+  // Universally: '|' (VERTICAL_LINE).
+  unicode.UTF8 alternation = 5;
 
   // Optional brackets: enclose optional expressions (0 or 1 times).
-  // Standard/Go EBNF: '[' (91) and ']' (93).
-  int32 optional_lhs = 6;
-  int32 optional_rhs = 7;
+  // Standard/Go EBNF: '[' and ']' (LEFT/RIGHT_SQUARE_BRACKET).
+  unicode.UTF8 optional_lhs = 6;
+  unicode.UTF8 optional_rhs = 7;
 
   // Repetition brackets: enclose repeated expressions (0 to n times).
-  // Standard/Go EBNF: '{' (123) and '}' (125).
-  int32 repetition_lhs = 8;
-  int32 repetition_rhs = 9;
+  // Standard/Go EBNF: '{' and '}' (LEFT/RIGHT_CURLY_BRACKET).
+  unicode.UTF8 repetition_lhs = 8;
+  unicode.UTF8 repetition_rhs = 9;
 
   // Grouping brackets: enclose grouped expressions.
-  // Standard/Go EBNF: '(' (40) and ')' (41).
-  int32 grouping_lhs = 10;
-  int32 grouping_rhs = 11;
+  // Standard/Go EBNF: '(' and ')' (LEFT/RIGHT_PARENTHESIS).
+  unicode.UTF8 grouping_lhs = 10;
+  unicode.UTF8 grouping_rhs = 11;
 
   // Terminal delimiter: character used to quote terminal symbols.
-  // Standard EBNF: '"' (34) or "'" (39). Go also uses '`' (96).
-  int32 terminal = 12;
+  // Standard EBNF: '"' (QUOTATION_MARK) or "'" (APOSTROPHE).
+  // Go also uses '`' (GRAVE_ACCENT).
+  unicode.UTF8 terminal = 12;
 
   // Comment delimiters: characters that open and close comments.
-  // Standard EBNF: '(' (40) paired with '*' (42) for '(*', then
-  // '*' (42) paired with ')' (41) for '*)'.
-  // Go EBNF uses '/' (47) paired with '*' (42) for '/* ... */'.
-  int32 comment_lhs = 13;
-  int32 comment_rhs = 14;
+  // Standard EBNF: '(' paired with '*' for '(*', then '*' paired with ')'.
+  // Go EBNF uses '/' paired with '*' for '/* ... */'.
+  unicode.UTF8 comment_lhs = 13;
+  unicode.UTF8 comment_rhs = 14;
 
   // NOTE: Standard EBNF (ISO 14977) also defines "special sequences"
   // delimited by '?' and "exceptions" using '-'. These are not yet
