@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	pb "github.com/accretional/gluon/pb"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestParseGoEBNF(t *testing.T) {
@@ -583,6 +584,54 @@ func TestSelfHostingEBNF(t *testing.T) {
 		}
 	}
 	t.Logf("self-hosting: %d productions re-parsed and matched", len(reparsed.Productions))
+}
+
+// TestGrammarBinarypbRoundTrip verifies that each grammar's binarypb
+// file round-trips: load textproto, marshal to binary, unmarshal, and
+// compare production counts and names.
+func TestGrammarBinarypbRoundTrip(t *testing.T) {
+	grammars := []struct {
+		name      string
+		textproto string
+		binarypb  string
+	}{
+		{"EBNF", "ebnf_grammar.textproto", "ebnf_grammar.binarypb"},
+		{"Go", "go_grammar.textproto", "go_grammar.binarypb"},
+		{"Proto", "proto_grammar.textproto", "proto_grammar.binarypb"},
+	}
+
+	for _, g := range grammars {
+		t.Run(g.name, func(t *testing.T) {
+			// Load from textproto
+			fromText, err := LoadGrammar(g.textproto)
+			if err != nil {
+				t.Fatalf("loading textproto: %v", err)
+			}
+
+			// Load from binarypb
+			binData, err := os.ReadFile(g.binarypb)
+			if err != nil {
+				t.Fatalf("reading binarypb: %v", err)
+			}
+			var fromBin pb.GrammarDescriptor
+			if err := proto.Unmarshal(binData, &fromBin); err != nil {
+				t.Fatalf("unmarshaling binarypb: %v", err)
+			}
+
+			// Compare
+			if len(fromBin.Productions) != len(fromText.Productions) {
+				t.Fatalf("production count: textproto=%d, binarypb=%d",
+					len(fromText.Productions), len(fromBin.Productions))
+			}
+			for i, got := range fromBin.Productions {
+				want := fromText.Productions[i]
+				if got.Name != want.Name {
+					t.Errorf("production[%d]: got %q, want %q", i, got.Name, want.Name)
+				}
+			}
+			t.Logf("%d productions, binarypb %d bytes", len(fromBin.Productions), len(binData))
+		})
+	}
 }
 
 // TestEBNFLexFromBinary verifies that EBNFLex() loaded from the

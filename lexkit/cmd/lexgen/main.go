@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"golang.org/x/exp/ebnf"
+	"google.golang.org/protobuf/proto"
 
 	pb "github.com/accretional/gluon/pb"
 
@@ -89,6 +90,21 @@ func main() {
 			continue
 		}
 		fmt.Printf("  wrote %s (%d bytes)\n", g.output, len(textproto))
+
+		// Write binary protobuf
+		binaryOut := strings.TrimSuffix(g.output, ".textproto") + ".binarypb"
+		binData, err := proto.Marshal(gd)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  error marshaling %s: %v\n", binaryOut, err)
+			exitCode = 1
+			continue
+		}
+		if err := os.WriteFile(binaryOut, binData, 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "  error writing %s: %v\n", binaryOut, err)
+			exitCode = 1
+			continue
+		}
+		fmt.Printf("  wrote %s (%d bytes)\n", binaryOut, len(binData))
 
 		// Run validator if available
 		if g.validator != nil {
