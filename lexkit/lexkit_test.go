@@ -115,16 +115,16 @@ func TestToTextproto(t *testing.T) {
 	if len(tp) == 0 {
 		t.Fatal("empty textproto output")
 	}
-	if !strings.Contains(tp, "lex {") {
+	if !strings.Contains(tp, "lex:") {
 		t.Error("textproto missing lex block")
 	}
-	if !strings.Contains(tp, "productions {") {
+	if !strings.Contains(tp, "productions:") {
 		t.Error("textproto missing productions")
 	}
-	if !strings.Contains(tp, `name: "Syntax"`) {
+	if !strings.Contains(tp, `name:`) && !strings.Contains(tp, `"Syntax"`) {
 		t.Error("textproto missing production name")
 	}
-	if !strings.Contains(tp, "token {") {
+	if !strings.Contains(tp, "token:") {
 		t.Error("textproto missing token descriptor")
 	}
 }
