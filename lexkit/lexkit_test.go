@@ -634,6 +634,60 @@ func TestGrammarBinarypbRoundTrip(t *testing.T) {
 	}
 }
 
+// TestToASCIIRoundTrip verifies that binarypb → ToASCII → Parse
+// produces the same productions as the original grammar.
+func TestToASCIIRoundTrip(t *testing.T) {
+	grammars := []struct {
+		name     string
+		binarypb string
+		lexFn    func() *pb.LexDescriptor
+	}{
+		{"EBNF", "ebnf_grammar.binarypb", EBNFLex},
+		{"Go", "go_grammar.binarypb", GoLex},
+		{"Proto", "proto_grammar.binarypb", ProtoLex},
+	}
+
+	for _, g := range grammars {
+		t.Run(g.name, func(t *testing.T) {
+			binData, err := os.ReadFile(g.binarypb)
+			if err != nil {
+				t.Fatalf("reading binarypb: %v", err)
+			}
+			var original pb.GrammarDescriptor
+			if err := proto.Unmarshal(binData, &original); err != nil {
+				t.Fatalf("unmarshaling: %v", err)
+			}
+
+			// Reconstruct ASCII text from binarypb
+			ascii := ToASCII(&original)
+
+			// Re-parse the reconstructed text
+			reparsed, err := Parse(ascii, g.lexFn())
+			if err != nil {
+				t.Fatalf("re-parse failed: %v", err)
+			}
+
+			if len(reparsed.Productions) != len(original.Productions) {
+				t.Fatalf("production count: original=%d, reparsed=%d",
+					len(original.Productions), len(reparsed.Productions))
+			}
+			for i, got := range reparsed.Productions {
+				want := original.Productions[i]
+				if got.Name != want.Name {
+					t.Errorf("production[%d]: got %q, want %q", i, got.Name, want.Name)
+				}
+				gotRaw := TokenToRaw(got.Token)
+				wantRaw := TokenToRaw(want.Token)
+				if gotRaw != wantRaw {
+					t.Errorf("production[%d] %q raw mismatch:\n  got:  %q\n  want: %q",
+						i, got.Name, gotRaw, wantRaw)
+				}
+			}
+			t.Logf("round-trip: %d productions, %d bytes ASCII", len(original.Productions), len(ascii))
+		})
+	}
+}
+
 // TestEBNFLexFromBinary verifies that EBNFLex() loaded from the
 // binarypb matches the expected EBNF configuration.
 func TestEBNFLexFromBinary(t *testing.T) {

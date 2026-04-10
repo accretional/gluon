@@ -106,6 +106,16 @@ func main() {
 		}
 		fmt.Printf("  wrote %s (%d bytes)\n", binaryOut, len(binData))
 
+		// Write reconstructed ASCII text
+		asciiOut := strings.TrimSuffix(g.output, "_grammar.textproto") + "_reconstructed.txt"
+		asciiText := lexkit.ToASCII(gd)
+		if err := os.WriteFile(asciiOut, []byte(asciiText), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "  error writing %s: %v\n", asciiOut, err)
+			exitCode = 1
+			continue
+		}
+		fmt.Printf("  wrote %s (%d bytes)\n", asciiOut, len(asciiText))
+
 		// Run validator if available
 		if g.validator != nil {
 			if err := g.validator(string(src)); err != nil {
