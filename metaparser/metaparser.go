@@ -295,6 +295,12 @@ func identifierize(s string) string {
 	if result == "" {
 		return "empty"
 	}
+	// Proto identifiers cannot start with a digit; use the ASCII name.
+	if len(result) > 0 && result[0] >= '0' && result[0] <= '9' {
+		name := pb.ASCII(rune(result[0])).String()
+		result = name + "_" + result[1:]
+		result = strings.TrimRight(result, "_")
+	}
 	return result
 }
 
