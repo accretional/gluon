@@ -103,7 +103,7 @@ input hint — but the source is the load-bearing input.
 | `tokens.proto` | `TokenSequence`, `Token`, `ScoperToken` |
 | `grammar.proto` | `Production` (oneof), `ScopedProduction`, `StringRange`, `RuleDescriptor`, `GrammarDescriptor` |
 | `ast.proto` | `ASTDescriptor`, `ASTNode` |
-| `metaparser.proto` | `service Metaparser`, `CstRequest` |
+| `metaparser.proto` | `service Metaparser`, `CstRequest`, `TransformRequest`, `TransformResponse` |
 | `astkit.proto` | `service Transformer`, Find/Replace/Filter Request+Response messages |
 
 ## Metaparser pipeline
@@ -120,7 +120,7 @@ moves out of the metaparser service.
 
 ## Current implementation state
 
-All four RPCs are implemented with pure-Go entry points, a unit test
+All five RPCs are implemented with pure-Go entry points, a unit test
 file, and a `_e2e_test.go` that drives the gRPC stack via `bufconn`.
 
 | RPC | Pure-Go entry | Unit tests | E2E tests |
@@ -129,6 +129,7 @@ file, and a `_e2e_test.go` that drives the gRPC stack via `bufconn`.
 | `ReadString` | `WrapString(s) *DocumentDescriptor` | 13 | 12 |
 | `EBNF` | `ParseEBNF(doc) (*GrammarDescriptor, error)` | 13 | 9 |
 | `CST` | `ParseCST(req) (*ASTDescriptor, error)` | 12 | 10 |
+| `Transform` | `Transform(ctx, *ASTDescriptor, script) (*TransformResponse, error)` | 7 | 4 |
 
 `go test ./v2/metaparser/` is green. The EBNF impl wraps v1's
 `lexkit.Parse` and converts v1 `ProductionExpression` trees to v2's
@@ -209,17 +210,27 @@ The in-process implementation + gRPC adapter live in
 `go test ./v2/astkit/... ./v2/metaparser/` is green (19 astkit unit +
 11 server + 7 e2e tests).
 
+## Transform pipeline
+
+`Metaparser.Transform` takes an `ASTDescriptor` and a textproto
+`ScriptDescriptor`, runs the script through proto-expr's Protosh
+runtime, and returns the final `Data`. The RPC wires `v2/astkit`'s
+Transformer methods in-process under the `astkit://<Method>` URI
+scheme, so scripts can chain Filter / ReplaceKind / ReplaceValue /
+Find passes on the tree without going through a separate gRPC hop.
+
+Per-dispatch parameters ride in `Data.type` using a compact
+`k=v,k2=v2` convention (`kind=whitespace`, `from=keyword,to=kw`). The
+initial `ASTNode` is pre-loaded into the `ast` register, so most
+scripts open with `request: { text: "ast" }`. See
+`v2/metaparser/transform_test.go` for examples.
+
 ## Open work
 
-- **Protosh.Run** — proto-expr's scripting runtime. Interprets a
-  `ScriptDescriptor` by executing `Import` / `Dispatch` / `Variable`
-  statements. Required before Metaparser.Transform can be wired up.
-- **Metaparser.Transform** — new RPC that takes an `ASTDescriptor`
-  and a `ScriptDescriptor`, delegates to Protosh.Run, and returns the
-  final `Data` (typically a `FileDescriptorProto`). This is how
-  proto-sqlite will drive the CST→proto pipeline.
 - **v2 compiler** — grammar/AST → `FileDescriptorProto`. The next
-  real feature; blocks step 3 of the migration plan.
+  real feature; blocks step 3 of the migration plan. Will slot in as
+  another Protosh handler under something like
+  `protoc://Compile`.
 - **Native v2 parser** — replace the v1-parser shim inside
   `ParseCST`. Would let us delete v1 wholesale. Not urgent; the shim
   is ~150 lines and works.

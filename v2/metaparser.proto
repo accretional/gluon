@@ -47,6 +47,17 @@ service Metaparser {
   // producing an ASTDescriptor that carries the full concrete syntax
   // tree (every matched token).
   rpc CST(CstRequest) returns (ASTDescriptor);
+
+  // Transform runs a proto-expr ScriptDescriptor over an ASTDescriptor.
+  // The script is accepted as a textproto string (not a typed message)
+  // so this RPC can ship without pulling proto-expr into gluon's proto
+  // imports; the server parses it as
+  // `proto_expr.ScriptDescriptor`. The ast register is pre-populated
+  // with the request's ASTDescriptor (as binary Data) under the name
+  // "ast", and the Transformer service (v2/astkit.proto) is pre-wired
+  // as a handler for URIs of the form "astkit://<Method>". The final
+  // Data produced by the script is returned.
+  rpc Transform(TransformRequest) returns (TransformResponse);
 }
 
 // CstRequest bundles the grammar, the token stream, and the source
@@ -62,4 +73,25 @@ message CstRequest {
   GrammarDescriptor grammar = 1;
   TokenSequence tokens = 2;
   DocumentDescriptor document = 3;
+}
+
+// TransformRequest carries an ASTDescriptor plus a script that rewrites
+// or compiles it. `script_textproto` is a prototext-encoded
+// `proto_expr.ScriptDescriptor`; passing it as a string keeps gluon's
+// proto tree free of a proto-expr import without losing type safety at
+// the Go layer (the server unmarshals into the typed message).
+message TransformRequest {
+  ASTDescriptor ast = 1;
+  string script_textproto = 2;
+}
+
+// TransformResponse carries the final Data produced by the script.
+// `data_binary` and `data_text` are the two concrete encodings
+// `proto_expr.Data` supports; exactly one is set, or neither if the
+// script yielded an empty Data. `data_type` echoes `proto_expr.Data.type`
+// so callers can branch on it without re-reading the Data message.
+message TransformResponse {
+  string data_type = 1;
+  bytes data_binary = 2;
+  string data_text = 3;
 }

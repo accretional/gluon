@@ -24,6 +24,7 @@ const (
 	Metaparser_ReadString_FullMethodName = "/gluon.v2.Metaparser/ReadString"
 	Metaparser_EBNF_FullMethodName       = "/gluon.v2.Metaparser/EBNF"
 	Metaparser_CST_FullMethodName        = "/gluon.v2.Metaparser/CST"
+	Metaparser_Transform_FullMethodName  = "/gluon.v2.Metaparser/Transform"
 )
 
 // MetaparserClient is the client API for Metaparser service.
@@ -62,6 +63,16 @@ type MetaparserClient interface {
 	// producing an ASTDescriptor that carries the full concrete syntax
 	// tree (every matched token).
 	CST(ctx context.Context, in *CstRequest, opts ...grpc.CallOption) (*ASTDescriptor, error)
+	// Transform runs a proto-expr ScriptDescriptor over an ASTDescriptor.
+	// The script is accepted as a textproto string (not a typed message)
+	// so this RPC can ship without pulling proto-expr into gluon's proto
+	// imports; the server parses it as
+	// `proto_expr.ScriptDescriptor`. The ast register is pre-populated
+	// with the request's ASTDescriptor (as binary Data) under the name
+	// "ast", and the Transformer service (v2/astkit.proto) is pre-wired
+	// as a handler for URIs of the form "astkit://<Method>". The final
+	// Data produced by the script is returned.
+	Transform(ctx context.Context, in *TransformRequest, opts ...grpc.CallOption) (*TransformResponse, error)
 }
 
 type metaparserClient struct {
@@ -112,6 +123,16 @@ func (c *metaparserClient) CST(ctx context.Context, in *CstRequest, opts ...grpc
 	return out, nil
 }
 
+func (c *metaparserClient) Transform(ctx context.Context, in *TransformRequest, opts ...grpc.CallOption) (*TransformResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TransformResponse)
+	err := c.cc.Invoke(ctx, Metaparser_Transform_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MetaparserServer is the server API for Metaparser service.
 // All implementations must embed UnimplementedMetaparserServer
 // for forward compatibility.
@@ -148,6 +169,16 @@ type MetaparserServer interface {
 	// producing an ASTDescriptor that carries the full concrete syntax
 	// tree (every matched token).
 	CST(context.Context, *CstRequest) (*ASTDescriptor, error)
+	// Transform runs a proto-expr ScriptDescriptor over an ASTDescriptor.
+	// The script is accepted as a textproto string (not a typed message)
+	// so this RPC can ship without pulling proto-expr into gluon's proto
+	// imports; the server parses it as
+	// `proto_expr.ScriptDescriptor`. The ast register is pre-populated
+	// with the request's ASTDescriptor (as binary Data) under the name
+	// "ast", and the Transformer service (v2/astkit.proto) is pre-wired
+	// as a handler for URIs of the form "astkit://<Method>". The final
+	// Data produced by the script is returned.
+	Transform(context.Context, *TransformRequest) (*TransformResponse, error)
 	mustEmbedUnimplementedMetaparserServer()
 }
 
@@ -169,6 +200,9 @@ func (UnimplementedMetaparserServer) EBNF(context.Context, *DocumentDescriptor) 
 }
 func (UnimplementedMetaparserServer) CST(context.Context, *CstRequest) (*ASTDescriptor, error) {
 	return nil, status.Error(codes.Unimplemented, "method CST not implemented")
+}
+func (UnimplementedMetaparserServer) Transform(context.Context, *TransformRequest) (*TransformResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Transform not implemented")
 }
 func (UnimplementedMetaparserServer) mustEmbedUnimplementedMetaparserServer() {}
 func (UnimplementedMetaparserServer) testEmbeddedByValue()                    {}
@@ -263,6 +297,24 @@ func _Metaparser_CST_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Metaparser_Transform_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransformRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaparserServer).Transform(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Metaparser_Transform_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaparserServer).Transform(ctx, req.(*TransformRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Metaparser_ServiceDesc is the grpc.ServiceDesc for Metaparser service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -285,6 +337,10 @@ var Metaparser_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CST",
 			Handler:    _Metaparser_CST_Handler,
+		},
+		{
+			MethodName: "Transform",
+			Handler:    _Metaparser_Transform_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
