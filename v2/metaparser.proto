@@ -9,7 +9,6 @@ import "google/protobuf/wrappers.proto";
 import "v2/ast.proto";
 import "v2/document.proto";
 import "v2/grammar.proto";
-import "v2/lex.proto";
 import "v2/text.proto";
 import "v2/tokens.proto";
 
@@ -23,8 +22,6 @@ import "v2/tokens.proto";
 //     → ReadString  → DocumentDescriptor
 //   DocumentDescriptor                         ← EBNF source
 //     → EBNF        → GrammarDescriptor        ← rules + lex conventions
-//   DocumentDescriptor (program to parse)
-//     → Lex         → TokenSequence            ← classified tokens
 //   TokenSequence + GrammarDescriptor
 //     → CST         → ASTDescriptor            ← concrete syntax tree
 //
@@ -46,24 +43,10 @@ service Metaparser {
   // configured for the input's EBNF dialect.
   rpc EBNF(DocumentDescriptor) returns (GrammarDescriptor);
 
-  // Lex runs the lexer over a DocumentDescriptor and emits a
-  // TokenSequence suitable for CST parsing. Factored out as its own
-  // RPC so the same token stream can be parsed against multiple
-  // grammars without re-lexing.
-  rpc Lex(LexRequest) returns (TokenSequence);
-
   // CST parses an already-lexed TokenSequence against a grammar,
   // producing an ASTDescriptor that carries the full concrete syntax
   // tree (every matched token).
   rpc CST(CstRequest) returns (ASTDescriptor);
-}
-
-// LexRequest bundles the source document with the lex configuration to
-// apply. Split from DocumentDescriptor because the document is reusable
-// across different lex conventions.
-message LexRequest {
-  DocumentDescriptor source = 1;
-  LexDescriptor lex = 2;
 }
 
 // CstRequest bundles the grammar with the token stream to parse against
