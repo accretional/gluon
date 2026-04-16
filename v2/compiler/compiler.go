@@ -22,6 +22,13 @@ type Options struct {
 	// FileName is the FileDescriptorProto.name. Defaults to
 	// "<package>.proto".
 	FileName string
+
+	// OnMessage is invoked for each emitted message as soon as its
+	// fully-qualified name is known. The node is the AST node that
+	// produced the message: a rule node for top-level rule messages,
+	// a sequence node for nested sequence wrappers, an alternation
+	// node for nested alternation wrappers. Nil is ignored.
+	OnMessage func(fqn string, node *pb.ASTNode)
 }
 
 // Compile lowers a schema-shaped ASTDescriptor into a FileDescriptorProto.
@@ -41,9 +48,10 @@ func Compile(ast *pb.ASTDescriptor, opts Options) (*descriptorpb.FileDescriptorP
 	}
 
 	b := &builder{
-		pkg:      opts.Package,
-		keywords: map[string]*descriptorpb.DescriptorProto{},
-		fqn:      map[*descriptorpb.DescriptorProto]string{},
+		pkg:       opts.Package,
+		keywords:  map[string]*descriptorpb.DescriptorProto{},
+		fqn:       map[*descriptorpb.DescriptorProto]string{},
+		onMessage: opts.OnMessage,
 	}
 	if b.pkg == "" {
 		b.pkg = sanitizePackage(ast.GetLanguage())
@@ -91,11 +99,12 @@ func Compile(ast *pb.ASTDescriptor, opts Options) (*descriptorpb.FileDescriptorP
 }
 
 type builder struct {
-	pkg      string
-	keywords map[string]*descriptorpb.DescriptorProto
-	messages []*descriptorpb.DescriptorProto
-	usesUTF8 bool
-	fqn      map[*descriptorpb.DescriptorProto]string
+	pkg       string
+	keywords  map[string]*descriptorpb.DescriptorProto
+	messages  []*descriptorpb.DescriptorProto
+	usesUTF8  bool
+	fqn       map[*descriptorpb.DescriptorProto]string
+	onMessage func(fqn string, node *pb.ASTNode)
 }
 
 func (b *builder) dependencies() []string {
@@ -112,6 +121,9 @@ func (b *builder) ruleMessage(rule *pb.ASTNode) (*descriptorpb.DescriptorProto, 
 	name := pascalCase(rule.GetValue())
 	msg := &descriptorpb.DescriptorProto{Name: &name}
 	b.fqn[msg] = "." + b.pkg + "." + name
+	if b.onMessage != nil {
+		b.onMessage(b.fqn[msg], rule)
+	}
 
 	kids := rule.GetChildren()
 	if len(kids) == 0 {
@@ -226,6 +238,9 @@ func (b *builder) nestedFromSequence(parent *descriptorpb.DescriptorProto, node 
 	name := pickNestedName(parent, node.GetValue(), "Seq")
 	nested := &descriptorpb.DescriptorProto{Name: &name}
 	b.fqn[nested] = b.fqn[parent] + "." + name
+	if b.onMessage != nil {
+		b.onMessage(b.fqn[nested], node)
+	}
 	parent.NestedType = append(parent.NestedType, nested)
 	for _, it := range node.GetChildren() {
 		if err := b.emitField(nested, it, nil); err != nil {
@@ -239,6 +254,9 @@ func (b *builder) nestedFromAlternation(parent *descriptorpb.DescriptorProto, no
 	name := pickNestedName(parent, node.GetValue(), "Alt")
 	nested := &descriptorpb.DescriptorProto{Name: &name}
 	b.fqn[nested] = b.fqn[parent] + "." + name
+	if b.onMessage != nil {
+		b.onMessage(b.fqn[nested], node)
+	}
 	parent.NestedType = append(parent.NestedType, nested)
 	if err := b.emitOneof(nested, "value", node.GetChildren()); err != nil {
 		return nil, err
