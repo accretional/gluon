@@ -7,6 +7,7 @@
 package pb
 
 import (
+	proto_expr "github.com/accretional/proto-expr"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -86,7 +87,19 @@ type ProductionDescriptor struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The expression body as a token sequence — each character of the
 	// EBNF expression represented as a unicode.UTF8 value.
-	Token         *TokenDescriptor `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
+	Token *TokenDescriptor `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
+	// Structured RHS as an S-expression. Populated by lexkit.Parse alongside
+	// `token`. Encoding:
+	//
+	//	("seq" . args)              concatenation
+	//	("alt" . args)              alternation
+	//	("opt" . body)              [x]
+	//	("rep" . body)              {x}
+	//	("group" . body)            (x)
+	//	("term" . "LITERAL")        quoted terminal
+	//	("nonterm" . "name")        identifier reference
+	//	("range" lo hi)             character range
+	Body          *proto_expr.Expression `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -131,6 +144,13 @@ func (x *ProductionDescriptor) GetName() string {
 func (x *ProductionDescriptor) GetToken() *TokenDescriptor {
 	if x != nil {
 		return x.Token
+	}
+	return nil
+}
+
+func (x *ProductionDescriptor) GetBody() *proto_expr.Expression {
+	if x != nil {
+		return x.Body
 	}
 	return nil
 }
@@ -186,13 +206,14 @@ var File_grammar_proto protoreflect.FileDescriptor
 
 const file_grammar_proto_rawDesc = "" +
 	"\n" +
-	"\rgrammar.proto\x12\x05gluon\x1a\tlex.proto\x1a\x13unicode/utf_8.proto\"z\n" +
+	"\rgrammar.proto\x12\x05gluon\x1a\tlex.proto\x1a\x13unicode/utf_8.proto\x1a\x10expression.proto\"z\n" +
 	"\x11GrammarDescriptor\x12&\n" +
 	"\x03lex\x18\x01 \x01(\v2\x14.gluon.LexDescriptorR\x03lex\x12=\n" +
-	"\vproductions\x18\x02 \x03(\v2\x1b.gluon.ProductionDescriptorR\vproductions\"X\n" +
+	"\vproductions\x18\x02 \x03(\v2\x1b.gluon.ProductionDescriptorR\vproductions\"\x84\x01\n" +
 	"\x14ProductionDescriptor\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12,\n" +
-	"\x05token\x18\x02 \x01(\v2\x16.gluon.TokenDescriptorR\x05token\"6\n" +
+	"\x05token\x18\x02 \x01(\v2\x16.gluon.TokenDescriptorR\x05token\x12*\n" +
+	"\x04body\x18\x03 \x01(\v2\x16.proto_expr.ExpressionR\x04body\"6\n" +
 	"\x0fTokenDescriptor\x12#\n" +
 	"\x05chars\x18\x01 \x03(\v2\r.unicode.UTF8R\x05charsB!Z\x1fgithub.com/accretional/gluon/pbb\x06proto3"
 
@@ -210,22 +231,24 @@ func file_grammar_proto_rawDescGZIP() []byte {
 
 var file_grammar_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_grammar_proto_goTypes = []any{
-	(*GrammarDescriptor)(nil),    // 0: gluon.GrammarDescriptor
-	(*ProductionDescriptor)(nil), // 1: gluon.ProductionDescriptor
-	(*TokenDescriptor)(nil),      // 2: gluon.TokenDescriptor
-	(*LexDescriptor)(nil),        // 3: gluon.LexDescriptor
-	(*UTF8)(nil),                 // 4: unicode.UTF8
+	(*GrammarDescriptor)(nil),     // 0: gluon.GrammarDescriptor
+	(*ProductionDescriptor)(nil),  // 1: gluon.ProductionDescriptor
+	(*TokenDescriptor)(nil),       // 2: gluon.TokenDescriptor
+	(*LexDescriptor)(nil),         // 3: gluon.LexDescriptor
+	(*proto_expr.Expression)(nil), // 4: proto_expr.Expression
+	(*UTF8)(nil),                  // 5: unicode.UTF8
 }
 var file_grammar_proto_depIdxs = []int32{
 	3, // 0: gluon.GrammarDescriptor.lex:type_name -> gluon.LexDescriptor
 	1, // 1: gluon.GrammarDescriptor.productions:type_name -> gluon.ProductionDescriptor
 	2, // 2: gluon.ProductionDescriptor.token:type_name -> gluon.TokenDescriptor
-	4, // 3: gluon.TokenDescriptor.chars:type_name -> unicode.UTF8
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 3: gluon.ProductionDescriptor.body:type_name -> proto_expr.Expression
+	5, // 4: gluon.TokenDescriptor.chars:type_name -> unicode.UTF8
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_grammar_proto_init() }

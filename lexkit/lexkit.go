@@ -200,10 +200,14 @@ func (p *parser) parse() ([]*pb.ProductionDescriptor, error) {
 		}
 
 		raw = strings.TrimSpace(raw)
-		prods = append(prods, &pb.ProductionDescriptor{
+		prod := &pb.ProductionDescriptor{
 			Name:  name,
 			Token: RawToToken(raw),
-		})
+		}
+		if tree, perr := ParseExpr(raw, LexConfigFrom(p.lex)); perr == nil && tree != nil {
+			prod.Body = ExprToExpression(tree)
+		}
+		prods = append(prods, prod)
 	}
 	return prods, nil
 }

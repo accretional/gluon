@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package gluon;
+
+option go_package = "github.com/accretional/gluon/pb";
+
+import "google/protobuf/descriptor.proto";
+import "language.proto";
+
+// Metaparser turns a LanguageDescriptor (EBNF grammar) into a
+// FileDescriptorProto: one message per production, with alt→oneof,
+// rep→repeated, opt→optional, quoted terminals → keyword messages
+// (suffixed `_Kw` to avoid collision with nonterminal field names of
+// the same base), and nonterminals → fields typed as the referenced
+// production message.
+service Metaparser {
+  rpc Proto(LanguageDescriptor) returns (google.protobuf.FileDescriptorProto);
+}

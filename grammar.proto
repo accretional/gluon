@@ -6,6 +6,7 @@ option go_package = "github.com/accretional/gluon/pb";
 
 import "lex.proto";
 import "unicode/utf_8.proto";
+import "expression.proto";
 
 // GrammarDescriptor represents a complete grammar defined in EBNF notation.
 // It pairs the lexical configuration (how to read the EBNF) with the
@@ -27,6 +28,18 @@ message ProductionDescriptor {
   // The expression body as a token sequence — each character of the
   // EBNF expression represented as a unicode.UTF8 value.
   TokenDescriptor token = 2;
+
+  // Structured RHS as an S-expression. Populated by lexkit.Parse alongside
+  // `token`. Encoding:
+  //   ("seq" . args)              concatenation
+  //   ("alt" . args)              alternation
+  //   ("opt" . body)              [x]
+  //   ("rep" . body)              {x}
+  //   ("group" . body)            (x)
+  //   ("term" . "LITERAL")        quoted terminal
+  //   ("nonterm" . "name")        identifier reference
+  //   ("range" lo hi)             character range
+  proto_expr.Expression body = 3;
 }
 
 // TokenDescriptor represents a sequence of characters, each encoded as
