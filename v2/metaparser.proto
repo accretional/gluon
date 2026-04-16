@@ -4,6 +4,7 @@ package gluon.v2;
 
 option go_package = "github.com/accretional/gluon/v2/pb";
 
+import "google/protobuf/descriptor.proto";
 import "google/protobuf/wrappers.proto";
 
 import "v2/ast.proto";
@@ -58,6 +59,17 @@ service Metaparser {
   // as a handler for URIs of the form "astkit://<Method>". The final
   // Data produced by the script is returned.
   rpc Transform(TransformRequest) returns (TransformResponse);
+
+  // Compile lowers a schema-shaped ASTDescriptor into a
+  // FileDescriptorProto. The AST kind conventions are documented in
+  // gluon/v2/compiler (file / rule / sequence / alternation / optional /
+  // repetition / group / terminal / nonterminal / range). One proto
+  // message is emitted per rule; terminal literals are deduplicated
+  // into empty keyword messages appended after the rules.
+  //
+  // Callers that hold a GrammarDescriptor (rather than an AST) should
+  // convert via compiler.GrammarToAST before calling this RPC.
+  rpc Compile(CompileRequest) returns (CompileResponse);
 }
 
 // CstRequest bundles the grammar, the token stream, and the source
@@ -94,4 +106,21 @@ message TransformResponse {
   string data_type = 1;
   bytes data_binary = 2;
   string data_text = 3;
+}
+
+// CompileRequest: schema-AST + naming options. `package` overrides the
+// default derived from ast.language. `go_package` sets the
+// FileDescriptorProto go_package option (omitted if empty).
+// `file_name` sets FileDescriptorProto.name (defaults to
+// "<package>.proto").
+message CompileRequest {
+  ASTDescriptor ast = 1;
+  string package = 2;
+  string go_package = 3;
+  string file_name = 4;
+}
+
+// CompileResponse wraps the emitted FileDescriptorProto.
+message CompileResponse {
+  google.protobuf.FileDescriptorProto file = 1;
 }

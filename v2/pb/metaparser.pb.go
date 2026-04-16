@@ -9,6 +9,7 @@ package pb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
@@ -213,11 +214,129 @@ func (x *TransformResponse) GetDataText() string {
 	return ""
 }
 
+// CompileRequest: schema-AST + naming options. `package` overrides the
+// default derived from ast.language. `go_package` sets the
+// FileDescriptorProto go_package option (omitted if empty).
+// `file_name` sets FileDescriptorProto.name (defaults to
+// "<package>.proto").
+type CompileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ast           *ASTDescriptor         `protobuf:"bytes,1,opt,name=ast,proto3" json:"ast,omitempty"`
+	Package       string                 `protobuf:"bytes,2,opt,name=package,proto3" json:"package,omitempty"`
+	GoPackage     string                 `protobuf:"bytes,3,opt,name=go_package,json=goPackage,proto3" json:"go_package,omitempty"`
+	FileName      string                 `protobuf:"bytes,4,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompileRequest) Reset() {
+	*x = CompileRequest{}
+	mi := &file_v2_metaparser_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompileRequest) ProtoMessage() {}
+
+func (x *CompileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_v2_metaparser_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompileRequest.ProtoReflect.Descriptor instead.
+func (*CompileRequest) Descriptor() ([]byte, []int) {
+	return file_v2_metaparser_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CompileRequest) GetAst() *ASTDescriptor {
+	if x != nil {
+		return x.Ast
+	}
+	return nil
+}
+
+func (x *CompileRequest) GetPackage() string {
+	if x != nil {
+		return x.Package
+	}
+	return ""
+}
+
+func (x *CompileRequest) GetGoPackage() string {
+	if x != nil {
+		return x.GoPackage
+	}
+	return ""
+}
+
+func (x *CompileRequest) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+// CompileResponse wraps the emitted FileDescriptorProto.
+type CompileResponse struct {
+	state         protoimpl.MessageState            `protogen:"open.v1"`
+	File          *descriptorpb.FileDescriptorProto `protobuf:"bytes,1,opt,name=file,proto3" json:"file,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompileResponse) Reset() {
+	*x = CompileResponse{}
+	mi := &file_v2_metaparser_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompileResponse) ProtoMessage() {}
+
+func (x *CompileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_v2_metaparser_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompileResponse.ProtoReflect.Descriptor instead.
+func (*CompileResponse) Descriptor() ([]byte, []int) {
+	return file_v2_metaparser_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CompileResponse) GetFile() *descriptorpb.FileDescriptorProto {
+	if x != nil {
+		return x.File
+	}
+	return nil
+}
+
 var File_v2_metaparser_proto protoreflect.FileDescriptor
 
 const file_v2_metaparser_proto_rawDesc = "" +
 	"\n" +
-	"\x13v2/metaparser.proto\x12\bgluon.v2\x1a\x1egoogle/protobuf/wrappers.proto\x1a\fv2/ast.proto\x1a\x11v2/document.proto\x1a\x10v2/grammar.proto\x1a\rv2/text.proto\x1a\x0fv2/tokens.proto\"\xae\x01\n" +
+	"\x13v2/metaparser.proto\x12\bgluon.v2\x1a google/protobuf/descriptor.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\fv2/ast.proto\x1a\x11v2/document.proto\x1a\x10v2/grammar.proto\x1a\rv2/text.proto\x1a\x0fv2/tokens.proto\"\xae\x01\n" +
 	"\n" +
 	"CstRequest\x125\n" +
 	"\agrammar\x18\x01 \x01(\v2\x1b.gluon.v2.GrammarDescriptorR\agrammar\x12/\n" +
@@ -230,7 +349,15 @@ const file_v2_metaparser_proto_rawDesc = "" +
 	"\tdata_type\x18\x01 \x01(\tR\bdataType\x12\x1f\n" +
 	"\vdata_binary\x18\x02 \x01(\fR\n" +
 	"dataBinary\x12\x1b\n" +
-	"\tdata_text\x18\x03 \x01(\tR\bdataText2\xd9\x02\n" +
+	"\tdata_text\x18\x03 \x01(\tR\bdataText\"\x91\x01\n" +
+	"\x0eCompileRequest\x12)\n" +
+	"\x03ast\x18\x01 \x01(\v2\x17.gluon.v2.ASTDescriptorR\x03ast\x12\x18\n" +
+	"\apackage\x18\x02 \x01(\tR\apackage\x12\x1d\n" +
+	"\n" +
+	"go_package\x18\x03 \x01(\tR\tgoPackage\x12\x1b\n" +
+	"\tfile_name\x18\x04 \x01(\tR\bfileName\"K\n" +
+	"\x0fCompileResponse\x128\n" +
+	"\x04file\x18\x01 \x01(\v2$.google.protobuf.FileDescriptorProtoR\x04file2\x99\x03\n" +
 	"\n" +
 	"Metaparser\x12B\n" +
 	"\tReadBytes\x12\x1b.google.protobuf.BytesValue\x1a\x18.gluon.v2.TextDescriptor\x12H\n" +
@@ -238,7 +365,8 @@ const file_v2_metaparser_proto_rawDesc = "" +
 	"ReadString\x12\x1c.google.protobuf.StringValue\x1a\x1c.gluon.v2.DocumentDescriptor\x12A\n" +
 	"\x04EBNF\x12\x1c.gluon.v2.DocumentDescriptor\x1a\x1b.gluon.v2.GrammarDescriptor\x124\n" +
 	"\x03CST\x12\x14.gluon.v2.CstRequest\x1a\x17.gluon.v2.ASTDescriptor\x12D\n" +
-	"\tTransform\x12\x1a.gluon.v2.TransformRequest\x1a\x1b.gluon.v2.TransformResponseB$Z\"github.com/accretional/gluon/v2/pbb\x06proto3"
+	"\tTransform\x12\x1a.gluon.v2.TransformRequest\x1a\x1b.gluon.v2.TransformResponse\x12>\n" +
+	"\aCompile\x12\x18.gluon.v2.CompileRequest\x1a\x19.gluon.v2.CompileResponseB$Z\"github.com/accretional/gluon/v2/pbb\x06proto3"
 
 var (
 	file_v2_metaparser_proto_rawDescOnce sync.Once
@@ -252,39 +380,46 @@ func file_v2_metaparser_proto_rawDescGZIP() []byte {
 	return file_v2_metaparser_proto_rawDescData
 }
 
-var file_v2_metaparser_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_v2_metaparser_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_v2_metaparser_proto_goTypes = []any{
-	(*CstRequest)(nil),             // 0: gluon.v2.CstRequest
-	(*TransformRequest)(nil),       // 1: gluon.v2.TransformRequest
-	(*TransformResponse)(nil),      // 2: gluon.v2.TransformResponse
-	(*GrammarDescriptor)(nil),      // 3: gluon.v2.GrammarDescriptor
-	(*TokenSequence)(nil),          // 4: gluon.v2.TokenSequence
-	(*DocumentDescriptor)(nil),     // 5: gluon.v2.DocumentDescriptor
-	(*ASTDescriptor)(nil),          // 6: gluon.v2.ASTDescriptor
-	(*wrapperspb.BytesValue)(nil),  // 7: google.protobuf.BytesValue
-	(*wrapperspb.StringValue)(nil), // 8: google.protobuf.StringValue
-	(*TextDescriptor)(nil),         // 9: gluon.v2.TextDescriptor
+	(*CstRequest)(nil),                       // 0: gluon.v2.CstRequest
+	(*TransformRequest)(nil),                 // 1: gluon.v2.TransformRequest
+	(*TransformResponse)(nil),                // 2: gluon.v2.TransformResponse
+	(*CompileRequest)(nil),                   // 3: gluon.v2.CompileRequest
+	(*CompileResponse)(nil),                  // 4: gluon.v2.CompileResponse
+	(*GrammarDescriptor)(nil),                // 5: gluon.v2.GrammarDescriptor
+	(*TokenSequence)(nil),                    // 6: gluon.v2.TokenSequence
+	(*DocumentDescriptor)(nil),               // 7: gluon.v2.DocumentDescriptor
+	(*ASTDescriptor)(nil),                    // 8: gluon.v2.ASTDescriptor
+	(*descriptorpb.FileDescriptorProto)(nil), // 9: google.protobuf.FileDescriptorProto
+	(*wrapperspb.BytesValue)(nil),            // 10: google.protobuf.BytesValue
+	(*wrapperspb.StringValue)(nil),           // 11: google.protobuf.StringValue
+	(*TextDescriptor)(nil),                   // 12: gluon.v2.TextDescriptor
 }
 var file_v2_metaparser_proto_depIdxs = []int32{
-	3, // 0: gluon.v2.CstRequest.grammar:type_name -> gluon.v2.GrammarDescriptor
-	4, // 1: gluon.v2.CstRequest.tokens:type_name -> gluon.v2.TokenSequence
-	5, // 2: gluon.v2.CstRequest.document:type_name -> gluon.v2.DocumentDescriptor
-	6, // 3: gluon.v2.TransformRequest.ast:type_name -> gluon.v2.ASTDescriptor
-	7, // 4: gluon.v2.Metaparser.ReadBytes:input_type -> google.protobuf.BytesValue
-	8, // 5: gluon.v2.Metaparser.ReadString:input_type -> google.protobuf.StringValue
-	5, // 6: gluon.v2.Metaparser.EBNF:input_type -> gluon.v2.DocumentDescriptor
-	0, // 7: gluon.v2.Metaparser.CST:input_type -> gluon.v2.CstRequest
-	1, // 8: gluon.v2.Metaparser.Transform:input_type -> gluon.v2.TransformRequest
-	9, // 9: gluon.v2.Metaparser.ReadBytes:output_type -> gluon.v2.TextDescriptor
-	5, // 10: gluon.v2.Metaparser.ReadString:output_type -> gluon.v2.DocumentDescriptor
-	3, // 11: gluon.v2.Metaparser.EBNF:output_type -> gluon.v2.GrammarDescriptor
-	6, // 12: gluon.v2.Metaparser.CST:output_type -> gluon.v2.ASTDescriptor
-	2, // 13: gluon.v2.Metaparser.Transform:output_type -> gluon.v2.TransformResponse
-	9, // [9:14] is the sub-list for method output_type
-	4, // [4:9] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	5,  // 0: gluon.v2.CstRequest.grammar:type_name -> gluon.v2.GrammarDescriptor
+	6,  // 1: gluon.v2.CstRequest.tokens:type_name -> gluon.v2.TokenSequence
+	7,  // 2: gluon.v2.CstRequest.document:type_name -> gluon.v2.DocumentDescriptor
+	8,  // 3: gluon.v2.TransformRequest.ast:type_name -> gluon.v2.ASTDescriptor
+	8,  // 4: gluon.v2.CompileRequest.ast:type_name -> gluon.v2.ASTDescriptor
+	9,  // 5: gluon.v2.CompileResponse.file:type_name -> google.protobuf.FileDescriptorProto
+	10, // 6: gluon.v2.Metaparser.ReadBytes:input_type -> google.protobuf.BytesValue
+	11, // 7: gluon.v2.Metaparser.ReadString:input_type -> google.protobuf.StringValue
+	7,  // 8: gluon.v2.Metaparser.EBNF:input_type -> gluon.v2.DocumentDescriptor
+	0,  // 9: gluon.v2.Metaparser.CST:input_type -> gluon.v2.CstRequest
+	1,  // 10: gluon.v2.Metaparser.Transform:input_type -> gluon.v2.TransformRequest
+	3,  // 11: gluon.v2.Metaparser.Compile:input_type -> gluon.v2.CompileRequest
+	12, // 12: gluon.v2.Metaparser.ReadBytes:output_type -> gluon.v2.TextDescriptor
+	7,  // 13: gluon.v2.Metaparser.ReadString:output_type -> gluon.v2.DocumentDescriptor
+	5,  // 14: gluon.v2.Metaparser.EBNF:output_type -> gluon.v2.GrammarDescriptor
+	8,  // 15: gluon.v2.Metaparser.CST:output_type -> gluon.v2.ASTDescriptor
+	2,  // 16: gluon.v2.Metaparser.Transform:output_type -> gluon.v2.TransformResponse
+	4,  // 17: gluon.v2.Metaparser.Compile:output_type -> gluon.v2.CompileResponse
+	12, // [12:18] is the sub-list for method output_type
+	6,  // [6:12] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_v2_metaparser_proto_init() }
@@ -303,7 +438,7 @@ func file_v2_metaparser_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v2_metaparser_proto_rawDesc), len(file_v2_metaparser_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

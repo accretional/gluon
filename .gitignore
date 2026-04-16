@@ -30,6 +30,7 @@ go.work.sum
 # Compiled CLI binaries
 /extract
 /pull
+/lexgen
 
 # Editor/IDE
 # .idea/

@@ -25,6 +25,7 @@ const (
 	Metaparser_EBNF_FullMethodName       = "/gluon.v2.Metaparser/EBNF"
 	Metaparser_CST_FullMethodName        = "/gluon.v2.Metaparser/CST"
 	Metaparser_Transform_FullMethodName  = "/gluon.v2.Metaparser/Transform"
+	Metaparser_Compile_FullMethodName    = "/gluon.v2.Metaparser/Compile"
 )
 
 // MetaparserClient is the client API for Metaparser service.
@@ -73,6 +74,16 @@ type MetaparserClient interface {
 	// as a handler for URIs of the form "astkit://<Method>". The final
 	// Data produced by the script is returned.
 	Transform(ctx context.Context, in *TransformRequest, opts ...grpc.CallOption) (*TransformResponse, error)
+	// Compile lowers a schema-shaped ASTDescriptor into a
+	// FileDescriptorProto. The AST kind conventions are documented in
+	// gluon/v2/compiler (file / rule / sequence / alternation / optional /
+	// repetition / group / terminal / nonterminal / range). One proto
+	// message is emitted per rule; terminal literals are deduplicated
+	// into empty keyword messages appended after the rules.
+	//
+	// Callers that hold a GrammarDescriptor (rather than an AST) should
+	// convert via compiler.GrammarToAST before calling this RPC.
+	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
 }
 
 type metaparserClient struct {
@@ -133,6 +144,16 @@ func (c *metaparserClient) Transform(ctx context.Context, in *TransformRequest, 
 	return out, nil
 }
 
+func (c *metaparserClient) Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompileResponse)
+	err := c.cc.Invoke(ctx, Metaparser_Compile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MetaparserServer is the server API for Metaparser service.
 // All implementations must embed UnimplementedMetaparserServer
 // for forward compatibility.
@@ -179,6 +200,16 @@ type MetaparserServer interface {
 	// as a handler for URIs of the form "astkit://<Method>". The final
 	// Data produced by the script is returned.
 	Transform(context.Context, *TransformRequest) (*TransformResponse, error)
+	// Compile lowers a schema-shaped ASTDescriptor into a
+	// FileDescriptorProto. The AST kind conventions are documented in
+	// gluon/v2/compiler (file / rule / sequence / alternation / optional /
+	// repetition / group / terminal / nonterminal / range). One proto
+	// message is emitted per rule; terminal literals are deduplicated
+	// into empty keyword messages appended after the rules.
+	//
+	// Callers that hold a GrammarDescriptor (rather than an AST) should
+	// convert via compiler.GrammarToAST before calling this RPC.
+	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
 	mustEmbedUnimplementedMetaparserServer()
 }
 
@@ -203,6 +234,9 @@ func (UnimplementedMetaparserServer) CST(context.Context, *CstRequest) (*ASTDesc
 }
 func (UnimplementedMetaparserServer) Transform(context.Context, *TransformRequest) (*TransformResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Transform not implemented")
+}
+func (UnimplementedMetaparserServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Compile not implemented")
 }
 func (UnimplementedMetaparserServer) mustEmbedUnimplementedMetaparserServer() {}
 func (UnimplementedMetaparserServer) testEmbeddedByValue()                    {}
@@ -315,6 +349,24 @@ func _Metaparser_Transform_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Metaparser_Compile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaparserServer).Compile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Metaparser_Compile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaparserServer).Compile(ctx, req.(*CompileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Metaparser_ServiceDesc is the grpc.ServiceDesc for Metaparser service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -341,6 +393,10 @@ var Metaparser_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Transform",
 			Handler:    _Metaparser_Transform_Handler,
+		},
+		{
+			MethodName: "Compile",
+			Handler:    _Metaparser_Compile_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

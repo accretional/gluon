@@ -103,7 +103,7 @@ input hint — but the source is the load-bearing input.
 | `tokens.proto` | `TokenSequence`, `Token`, `ScoperToken` |
 | `grammar.proto` | `Production` (oneof), `ScopedProduction`, `StringRange`, `RuleDescriptor`, `GrammarDescriptor` |
 | `ast.proto` | `ASTDescriptor`, `ASTNode` |
-| `metaparser.proto` | `service Metaparser`, `CstRequest`, `TransformRequest`, `TransformResponse` |
+| `metaparser.proto` | `service Metaparser`, `CstRequest`, `TransformRequest`, `TransformResponse`, `CompileRequest`, `CompileResponse` |
 | `astkit.proto` | `service Transformer`, Find/Replace/Filter Request+Response messages |
 
 ## Metaparser pipeline
@@ -112,15 +112,20 @@ input hint — but the source is the load-bearing input.
     string                         → ReadString  → DocumentDescriptor
     DocumentDescriptor (EBNF src)  → EBNF        → GrammarDescriptor
     GrammarDescriptor + Document   → CST         → ASTDescriptor
+    ASTDescriptor (schema-shaped)  → Compile     → FileDescriptorProto
 
-A separate compiler (not Metaparser) lowers `ASTDescriptor` into a
-`FileDescriptorProto` or other target. This is what v1
-`metaparser.Build` used to do in one step; in v2 that responsibility
-moves out of the metaparser service.
+The lowering from `ASTDescriptor` to `FileDescriptorProto` lives in
+`v2/compiler` and is exposed as the `Compile` RPC alongside the parse
+pipeline. This is what v1 `metaparser.Build` used to do in one step;
+v2 splits it into `EBNF` + `CST` + `Compile` so each stage is
+independently addressable (and so non-EBNF front-ends can drop an AST
+directly into `Compile` without re-lexing). `compiler.GrammarToAST`
+is the bridge for callers that hold a `GrammarDescriptor` instead of
+a schema-AST.
 
 ## Current implementation state
 
-All five RPCs are implemented with pure-Go entry points, a unit test
+All six RPCs are implemented with pure-Go entry points, a unit test
 file, and a `_e2e_test.go` that drives the gRPC stack via `bufconn`.
 
 | RPC | Pure-Go entry | Unit tests | E2E tests |
@@ -129,7 +134,8 @@ file, and a `_e2e_test.go` that drives the gRPC stack via `bufconn`.
 | `ReadString` | `WrapString(s) *DocumentDescriptor` | 13 | 12 |
 | `EBNF` | `ParseEBNF(doc) (*GrammarDescriptor, error)` | 13 | 9 |
 | `CST` | `ParseCST(req) (*ASTDescriptor, error)` | 12 | 10 |
-| `Transform` | `Transform(ctx, *ASTDescriptor, script) (*TransformResponse, error)` | 7 | 4 |
+| `Transform` | `Transform(ctx, *ASTDescriptor, script) (*TransformResponse, error)` | 8 | 4 |
+| `Compile` | `compiler.Compile(ast, opts) (*FileDescriptorProto, error)` | 17 | — |
 
 `go test ./v2/metaparser/` is green. The EBNF impl wraps v1's
 `lexkit.Parse` and converts v1 `ProductionExpression` trees to v2's
@@ -162,14 +168,14 @@ The rough path:
    `ReadString` + `EBNF`. The output textproto moves from v1
    `GrammarDescriptor` to v2 `GrammarDescriptor`.
 
-3. **Replace `metaparser.Build` with a v2 compiler.** This is the big
-   missing piece: v2 intentionally keeps the metaparser to lex/parse
-   only, and puts the "AST → FileDescriptorProto" step in a separate
-   compiler (see the flow comment in `metaparser.proto`). The v1
-   `metaparser/metaparser.go` is ~400 lines of lowering logic that
-   walks `ProductionExpression` trees and emits descriptor messages;
-   we need a v2 equivalent that walks `ASTDescriptor` (or perhaps
-   `GrammarDescriptor` directly — TBD) and emits the same output.
+3. **Replace `metaparser.Build` with `compiler.Compile`.** Done in
+   `v2/compiler`: `Compile(ast, opts) → *FileDescriptorProto` walks a
+   schema-shaped `ASTDescriptor` (kinds `file` / `rule` / `sequence` /
+   `alternation` / …) and emits descriptor messages, deduplicating
+   keyword terminals into empty messages. `compiler.GrammarToAST`
+   bridges from a `GrammarDescriptor` for callers (like proto-sqlite
+   today) that hold a grammar rather than an AST. Exposed as the
+   `Compile` RPC and as the `protoc://Compile` Transform handler.
 
 4. **Port v1 lexkit helpers callers still need.** Only
    `LoadLex` / `LoadGrammar` / `ToTextproto` are used externally; the
@@ -225,12 +231,15 @@ initial `ASTNode` is pre-loaded into the `ast` register, so most
 scripts open with `request: { text: "ast" }`. See
 `v2/metaparser/transform_test.go` for examples.
 
+The `Compile` RPC is also exposed inside Transform as the
+`protoc://Compile` handler, so scripts can chain tree cleanups and
+lowering in a single Transform call. Recognised params on the compile
+step are `package`, `go_package`, `file_name`, and `language`; the
+response `Data` carries the marshaled `FileDescriptorProto` with
+`type: "google.protobuf.FileDescriptorProto"`.
+
 ## Open work
 
-- **v2 compiler** — grammar/AST → `FileDescriptorProto`. The next
-  real feature; blocks step 3 of the migration plan. Will slot in as
-  another Protosh handler under something like
-  `protoc://Compile`.
 - **Native v2 parser** — replace the v1-parser shim inside
   `ParseCST`. Would let us delete v1 wholesale. Not urgent; the shim
   is ~150 lines and works.

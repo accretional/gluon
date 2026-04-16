@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
 
 	pb "github.com/accretional/gluon/v2/pb"
 )
@@ -173,6 +174,70 @@ func TestTransform_UnknownHandlerErrors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no handler") {
 		t.Errorf("got %v", err)
+	}
+}
+
+// schemaAST returns a tiny schema-kind AST used to exercise the
+// protoc://Compile handler: one rule `greet` whose body is a single
+// terminal "hi".
+func schemaAST() *pb.ASTDescriptor {
+	return &pb.ASTDescriptor{
+		Language: "demo",
+		Root: &pb.ASTNode{
+			Kind: "file",
+			Children: []*pb.ASTNode{
+				{
+					Kind:  "rule",
+					Value: "greet",
+					Children: []*pb.ASTNode{
+						{Kind: "terminal", Value: "hi"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestTransform_ProtocCompile(t *testing.T) {
+	script := `
+		statements: {
+			dispatch: {
+				uri: "protoc://Compile"
+				request: { type: "package=demo,file_name=demo.proto", text: "ast" }
+				name: "fdp"
+			}
+		}
+	`
+	resp, err := Transform(context.Background(), schemaAST(), script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.GetDataType() != "google.protobuf.FileDescriptorProto" {
+		t.Errorf("data_type: got %q, want google.protobuf.FileDescriptorProto", resp.GetDataType())
+	}
+	var fdp descriptorpb.FileDescriptorProto
+	if err := proto.Unmarshal(resp.GetDataBinary(), &fdp); err != nil {
+		t.Fatalf("unmarshal fdp: %v", err)
+	}
+	if fdp.GetPackage() != "demo" {
+		t.Errorf("package: got %q, want demo", fdp.GetPackage())
+	}
+	if fdp.GetName() != "demo.proto" {
+		t.Errorf("name: got %q, want demo.proto", fdp.GetName())
+	}
+	var names []string
+	for _, m := range fdp.GetMessageType() {
+		names = append(names, m.GetName())
+	}
+	// Expect rule message "Greet" and keyword message for "hi".
+	hasGreet := false
+	for _, n := range names {
+		if n == "Greet" {
+			hasGreet = true
+		}
+	}
+	if !hasGreet {
+		t.Errorf("message list missing Greet: %v", names)
 	}
 }
 

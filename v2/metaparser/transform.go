@@ -12,6 +12,7 @@ import (
 
 	astkitpkg "github.com/accretional/gluon/v2/astkit"
 	"github.com/accretional/gluon/v2/astkit/server"
+	"github.com/accretional/gluon/v2/compiler"
 	pb "github.com/accretional/gluon/v2/pb"
 	expr "github.com/accretional/proto-expr"
 	"github.com/accretional/proto-expr/protosh"
@@ -75,6 +76,7 @@ func Transform(ctx context.Context, ast *pb.ASTDescriptor, scriptTextproto strin
 
 	rt := protosh.New()
 	registerAstkitHandlers(rt)
+	registerCompileHandler(rt)
 
 	// Pre-populate the "ast" register so scripts can reference it
 	// via {Data{text: "ast"}} on their first Dispatch.
@@ -171,6 +173,41 @@ func registerAstkitHandlers(rt *protosh.Runtime) {
 			return nil, nil, err
 		}
 		return resp.Root, nil, nil
+	})
+}
+
+// registerCompileHandler wires the compiler (AST → FileDescriptorProto)
+// as an in-process handler under "protoc://Compile". The request Data
+// payload is the usual marshaled ASTNode (type "gluon.v2.ASTNode");
+// Compile options are encoded in Data.type using the same
+// "k=v,k2=v2" convention as the astkit handlers, recognising
+// "package", "go_package", "file_name", and "language". The response
+// Data carries the marshaled FileDescriptorProto (type
+// "google.protobuf.FileDescriptorProto").
+func registerCompileHandler(rt *protosh.Runtime) {
+	rt.Register("protoc://Compile", func(ctx context.Context, req *expr.Data) (*expr.Data, error) {
+		root, err := unmarshalAST(req)
+		if err != nil {
+			return nil, fmt.Errorf("protoc://Compile: %w", err)
+		}
+		p := parseParams(req.GetType())
+		ast := &pb.ASTDescriptor{Language: p["language"], Root: root}
+		fdp, err := compiler.Compile(ast, compiler.Options{
+			Package:   p["package"],
+			GoPackage: p["go_package"],
+			FileName:  p["file_name"],
+		})
+		if err != nil {
+			return nil, fmt.Errorf("protoc://Compile: %w", err)
+		}
+		bs, err := proto.Marshal(fdp)
+		if err != nil {
+			return nil, fmt.Errorf("protoc://Compile: marshal fdp: %w", err)
+		}
+		return &expr.Data{
+			Type:     "google.protobuf.FileDescriptorProto",
+			Encoding: &expr.Data_Binary{Binary: bs},
+		}, nil
 	})
 }
 
