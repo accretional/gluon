@@ -53,6 +53,7 @@ func Build(ld *pb.LanguageDescriptor) (*descriptorpb.FileDescriptorProto, error)
 	b := &builder{
 		pkg:      sanitizePackage(ld.GetName()),
 		keywords: map[string]*descriptorpb.DescriptorProto{},
+		fqn:      map[*descriptorpb.DescriptorProto]string{},
 	}
 	if b.pkg == "" {
 		b.pkg = "lang"
@@ -88,6 +89,7 @@ type builder struct {
 	keywords map[string]*descriptorpb.DescriptorProto
 	messages []*descriptorpb.DescriptorProto
 	usesUTF8 bool // set when Range fields reference unicode.UTF8
+	fqn      map[*descriptorpb.DescriptorProto]string
 }
 
 func (b *builder) dependencies() []string {
@@ -100,6 +102,7 @@ func (b *builder) dependencies() []string {
 func (b *builder) productionMessage(prod *pb.ProductionDescriptor) (*descriptorpb.DescriptorProto, error) {
 	name := pascalCase(prod.GetName())
 	msg := &descriptorpb.DescriptorProto{Name: &name}
+	b.fqn[msg] = "." + b.pkg + "." + name
 	body := prod.GetBody()
 	if body == nil {
 		return msg, nil
@@ -176,13 +179,11 @@ peel:
 
 	case *pb.ProductionExpression_Sequence:
 		nested := b.nestedFromSequence(msg, k.Sequence.GetItems())
-		fqn := nestedTypeName(b.pkg, msg, nested)
-		b.appendMessageField(msg, uniqueFieldName(msg, lowerFirst(nested.GetName())), fqn, label, oneofIdx)
+		b.appendMessageField(msg, uniqueFieldName(msg, lowerFirst(nested.GetName())), b.fqn[nested], label, oneofIdx)
 
 	case *pb.ProductionExpression_Alternation:
 		nested := b.nestedFromAlternation(msg, k.Alternation.GetVariants())
-		fqn := nestedTypeName(b.pkg, msg, nested)
-		b.appendMessageField(msg, uniqueFieldName(msg, lowerFirst(nested.GetName())), fqn, label, oneofIdx)
+		b.appendMessageField(msg, uniqueFieldName(msg, lowerFirst(nested.GetName())), b.fqn[nested], label, oneofIdx)
 
 	case *pb.ProductionExpression_Range:
 		b.emitRange(msg, k.Range, label, oneofIdx)
@@ -194,6 +195,7 @@ peel:
 func (b *builder) nestedFromSequence(parent *descriptorpb.DescriptorProto, items []*pb.ProductionExpression) *descriptorpb.DescriptorProto {
 	name := nextNestedName(parent, "Seq")
 	nested := &descriptorpb.DescriptorProto{Name: &name}
+	b.fqn[nested] = b.fqn[parent] + "." + name
 	parent.NestedType = append(parent.NestedType, nested)
 	for _, it := range items {
 		b.emitField(nested, it, nil)
@@ -206,6 +208,7 @@ func (b *builder) nestedFromSequence(parent *descriptorpb.DescriptorProto, items
 func (b *builder) nestedFromAlternation(parent *descriptorpb.DescriptorProto, variants []*pb.ProductionExpression) *descriptorpb.DescriptorProto {
 	name := nextNestedName(parent, "Alt")
 	nested := &descriptorpb.DescriptorProto{Name: &name}
+	b.fqn[nested] = b.fqn[parent] + "." + name
 	parent.NestedType = append(parent.NestedType, nested)
 	b.emitOneof(nested, "value", variants)
 	return nested
@@ -329,10 +332,6 @@ func nextNestedName(msg *descriptorpb.DescriptorProto, stem string) string {
 
 func suffix(msg *descriptorpb.DescriptorProto) string {
 	return "_" + strconv.Itoa(len(msg.Field)+1)
-}
-
-func nestedTypeName(pkg string, parent, nested *descriptorpb.DescriptorProto) string {
-	return "." + pkg + "." + parent.GetName() + "." + nested.GetName()
 }
 
 func sanitizePackage(s string) string {

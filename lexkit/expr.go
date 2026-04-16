@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	pb "github.com/accretional/gluon/pb"
 )
@@ -23,6 +24,7 @@ const (
 	ExprOptional                    // [ expr ]
 	ExprRepetition                  // { expr }
 	ExprGroup                       // ( expr )
+	ExprRange                       // "a" … "z" (character range)
 )
 
 // Expr is a node in a structured EBNF expression tree.
@@ -56,6 +58,8 @@ func (e *Expr) String() string {
 		return "{ " + e.Children[0].String() + " }"
 	case ExprGroup:
 		return "( " + e.Children[0].String() + " )"
+	case ExprRange:
+		return e.Children[0].String() + " … " + e.Children[1].String()
 	}
 	return "?"
 }
@@ -111,12 +115,14 @@ func (p *exprParser) peek() rune {
 	if p.pos >= len(p.src) {
 		return 0
 	}
-	return rune(p.src[p.pos])
+	r, _ := utf8.DecodeRuneInString(p.src[p.pos:])
+	return r
 }
 
 func (p *exprParser) advance() {
 	if p.pos < len(p.src) {
-		p.pos++
+		_, sz := utf8.DecodeRuneInString(p.src[p.pos:])
+		p.pos += sz
 	}
 }
 
@@ -173,6 +179,9 @@ func (p *exprParser) parseTerm() (*Expr, error) {
 		return nil, nil
 	}
 
+	// Check if first factor is part of a character range
+	first = p.maybeRange(first)
+
 	var seq []*Expr
 	seq = append(seq, first)
 
@@ -195,6 +204,7 @@ func (p *exprParser) parseTerm() (*Expr, error) {
 		if factor == nil {
 			break
 		}
+		factor = p.maybeRange(factor)
 		seq = append(seq, factor)
 	}
 
@@ -202,6 +212,51 @@ func (p *exprParser) parseTerm() (*Expr, error) {
 		return seq[0], nil
 	}
 	return &Expr{Kind: ExprSequence, Children: seq}, nil
+}
+
+// maybeRange checks if the given terminal expression is followed by a
+// range operator (… U+2026 or ...) and if so, parses the upper bound
+// and returns an ExprRange node.
+func (p *exprParser) maybeRange(expr *Expr) *Expr {
+	if expr == nil || expr.Kind != ExprTerminal {
+		return expr
+	}
+	p.skipSpaces()
+	if p.isRangeOp() {
+		p.consumeRangeOp()
+		p.skipSpaces()
+		upper, err := p.parseFactor()
+		if err != nil || upper == nil {
+			return expr
+		}
+		return &Expr{Kind: ExprRange, Children: []*Expr{expr, upper}}
+	}
+	return expr
+}
+
+// isRangeOp checks if the current position has a range operator: … (U+2026) or ...
+func (p *exprParser) isRangeOp() bool {
+	if p.pos >= len(p.src) {
+		return false
+	}
+	r, _ := utf8.DecodeRuneInString(p.src[p.pos:])
+	if r == '…' { // U+2026 HORIZONTAL ELLIPSIS
+		return true
+	}
+	if r == '.' && p.pos+2 < len(p.src) && p.src[p.pos+1] == '.' && p.src[p.pos+2] == '.' {
+		return true
+	}
+	return false
+}
+
+// consumeRangeOp advances past the range operator.
+func (p *exprParser) consumeRangeOp() {
+	r, sz := utf8.DecodeRuneInString(p.src[p.pos:])
+	if r == '…' {
+		p.pos += sz
+	} else {
+		p.pos += 3 // "..."
+	}
 }
 
 // Factor = name | terminal | "(" Expression ")" | "[" Expression "]" | "{" Expression "}"
@@ -212,8 +267,8 @@ func (p *exprParser) parseFactor() (*Expr, error) {
 		return nil, nil
 	}
 
-	// Terminal: "..." or '...'
-	if ch == '"' || ch == '\'' {
+	// Terminal: "..." or '...' or `...`
+	if ch == '"' || ch == '\'' || ch == '`' {
 		return p.parseTerminal(ch)
 	}
 

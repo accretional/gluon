@@ -1037,6 +1037,468 @@ func TestProtoSpecCharValueInclusions(t *testing.T) {
 	}
 }
 
+// --- Go source parsing tests ---
+
+// TestParseGoSource parses a simple Go program using the Go grammar and
+// validates that the AST has the expected structure.
+func TestParseGoSource(t *testing.T) {
+	goSrc := `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("hello")
+}
+`
+	gd := mustParseGo(t)
+	ast, err := ParseASTWithOptions(goSrc, "go", "SourceFile", gd, GoParseOptions())
+	if err != nil {
+		t.Fatalf("ParseASTWithOptions: %v", err)
+	}
+	if ast.Language != "go" {
+		t.Errorf("language: got %q, want %q", ast.Language, "go")
+	}
+	if ast.Root == nil {
+		t.Fatal("root is nil")
+	}
+
+	// Log the AST for inspection
+	t.Logf("Go AST (%d nodes):\n%s", countASTNodes(ast.Root), sprintAST(ast.Root, 0))
+
+	// Structural checks
+	root := ast.Root
+	if root.Kind != "SourceFile" {
+		t.Errorf("root kind: got %q, want SourceFile", root.Kind)
+	}
+
+	// Should find PackageClause with "main"
+	pkg := findASTNode(root, "PackageClause")
+	if pkg == nil {
+		t.Fatal("missing PackageClause")
+	}
+	pkgName := findASTNode(pkg, "identifier")
+	if pkgName == nil || pkgName.Value != "main" {
+		t.Errorf("package name: got %v, want main", pkgName)
+	}
+
+	// Should find ImportDecl with "fmt"
+	imp := findASTNode(root, "ImportDecl")
+	if imp == nil {
+		t.Fatal("missing ImportDecl")
+	}
+	strLit := findASTNode(imp, "string_lit")
+	if strLit == nil || !strings.Contains(strLit.Value, "fmt") {
+		t.Errorf("import path: got %v, want something containing fmt", strLit)
+	}
+
+	// Should find FunctionDecl with "main"
+	fn := findASTNode(root, "FunctionDecl")
+	if fn == nil {
+		t.Fatal("missing FunctionDecl")
+	}
+	fnName := findASTNode(fn, "identifier")
+	if fnName == nil || fnName.Value != "main" {
+		t.Errorf("function name: got %v, want main", fnName)
+	}
+
+	// Should find the string literal "hello" in the function body
+	allStrings := findAllASTNodes(root, "string_lit")
+	foundHello := false
+	for _, s := range allStrings {
+		if strings.Contains(s.Value, "hello") {
+			foundHello = true
+			break
+		}
+	}
+	if !foundHello {
+		t.Error("missing string literal containing 'hello'")
+	}
+
+	// Should find the selector "Println"
+	allIdents := findAllASTNodes(root, "identifier")
+	foundPrintln := false
+	foundFmt := false
+	for _, id := range allIdents {
+		if id.Value == "Println" {
+			foundPrintln = true
+		}
+		if id.Value == "fmt" {
+			foundFmt = true
+		}
+	}
+	if !foundFmt {
+		t.Error("missing identifier 'fmt'")
+	}
+	if !foundPrintln {
+		t.Error("missing identifier 'Println'")
+	}
+}
+
+// TestParseGoSourceCompareWithGoParser parses the same Go source with
+// both our grammar-driven parser and go/parser, then compares the
+// semantic structure.
+func TestParseGoSourceCompareWithGoParser(t *testing.T) {
+	goSrc := `package main
+
+import "fmt"
+
+func add(a, b int) int {
+	return a + b
+}
+
+func main() {
+	x := add(1, 2)
+	fmt.Println(x)
+}
+`
+	gd := mustParseGo(t)
+	ast, err := ParseASTWithOptions(goSrc, "go", "SourceFile", gd, GoParseOptions())
+	if err != nil {
+		t.Fatalf("ParseASTWithOptions: %v", err)
+	}
+
+	t.Logf("Go AST (%d nodes):\n%s", countASTNodes(ast.Root), sprintAST(ast.Root, 0))
+
+	// Verify package name
+	pkg := findASTNode(ast.Root, "PackageClause")
+	if pkg == nil {
+		t.Fatal("missing PackageClause")
+	}
+	pkgIdent := findASTNode(pkg, "identifier")
+	if pkgIdent == nil || pkgIdent.Value != "main" {
+		t.Fatalf("package name: got %v, want main", pkgIdent)
+	}
+
+	// Verify import "fmt"
+	imp := findASTNode(ast.Root, "ImportDecl")
+	if imp == nil {
+		t.Fatal("missing ImportDecl")
+	}
+
+	// Verify function declarations
+	fns := findAllASTNodes(ast.Root, "FunctionDecl")
+	if len(fns) < 2 {
+		t.Fatalf("expected at least 2 FunctionDecl nodes, got %d", len(fns))
+	}
+
+	// Find function names
+	fnNames := make(map[string]bool)
+	for _, fn := range fns {
+		fnNameNode := findASTNode(fn, "FunctionName")
+		if fnNameNode != nil {
+			id := findASTNode(fnNameNode, "identifier")
+			if id != nil {
+				fnNames[id.Value] = true
+			}
+		}
+	}
+	for _, want := range []string{"add", "main"} {
+		if !fnNames[want] {
+			t.Errorf("missing function %q, found: %v", want, fnNames)
+		}
+	}
+
+	// Verify "return" keyword is present
+	allTerminals := findAllASTNodes(ast.Root, "terminal")
+	hasReturn := false
+	for _, term := range allTerminals {
+		if term.Value == "return" {
+			hasReturn = true
+			break
+		}
+	}
+	if !hasReturn {
+		t.Error("missing 'return' terminal")
+	}
+
+	// Verify integer literals
+	allInts := findAllASTNodes(ast.Root, "int_lit")
+	if len(allInts) < 2 {
+		t.Errorf("expected at least 2 int_lit nodes, got %d", len(allInts))
+	}
+}
+
+// TestInsertGoSemicolons verifies the semicolon preprocessor.
+func TestInsertGoSemicolons(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			"package",
+			"package main\n",
+			"package main;\n",
+		},
+		{
+			"func_brace",
+			"func main() {\n}\n",
+			"func main() {\n};\n",
+		},
+		{
+			"import",
+			"import \"fmt\"\n",
+			"import \"fmt\";\n",
+		},
+		{
+			"no_semi_after_open_brace",
+			"func f() {\nreturn\n}\n",
+			"func f() {\nreturn;\n};\n",
+		},
+		{
+			"no_semi_after_operator",
+			"x := 1 +\n2\n",
+			"x := 1 +\n2;\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := InsertGoSemicolons(tt.in)
+			if got != tt.want {
+				t.Errorf("\ngot:  %q\nwant: %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestGoLeftRecursionElimination checks that left-recursive productions
+// (Expression, PrimaryExpr) are rewritten correctly.
+func TestGoLeftRecursionElimination(t *testing.T) {
+	gd := mustParseGo(t)
+	lc := LexConfigFrom(gd.Lex)
+
+	// Expression = UnaryExpr | Expression binary_op Expression .
+	exprProd := findProd(gd, "Expression")
+	if exprProd == nil {
+		t.Fatal("missing Expression production")
+	}
+	raw := TokenToRaw(exprProd.Token)
+	expr, err := ParseExpr(raw, lc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rewritten := eliminateLeftRecursion("Expression", expr)
+	if rewritten.Kind != ExprSequence {
+		t.Errorf("expected ExprSequence after left-recursion elimination, got %v", rewritten.Kind)
+	}
+
+	// PrimaryExpr — should also be rewritten
+	primProd := findProd(gd, "PrimaryExpr")
+	if primProd == nil {
+		t.Fatal("missing PrimaryExpr production")
+	}
+	raw = TokenToRaw(primProd.Token)
+	expr, err = ParseExpr(raw, lc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rewritten = eliminateLeftRecursion("PrimaryExpr", expr)
+	if rewritten.Kind != ExprSequence {
+		t.Errorf("expected ExprSequence after left-recursion elimination, got %v", rewritten.Kind)
+	}
+	// The sequence should be: base { suffix }
+	if len(rewritten.Children) != 2 {
+		t.Fatalf("expected 2 children (base + repetition), got %d", len(rewritten.Children))
+	}
+	if rewritten.Children[1].Kind != ExprRepetition {
+		t.Errorf("second child should be ExprRepetition, got %v", rewritten.Children[1].Kind)
+	}
+}
+
+// TestGoRangeExpressions checks that "0" … "9" is parsed as ExprRange.
+func TestGoRangeExpressions(t *testing.T) {
+	gd := mustParseGo(t)
+	lc := LexConfigFrom(gd.Lex)
+
+	decDigit := findProd(gd, "decimal_digit")
+	if decDigit == nil {
+		t.Fatal("missing decimal_digit production")
+	}
+	raw := TokenToRaw(decDigit.Token)
+	expr, err := ParseExpr(raw, lc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expr.Kind != ExprRange {
+		t.Errorf("decimal_digit should be ExprRange, got %v: %s", expr.Kind, expr.String())
+	}
+
+	// hex_digit has ranges in alternation
+	hexDigit := findProd(gd, "hex_digit")
+	if hexDigit == nil {
+		t.Fatal("missing hex_digit production")
+	}
+	raw = TokenToRaw(hexDigit.Token)
+	expr, err = ParseExpr(raw, lc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expr.Kind != ExprAlternation {
+		t.Fatalf("hex_digit should be ExprAlternation, got %v", expr.Kind)
+	}
+	// Each alternative should be an ExprRange
+	for i, child := range expr.Children {
+		if child.Kind != ExprRange {
+			t.Errorf("hex_digit alternative %d should be ExprRange, got %v", i, child.Kind)
+		}
+	}
+}
+
+// TestGoParseProductions tests parsing individual Go grammar productions.
+func TestGoParseProductions(t *testing.T) {
+	gd := mustParseGo(t)
+	opts := GoParseOptions()
+	opts.Preprocessor = nil // semicolons pre-inserted in test inputs
+
+	t.Run("empty_func", func(t *testing.T) {
+		src := "func main() {};"
+		ap, err := newASTParser(src, gd, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		node, err := ap.parseProduction("TopLevelDecl")
+		if err != nil {
+			t.Fatalf("TopLevelDecl error: %v (pos=%d, remaining=%q)", err, ap.pos, src[ap.pos:])
+		}
+		if findASTNode(node, "FunctionDecl") == nil {
+			t.Error("missing FunctionDecl")
+		}
+	})
+
+	t.Run("func_with_return", func(t *testing.T) {
+		src := "func add() int { return 1; };"
+		ap, err := newASTParser(src, gd, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		node, err := ap.parseProduction("TopLevelDecl")
+		if err != nil {
+			t.Fatalf("TopLevelDecl error: %v (pos=%d, remaining=%q)", err, ap.pos, src[ap.pos:])
+		}
+		ret := findASTNode(node, "ReturnStmt")
+		if ret == nil {
+			t.Error("missing ReturnStmt")
+		}
+	})
+
+	t.Run("func_with_params", func(t *testing.T) {
+		src := "func add(a, b int) int { return a; };"
+		ap, err := newASTParser(src, gd, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		node, err := ap.parseProduction("TopLevelDecl")
+		if err != nil {
+			t.Fatalf("TopLevelDecl error: %v (pos=%d, remaining=%q)", err, ap.pos, src[ap.pos:])
+		}
+		params := findAllASTNodes(node, "ParameterDecl")
+		if len(params) == 0 {
+			t.Error("missing ParameterDecl")
+		}
+	})
+}
+
+// TestGoParseMultiFunction verifies that the parser handles multiple
+// top-level declarations including binary expressions and short var decls.
+func TestGoParseMultiFunction(t *testing.T) {
+	gd := mustParseGo(t)
+
+	src := "package main\n\nfunc add(a, b int) int {\n\treturn a + b\n}\n\nfunc main() {\n\tx := add(1, 2)\n\tfmt.Println(x)\n}\n"
+	ast, err := ParseASTWithOptions(src, "go", "SourceFile", gd, GoParseOptions())
+	if err != nil {
+		t.Fatalf("ParseASTWithOptions: %v", err)
+	}
+
+	fns := findAllASTNodes(ast.Root, "FunctionDecl")
+	if len(fns) != 2 {
+		t.Logf("AST:\n%s", sprintAST(ast.Root, 0))
+		t.Fatalf("expected 2 FunctionDecl nodes, got %d", len(fns))
+	}
+
+	names := make(map[string]bool)
+	for _, fn := range fns {
+		if fnName := findASTNode(fn, "FunctionName"); fnName != nil {
+			if id := findASTNode(fnName, "identifier"); id != nil {
+				names[id.Value] = true
+			}
+		}
+	}
+	for _, want := range []string{"add", "main"} {
+		if !names[want] {
+			t.Errorf("missing function %q, found: %v", want, names)
+		}
+	}
+
+	// Verify binary expression in add()
+	addOp := findASTNode(ast.Root, "add_op")
+	if addOp == nil {
+		t.Error("missing add_op node (binary expression)")
+	}
+
+	// Verify short var decl in main()
+	shortVarDecls := findAllASTNodes(ast.Root, "ShortVarDecl")
+	if len(shortVarDecls) == 0 {
+		t.Error("missing ShortVarDecl node")
+	}
+}
+
+func findASTNode(node *pb.ASTNodeDescriptor, kind string) *pb.ASTNodeDescriptor {
+	if node == nil {
+		return nil
+	}
+	if node.Kind == kind {
+		return node
+	}
+	for _, child := range node.Children {
+		if found := findASTNode(child, kind); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func findAllASTNodes(node *pb.ASTNodeDescriptor, kind string) []*pb.ASTNodeDescriptor {
+	if node == nil {
+		return nil
+	}
+	var results []*pb.ASTNodeDescriptor
+	if node.Kind == kind {
+		results = append(results, node)
+	}
+	for _, child := range node.Children {
+		results = append(results, findAllASTNodes(child, kind)...)
+	}
+	return results
+}
+
+func countASTNodes(node *pb.ASTNodeDescriptor) int {
+	if node == nil {
+		return 0
+	}
+	n := 1
+	for _, child := range node.Children {
+		n += countASTNodes(child)
+	}
+	return n
+}
+
+func sprintAST(node *pb.ASTNodeDescriptor, depth int) string {
+	if node == nil {
+		return ""
+	}
+	indent := strings.Repeat("  ", depth)
+	var b strings.Builder
+	if node.Value != "" {
+		b.WriteString(indent + node.Kind + ": " + node.Value + "\n")
+	} else {
+		b.WriteString(indent + node.Kind + "\n")
+	}
+	for _, child := range node.Children {
+		b.WriteString(sprintAST(child, depth+1))
+	}
+	return b.String()
+}
+
 // --- helpers ---
 
 func mustParseGo(t *testing.T) *pb.GrammarDescriptor {
