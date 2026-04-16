@@ -197,18 +197,18 @@ peel:
 		b.appendMessageField(msg, uniqueFieldName(msg, snakeCase(n)), typ, label, oneofIdx)
 
 	case KindSequence:
-		nested, err := b.nestedFromSequence(msg, node.GetChildren())
+		nested, err := b.nestedFromSequence(msg, node)
 		if err != nil {
 			return err
 		}
-		b.appendMessageField(msg, uniqueFieldName(msg, lowerFirst(nested.GetName())), b.fqn[nested], label, oneofIdx)
+		b.appendMessageField(msg, uniqueFieldName(msg, snakeCase(nested.GetName())), b.fqn[nested], label, oneofIdx)
 
 	case KindAlternation:
-		nested, err := b.nestedFromAlternation(msg, node.GetChildren())
+		nested, err := b.nestedFromAlternation(msg, node)
 		if err != nil {
 			return err
 		}
-		b.appendMessageField(msg, uniqueFieldName(msg, lowerFirst(nested.GetName())), b.fqn[nested], label, oneofIdx)
+		b.appendMessageField(msg, uniqueFieldName(msg, snakeCase(nested.GetName())), b.fqn[nested], label, oneofIdx)
 
 	case KindRange:
 		return b.emitRange(msg, node, label, oneofIdx)
@@ -222,12 +222,12 @@ peel:
 	return nil
 }
 
-func (b *builder) nestedFromSequence(parent *descriptorpb.DescriptorProto, items []*pb.ASTNode) (*descriptorpb.DescriptorProto, error) {
-	name := nextNestedName(parent, "Seq")
+func (b *builder) nestedFromSequence(parent *descriptorpb.DescriptorProto, node *pb.ASTNode) (*descriptorpb.DescriptorProto, error) {
+	name := pickNestedName(parent, node.GetValue(), "Seq")
 	nested := &descriptorpb.DescriptorProto{Name: &name}
 	b.fqn[nested] = b.fqn[parent] + "." + name
 	parent.NestedType = append(parent.NestedType, nested)
-	for _, it := range items {
+	for _, it := range node.GetChildren() {
 		if err := b.emitField(nested, it, nil); err != nil {
 			return nil, err
 		}
@@ -235,12 +235,12 @@ func (b *builder) nestedFromSequence(parent *descriptorpb.DescriptorProto, items
 	return nested, nil
 }
 
-func (b *builder) nestedFromAlternation(parent *descriptorpb.DescriptorProto, variants []*pb.ASTNode) (*descriptorpb.DescriptorProto, error) {
-	name := nextNestedName(parent, "Alt")
+func (b *builder) nestedFromAlternation(parent *descriptorpb.DescriptorProto, node *pb.ASTNode) (*descriptorpb.DescriptorProto, error) {
+	name := pickNestedName(parent, node.GetValue(), "Alt")
 	nested := &descriptorpb.DescriptorProto{Name: &name}
 	b.fqn[nested] = b.fqn[parent] + "." + name
 	parent.NestedType = append(parent.NestedType, nested)
-	if err := b.emitOneof(nested, "value", variants); err != nil {
+	if err := b.emitOneof(nested, "value", node.GetChildren()); err != nil {
 		return nil, err
 	}
 	return nested, nil
@@ -310,6 +310,29 @@ func nextNestedName(msg *descriptorpb.DescriptorProto, stem string) string {
 	}
 	for i := 1; ; i++ {
 		cand := stem + strconv.Itoa(i)
+		if !taken[cand] {
+			return cand
+		}
+	}
+}
+
+// pickNestedName uses preferred (if non-empty) as the bare stem for
+// the next nested message, or falls back to fallback+N numbering via
+// nextNestedName. Named stems try the bare name first ("OrderBy")
+// then "OrderBy2", "OrderBy3", ... on collisions.
+func pickNestedName(parent *descriptorpb.DescriptorProto, preferred, fallback string) string {
+	if preferred == "" {
+		return nextNestedName(parent, fallback)
+	}
+	taken := map[string]bool{}
+	for _, n := range parent.NestedType {
+		taken[n.GetName()] = true
+	}
+	if !taken[preferred] {
+		return preferred
+	}
+	for i := 2; ; i++ {
+		cand := preferred + strconv.Itoa(i)
 		if !taken[cand] {
 			return cand
 		}
