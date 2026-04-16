@@ -69,3 +69,68 @@ message LexDescriptor {
   // delimited by '?' and "exceptions" using '-'. These are not yet
   // implemented. TODO: Add special_sequence and exception fields.
 }
+
+
+message BetterLexDescriptor {
+  message Options {
+   unicode.UTF8 lhs = 1;
+   unicode.UTF8 rhs = 2;
+  }
+  message Repitition {
+    unicode.UTF8 lhs = 1;
+    unicode.UTF8 rhs = 2;
+  }
+  message Group {
+   unicode.UTF8 lhs = 1;
+   unicode.UTF8 rhs = 2;
+  }
+  message Comment {
+   unicode.UTF8 lhs = 1;
+   unicode.UTF8 rhs = 2;
+  }
+  // Whitespace characters (typically space, tab, newline, carriage return).
+  repeated unicode.UTF8 whitespace = 1;
+
+  // Definition operator: separates production name from its expression.
+  // Standard EBNF: '=' (EQUALS_SIGN). Some notations use '::=' or ':'.
+  unicode.UTF8 definition = 2;
+
+  // Concatenation operator: separates sequential terms.
+  // Standard EBNF: ',' (COMMA). Go/proto EBNF: implicit (juxtaposition).
+  // Omit (nil) when concatenation is implicit.
+  unicode.UTF8 concatenation = 3;
+
+  // Termination: marks the end of a production rule.
+  // Standard EBNF: ';' (SEMICOLON). Go EBNF: '.' (FULL_STOP). Proto: ';'.
+  unicode.UTF8 termination = 4;
+
+  // Alternation: separates alternative choices.
+  // Universally: '|' (VERTICAL_LINE).
+  unicode.UTF8 alternation = 5;
+
+  // Optional brackets: enclose optional expressions (0 or 1 times).
+  // Standard/Go EBNF: '[' and ']' (LEFT/RIGHT_SQUARE_BRACKET).
+  Options options = 6;
+
+  // Repetition brackets: enclose repeated expressions (0 to n times).
+  // Standard/Go EBNF: '{' and '}' (LEFT/RIGHT_CURLY_BRACKET).
+  Repitition repitition = 7; // ok to change these, new messsage type not in prod
+
+  // Grouping brackets: enclose grouped expressions.
+  // Standard/Go EBNF: '(' and ')' (LEFT/RIGHT_PARENTHESIS).
+  Group group = 8;
+  
+  // Terminal delimiter: character used to quote terminal symbols.
+  // Standard EBNF: '"' (QUOTATION_MARK) or "'" (APOSTROPHE).
+  // Go also uses '`' (GRAVE_ACCENT).
+  unicode.UTF8 terminal = 9;
+
+  // Comment delimiters: characters that open and close comments.
+  // Standard EBNF: '(' paired with '*' for '(*', then '*' paired with ')'.
+  // Go EBNF uses '/' paired with '*' for '/* ... */'.
+  Comment comment = 10;
+
+  // NOTE: Standard EBNF (ISO 14977) also defines "special sequences"
+  // delimited by '?' and "exceptions" using '-'. These are not yet
+  // implemented. TODO: Add special_sequence and exception fields.
+}
