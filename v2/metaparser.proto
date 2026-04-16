@@ -9,50 +9,68 @@ import "google/protobuf/wrappers.proto";
 import "v2/ast.proto";
 import "v2/document.proto";
 import "v2/grammar.proto";
+import "v2/lex.proto";
 import "v2/text.proto";
+import "v2/tokens.proto";
 
 // Metaparser is the bottom-up parsing pipeline.
 //
 // Typical flow (file on disk → CST):
 //
-//   bytes                                   ← io.ReadFile
-//     → Read(BytesValue)  → TextDescriptor  ← raw bytes, not yet parsed
-//   string                                  ← a name for the document
-//     → Read(StringValue) → DocumentDescriptor
-//   DocumentDescriptor                      ← the EBNF source
-//     → EBNF              → GrammarDescriptor
-//   GrammarDescriptor + source document     ← grammar + program to parse
-//     → CST               → ASTDescriptor
+//   bytes                                      ← io.ReadFile
+//     → ReadBytes   → TextDescriptor           ← raw bytes
+//   string                                     ← a name for the document
+//     → ReadString  → DocumentDescriptor
+//   DocumentDescriptor                         ← EBNF source
+//     → EBNF        → GrammarDescriptor        ← rules + lex conventions
+//   DocumentDescriptor (program to parse)
+//     → Lex         → TokenSequence            ← classified tokens
+//   TokenSequence + GrammarDescriptor
+//     → CST         → ASTDescriptor            ← concrete syntax tree
 //
-// A separate compiler (not part of Metaparser) is responsible for lowering
-// an ASTDescriptor into a FileDescriptorProto or any other target shape.
+// A separate compiler (not part of Metaparser) lowers an ASTDescriptor
+// into a FileDescriptorProto or any other target shape.
 service Metaparser {
-  // Read classifies a raw byte buffer into a TextDescriptor, choosing an
-  // encoding (ASCII / unicode_val / unicode_string) based on the input.
+  // ReadBytes classifies a raw byte buffer into a TextDescriptor,
+  // choosing an encoding (ASCII / unicode_val / unicode_string) based
+  // on the input.
   rpc ReadBytes(google.protobuf.BytesValue) returns (TextDescriptor);
 
-  // Read lifts a single string into a DocumentDescriptor with a single
-  // TextDescriptor chunk. Intended as a cheap entry point when you already
-  // have the source in memory as a Go string.
+  // ReadString lifts a single string into a DocumentDescriptor with a
+  // single TextDescriptor chunk. Cheap entry point when the source is
+  // already in memory as a Go string.
   rpc ReadString(google.protobuf.StringValue) returns (DocumentDescriptor);
 
   // EBNF parses a DocumentDescriptor containing EBNF source into a
-  // GrammarDescriptor. The input document's LexDescriptor-equivalent
-  // notation is inferred or supplied out-of-band.
+  // GrammarDescriptor. Internally lexes according to a LexDescriptor
+  // configured for the input's EBNF dialect.
   rpc EBNF(DocumentDescriptor) returns (GrammarDescriptor);
 
-  // CST parses source text against a grammar, producing an ASTDescriptor
-  // that carries the full concrete syntax tree (every matched token).
+  // Lex runs the lexer over a DocumentDescriptor and emits a
+  // TokenSequence suitable for CST parsing. Factored out as its own
+  // RPC so the same token stream can be parsed against multiple
+  // grammars without re-lexing.
+  rpc Lex(LexRequest) returns (TokenSequence);
+
+  // CST parses an already-lexed TokenSequence against a grammar,
+  // producing an ASTDescriptor that carries the full concrete syntax
+  // tree (every matched token).
   rpc CST(CstRequest) returns (ASTDescriptor);
 }
 
-// CstRequest bundles the grammar and the document to be parsed against it.
-// Split into its own message (rather than folded into GrammarDescriptor)
-// because grammars are reusable across many documents.
-message CstRequest {
-  // Grammar to parse against.
-  GrammarDescriptor grammar = 1;
+// LexRequest bundles the source document with the lex configuration to
+// apply. Split from DocumentDescriptor because the document is reusable
+// across different lex conventions.
+message LexRequest {
+  DocumentDescriptor source = 1;
+  LexDescriptor lex = 2;
+}
 
-  // Source document to parse.
-  DocumentDescriptor source = 2;
+// CstRequest bundles the grammar with the token stream to parse against
+// it. The grammar carries its own LexDescriptor — callers are expected
+// to have lexed `tokens` with that same LexDescriptor (or a compatible
+// one); the RPC does not re-lex.
+message CstRequest {
+  GrammarDescriptor grammar = 1;
+  TokenSequence tokens = 2;
 }

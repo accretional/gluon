@@ -4,16 +4,20 @@ package gluon.v2;
 
 option go_package = "github.com/accretional/gluon/v2/pb";
 
-// SourceLocation is a byte-range pointer into a TextDescriptor.
+// SourceLocation is a byte-range pointer into a source document.
 // It lets downstream messages refer to a region of source text without
 // copying the bytes themselves — useful for CST nodes, diagnostics, and
 // chunked TextDescriptors that share a backing buffer.
+//
+// The field is deliberately a URI, not inline text, so consumers are
+// forced to resolve it against a document they already hold. That
+// prevents SourceLocation from drifting into a second home for text.
 message SourceLocation {
-  // Name of the TextDescriptor this location refers to. Empty means
-  // "the enclosing/ambient text".
-  string text = 1;
+  // URI of the document this location refers to (matches
+  // DocumentDescriptor.uri). Empty means "the enclosing/ambient document".
+  string uri = 1;
 
-  // Byte offset from the start of the referenced text.
+  // Byte offset from the start of the referenced document.
   int32 offset = 2;
 
   // Byte length of the region. Zero length = a point (e.g. a cursor).

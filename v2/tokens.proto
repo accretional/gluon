@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package gluon.v2;
+
+option go_package = "github.com/accretional/gluon/v2/pb";
+
+import "v2/lex.proto";
+import "v2/source_location.proto";
+
+// TokenSequence is a linear stream of classified tokens — the output of
+// lexing a DocumentDescriptor against a LexDescriptor, and the input to
+// CST parsing against a GrammarDescriptor.
+//
+// Tokens carry their role (delimiter / scoper-boundary / literal) rather
+// than raw characters: the parser never needs to re-consult the lex
+// tables, and the serialized form stays compact.
+message TokenSequence {
+  // Optional name — typically the source document's name.
+  string name = 1;
+
+  // URI of the source document the tokens were lexed from. Tokens with
+  // a SourceLocation payload are resolved against this URI when their
+  // own SourceLocation.uri is empty.
+  string source_uri = 2;
+
+  repeated Token tokens = 3;
+}
+
+// Token is one classified element of a TokenSequence.
+message Token {
+  oneof kind {
+    // A role-only separator (ALTERNATION, CONCATENATION, …). The specific
+    // character that produced it is recoverable from the source via the
+    // optional `location` below, but parsers don't need it.
+    Delimiter delimiter = 1;
+
+    // The begin or end of a paired scoper (OPTIONAL, GROUP, TERMINAL, …).
+    ScoperBoundary scoper = 2;
+
+    // A run of literal text — identifier, unquoted terminal content, etc.
+    // Represented as a pointer into the source document to keep the
+    // token stream cheap; consumers resolve the bytes via the URI.
+    SourceLocation literal = 3;
+  }
+
+  // Where this token came from in source. Optional; producers may skip
+  // it for synthetic tokens. For `literal` kind, the oneof payload is
+  // already a SourceLocation so this field is redundant and should be
+  // left empty.
+  SourceLocation location = 4;
+}
+
+// ScoperBoundary names one side of a paired scoper.
+message ScoperBoundary {
+  Scoper kind = 1;
+
+  // Which side of the pair this token is.
+  enum Side {
+    SIDE_UNSPECIFIED = 0;
+    BEGIN = 1;
+    END = 2;
+  }
+  Side side = 2;
+}

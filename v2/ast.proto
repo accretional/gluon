@@ -37,7 +37,7 @@ message ASTNode {
   // Child nodes, in source order.
   repeated ASTNode children = 3;
 
-  // Where this node was parsed from. Points into the source document's
-  // TextDescriptor(s) via SourceLocation.text.
+  // Where this node was parsed from. Points into the source document
+  // via SourceLocation.uri.
   SourceLocation location = 4;
 }

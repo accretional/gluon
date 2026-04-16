@@ -36,9 +36,10 @@ message TextDescriptor {
     // doesn't matter — cheapest to construct from an existing string.
     string unicode_string = 4;
 
-    // By-reference pointer into another TextDescriptor (identified by
-    // SourceLocation.text). Use when multiple descriptors need to refer
-    // to the same backing buffer without copying.
+    // By-reference pointer into a source document (resolved via
+    // SourceLocation.uri against a DocumentDescriptor). Use when
+    // multiple descriptors need to refer to the same backing buffer
+    // without copying.
     SourceLocation source_location = 5;
   }
 }
