@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package gluon.v2;
+
+option go_package = "github.com/accretional/gluon/v2/pb";
+
+// Delimiter enumerates the roles played by single-character separators
+// in an EBNF-style notation. Each value names *what the character does*,
+// not what character is used — the mapping from character to role lives
+// in LexDescriptor via SymbolDescriptor.
+//
+// This enum is deliberately small: downstream artifacts (rules, CSTs)
+// persist the role as an enum value rather than re-encoding the raw
+// character, which keeps those artifacts compact and notation-agnostic.
+enum Delimiter {
+  DELIMITER_UNSPECIFIED = 0;
+
+  // Separates tokens without contributing to structure (space, tab, CR, LF).
+  WHITESPACE = 1;
+
+  // Separates a rule's name from its body. Standard EBNF: '='.
+  DEFINITION = 2;
+
+  // Joins sequential terms. Standard EBNF: ',' (may be implicit in other
+  // notations, in which case no SymbolDescriptor carries this role).
+  CONCATENATION = 3;
+
+  // Marks the end of a rule. Standard EBNF: ';'. Go EBNF: '.'.
+  TERMINATION = 4;
+
+  // Separates alternative choices. Universally: '|'.
+  ALTERNATION = 5;
+}
+
+// Scoper enumerates the roles played by paired begin/end delimiters.
+// Every scoper opens a nested context and must be closed by its matching
+// partner; the body between them is treated as a sub-expression.
+enum Scoper {
+  SCOPER_UNSPECIFIED = 0;
+
+  // Encloses an optional sub-expression (0 or 1 occurrence). Std EBNF: [ ].
+  OPTIONAL = 1;
+
+  // Encloses a repeated sub-expression (0..n occurrences). Std EBNF: { }.
+  REPETITION = 2;
+
+  // Encloses a grouped sub-expression (structural only). Std EBNF: ( ).
+  GROUP = 3;
+
+  // Encloses a terminal literal. Std EBNF: " " or ' '. Go also uses ` `.
+  TERMINAL = 4;
+
+  // Encloses a comment. Std EBNF: (* *). Go/C EBNF: /* */.
+  COMMENT = 5;
+}
+
+// LexicalDelimiter binds a Delimiter role to the actual character(s) that
+// trigger it in a given notation.
+message LexicalDelimiter {
+  Delimiter kind = 1;
+
+  // Character(s) that play this role. Typically a single rune, but kept
+  // as a string so multi-character operators like "::=" can be expressed.
+  string symbol = 2;
+}
+
+// LexicalScoper binds a Scoper role to its begin/end character(s).
+message LexicalScoper {
+  Scoper kind = 1;
+
+  // Opening character(s). E.g. "[" for OPTIONAL, "(*" for COMMENT.
+  string begin = 2;
+
+  // Closing character(s). E.g. "]" for OPTIONAL, "*)" for COMMENT.
+  string end = 3;
+}
+
+// SymbolDescriptor wraps either a delimiter or a scoper. A LexDescriptor
+// is a flat list of these; during lexing they are consulted to classify
+// each incoming character run into the role it plays.
+message SymbolDescriptor {
+  oneof kind {
+    LexicalDelimiter delimiter = 1;
+    LexicalScoper scoper = 2;
+  }
+}
+
+// LexDescriptor describes the lexical conventions of an EBNF-style
+// notation. It's just a named bag of SymbolDescriptors — the shape
+// of the notation is entirely determined by which roles are present
+// and which characters are bound to them.
+//
+// Swapping LexDescriptors lets the same lexer/parser implementation
+// handle ISO 14977, Go's spec notation, proto's notation, etc.
+message LexDescriptor {
+  // Human-readable identifier for the notation (e.g. "iso-14977", "go").
+  string name = 1;
+
+  // The symbols that make up the notation.
+  repeated SymbolDescriptor symbols = 2;
+}

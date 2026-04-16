@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package gluon.v2;
+
+option go_package = "github.com/accretional/gluon/v2/pb";
+
+import "google/protobuf/wrappers.proto";
+
+import "v2/ast.proto";
+import "v2/document.proto";
+import "v2/grammar.proto";
+import "v2/text.proto";
+
+// Metaparser is the bottom-up parsing pipeline.
+//
+// Typical flow (file on disk → CST):
+//
+//   bytes                                   ← io.ReadFile
+//     → Read(BytesValue)  → TextDescriptor  ← raw bytes, not yet parsed
+//   string                                  ← a name for the document
+//     → Read(StringValue) → DocumentDescriptor
+//   DocumentDescriptor                      ← the EBNF source
+//     → EBNF              → GrammarDescriptor
+//   GrammarDescriptor + source document     ← grammar + program to parse
+//     → CST               → ASTDescriptor
+//
+// A separate compiler (not part of Metaparser) is responsible for lowering
+// an ASTDescriptor into a FileDescriptorProto or any other target shape.
+service Metaparser {
+  // Read classifies a raw byte buffer into a TextDescriptor, choosing an
+  // encoding (ASCII / unicode_val / unicode_string) based on the input.
+  rpc ReadBytes(google.protobuf.BytesValue) returns (TextDescriptor);
+
+  // Read lifts a single string into a DocumentDescriptor with a single
+  // TextDescriptor chunk. Intended as a cheap entry point when you already
+  // have the source in memory as a Go string.
+  rpc ReadString(google.protobuf.StringValue) returns (DocumentDescriptor);
+
+  // EBNF parses a DocumentDescriptor containing EBNF source into a
+  // GrammarDescriptor. The input document's LexDescriptor-equivalent
+  // notation is inferred or supplied out-of-band.
+  rpc EBNF(DocumentDescriptor) returns (GrammarDescriptor);
+
+  // CST parses source text against a grammar, producing an ASTDescriptor
+  // that carries the full concrete syntax tree (every matched token).
+  rpc CST(CstRequest) returns (ASTDescriptor);
+}
+
+// CstRequest bundles the grammar and the document to be parsed against it.
+// Split into its own message (rather than folded into GrammarDescriptor)
+// because grammars are reusable across many documents.
+message CstRequest {
+  // Grammar to parse against.
+  GrammarDescriptor grammar = 1;
+
+  // Source document to parse.
+  DocumentDescriptor source = 2;
+}

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package gluon.v2;
+
+option go_package = "github.com/accretional/gluon/v2/pb";
+
+import "v2/text.proto";
+
+// DocumentDescriptor is a named, addressable bundle of text — conceptually
+// "one source file", but without assuming the filesystem.
+//
+// The `text` field is `repeated` so a document can be assembled from
+// heterogeneously-encoded chunks (an ASCII run, a unicode burst, a
+// by-reference pointer) without forcing a single encoding on the whole
+// payload. Readers should treat the chunks as logically concatenated.
+message DocumentDescriptor {
+  // Human-readable name (e.g. "sqlite.ebnf"). Not required to be unique.
+  string name = 1;
+
+  // Identifier for the document's origin — typically a file:// or https://
+  // URI, but any stable identifier works (e.g. "stdin", "embedded://foo").
+  string uri = 2;
+
+  // Text content, split into chunks. See TextDescriptor for why chunks.
+  repeated TextDescriptor text = 3;
+}

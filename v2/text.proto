@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package gluon.v2;
+
+option go_package = "github.com/accretional/gluon/v2/pb";
+
+import "unicode/ascii.proto";
+import "v2/source_location.proto";
+
+// TextDescriptor holds a chunk of source text in one of several encodings.
+//
+// The encodings exist so that the common case — ASCII-only source — costs
+// roughly one byte per character, while non-ASCII content can still be
+// represented without lossy conversion and large buffers can be shared by
+// reference.
+//
+// The oneof is chunk-scoped, not document-scoped: a DocumentDescriptor
+// typically carries a `repeated TextDescriptor text`, so different regions
+// of the same document can use different encodings (a run of ASCII, then a
+// unicode burst, then back to ASCII).
+message TextDescriptor {
+  // Optional name — useful when the text is addressed by reference
+  // (e.g. from SourceLocation.text).
+  string name = 1;
+
+  oneof content {
+    // ASCII-only run. Preferred when every character fits in 7 bits —
+    // each rune is one int value with a readable ASCII enum name.
+    AsciiChunk ascii = 2;
+
+    // Arbitrary Unicode code points. Use when the text contains non-ASCII
+    // runes but you still want per-rune addressability.
+    UnicodeChunk unicode_val = 3;
+
+    // Raw UTF-8 string. Use for prose or when per-rune addressability
+    // doesn't matter — cheapest to construct from an existing string.
+    string unicode_string = 4;
+
+    // By-reference pointer into another TextDescriptor (identified by
+    // SourceLocation.text). Use when multiple descriptors need to refer
+    // to the same backing buffer without copying.
+    SourceLocation source_location = 5;
+  }
+}
+
+// AsciiChunk is a run of ASCII-only characters. Wrapped in a message
+// because proto3 doesn't permit `repeated` directly inside a oneof.
+message AsciiChunk {
+  repeated unicode.ASCII chars = 1;
+}
+
+// UnicodeChunk is a run of arbitrary Unicode code points. int32 is used
+// (rather than uint32) to stay consistent with Go's `rune` type.
+message UnicodeChunk {
+  repeated int32 chars = 1;
+}

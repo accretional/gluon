@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package gluon.v2;
+
+option go_package = "github.com/accretional/gluon/v2/pb";
+
+import "v2/source_location.proto";
+
+// ASTDescriptor is a language-agnostic tree produced by parsing a source
+// document against a GrammarDescriptor. At this stage it carries the full
+// concrete syntax — every token the parser matched — so it is really a
+// CST. A separate compiler may later lower it into a more abstract form
+// (dropping punctuation, collapsing single-child chains, etc.) without
+// changing the message shape.
+message ASTDescriptor {
+  // Name of the language the tree was parsed from (e.g. "sqlite", "go").
+  string language = 1;
+
+  // Optional version label for the language spec (e.g. "3.45", "1.26").
+  string version = 2;
+
+  // Root node.
+  ASTNode root = 3;
+}
+
+// ASTNode is a single node. Leaf nodes carry a `value` (the matched text);
+// interior nodes carry `children`. The `kind` string names the rule or
+// terminal role that produced the node.
+message ASTNode {
+  // Rule name (e.g. "SelectStmt") for interior nodes, or a terminal tag
+  // (e.g. "TERMINAL", "NONTERMINAL") for leaves.
+  string kind = 1;
+
+  // Matched text, for leaves. Interior nodes should leave this empty.
+  string value = 2;
+
+  // Child nodes, in source order.
+  repeated ASTNode children = 3;
+
+  // Where this node was parsed from. Points into the source document's
+  // TextDescriptor(s) via SourceLocation.text.
+  SourceLocation location = 4;
+}

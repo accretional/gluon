@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package gluon.v2;
+
+option go_package = "github.com/accretional/gluon/v2/pb";
+
+import "v2/lex.proto";
+
+// Production is a single node in the right-hand side of a rule.
+//
+// Structure is encoded positionally rather than as a tree:
+//
+//   - A rule's `expressions` is a flat list of Productions.
+//   - Delimiters (ALTERNATION, CONCATENATION, …) sit *between* siblings
+//     and indicate how their neighbors relate.
+//   - Scopers open a nested sub-list in their own `body`.
+//
+// This keeps the serialized form close to the source — no artificial
+// Sequence/Alternation wrapper messages — and means each variant stays
+// small (an enum, a repeated-Production, or a plain string).
+message Production {
+  oneof kind {
+    // A positional separator. Its role (ALTERNATION, CONCATENATION, …)
+    // tells readers how the surrounding siblings combine. The character(s)
+    // that produced it are resolved via the rule's LexDescriptor.
+    Delimiter delimiter = 1;
+
+    // A bracketed sub-expression. `kind` says what kind of bracket
+    // (OPTIONAL, REPETITION, GROUP, TERMINAL, COMMENT) and `body` holds
+    // its inner productions as a flat list.
+    ScopedProduction scoper = 2;
+
+    // A literal terminal string (unquoted). Empty string is valid
+    // (matches nothing); consumers should treat absence of kind as an
+    // uninitialized node.
+    string terminal = 3;
+
+    // A reference to another rule by name.
+    string nonterminal = 4;
+
+    // An inclusive character range, e.g. "a" … "z".
+    StringRange range = 5;
+  }
+}
+
+// ScopedProduction is the body of a scoper (optional, repetition, group,
+// terminal, or comment) together with a tag identifying which scoper role
+// produced it.
+message ScopedProduction {
+  Scoper kind = 1;
+
+  // Inner expressions, interpreted the same way as a rule's top-level
+  // expressions (delimiters between siblings, scopers nesting further).
+  repeated Production body = 2;
+}
+
+// StringRange represents an inclusive character range like "a" … "z".
+// Both bounds are strings (not single runes) so multi-byte characters
+// and multi-character bounds can be expressed without a separate rune
+// type.
+message StringRange {
+  string lower = 1;
+  string upper = 2;
+}
+
+// RuleDescriptor is a single production rule.
+//
+// Example: `letter = "A" | "B" | "C" ;`  becomes
+//   name = "letter"
+//   expressions = [
+//     Production{terminal: "A"},
+//     Production{delimiter: ALTERNATION},
+//     Production{terminal: "B"},
+//     Production{delimiter: ALTERNATION},
+//     Production{terminal: "C"},
+//   ]
+message RuleDescriptor {
+  // Left-hand-side name (e.g. "letter").
+  string name = 1;
+
+  // Flat list of productions making up the RHS. Structure is encoded by
+  // the positions and kinds of delimiters/scopers — see Production.
+  repeated Production expressions = 2;
+}
+
+// GrammarDescriptor pairs a lex configuration with a set of rules.
+// The lex descriptor is what was used to read the rules out of their
+// source notation; downstream consumers rely on it to interpret each
+// Delimiter's role.
+message GrammarDescriptor {
+  // Optional name (e.g. "sqlite", "go").
+  string name = 1;
+
+  // Lexical conventions for the notation the rules were written in.
+  LexDescriptor lex = 2;
+
+  // Rules defining the grammar.
+  repeated RuleDescriptor rules = 3;
+}
