@@ -14,6 +14,15 @@ The core logic for all conversions lives in the `codegen/` and `astkit/` package
 The top-level `X2Y` directories exist as **demonstration and usage example** entry
 points for each conversion stage — they do not contain conversion logic themselves.
 
+> **v2 (in progress):** A redesigned grammar / parsing pipeline lives under
+> [`v2/`](v2/). It replaces the per-stage `X2Y` layout with a single
+> `Metaparser` service (`ReadBytes`, `ReadString`, `EBNF`, `CST`, `Transform`)
+> and a language-agnostic `Transformer` service in `v2/astkit`. The
+> `Metaparser.Transform` RPC embeds proto-expr's
+> [Protosh](https://github.com/accretional/proto-expr) runtime to drive
+> pluggable AST rewriting / compilation pipelines. See
+> [`v2/README.md`](v2/README.md).
+
 ### Conversion Pipeline
 
 ```
