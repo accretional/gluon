@@ -25,6 +25,9 @@
 //                   to the bound string.
 //   range_lower   — lower bound of a range (Value is the bound).
 //   range_upper   — upper bound of a range (Value is the bound).
+//   scalar        — user-provided string value. Value holds the field
+//                   name (default "value"). Lowers to a proto3 string
+//                   scalar rather than a message reference.
 //
 // Any other kind at any position is an error.
 package compiler
@@ -42,4 +45,5 @@ const (
 	KindRange       = "range"
 	KindRangeLower  = "range_lower"
 	KindRangeUpper  = "range_upper"
+	KindScalar      = "scalar"
 )

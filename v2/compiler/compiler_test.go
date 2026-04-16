@@ -429,6 +429,59 @@ func TestGrammarToAST_ThenCompile(t *testing.T) {
 	}
 }
 
+func scalar(name string) *pb.ASTNode {
+	return &pb.ASTNode{Kind: KindScalar, Value: name}
+}
+
+func TestCompile_Scalar(t *testing.T) {
+	// rule("name", scalar("value")) → message Name { string value = 1; }
+	ast := fileAST("lang", rule("name", scalar("value")))
+	fdp, err := Compile(ast, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := findMessage(fdp, "Name")
+	if name == nil {
+		t.Fatal("Name missing")
+	}
+	if len(name.GetField()) != 1 {
+		t.Fatalf("Name fields: %d, want 1", len(name.GetField()))
+	}
+	f := name.GetField()[0]
+	if got, want := f.GetName(), "value"; got != want {
+		t.Errorf("field name: got %q, want %q", got, want)
+	}
+	if got := f.GetType(); got != descriptorpb.FieldDescriptorProto_TYPE_STRING {
+		t.Errorf("field type: got %v, want TYPE_STRING", got)
+	}
+	if tn := f.GetTypeName(); tn != "" {
+		t.Errorf("scalar field should have no TypeName, got %q", tn)
+	}
+}
+
+func TestCompile_ScalarInSequence(t *testing.T) {
+	// rule("q", seq(nonterm("a"), scalar("ident"))) — scalar sits next to
+	// a message field and gets declaration-order numbering.
+	ast := fileAST("lang",
+		rule("q", seq(nonterm("a"), scalar("ident"))),
+		rule("a", term("A")),
+	)
+	fdp, err := Compile(ast, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := findMessage(fdp, "Q")
+	if q == nil || len(q.GetField()) != 2 {
+		t.Fatalf("Q fields: %+v", q)
+	}
+	if got := q.GetField()[1].GetName(); got != "ident" {
+		t.Errorf("second field name: %q, want ident", got)
+	}
+	if got := q.GetField()[1].GetType(); got != descriptorpb.FieldDescriptorProto_TYPE_STRING {
+		t.Errorf("second field type: got %v", got)
+	}
+}
+
 func findMessage(fdp *descriptorpb.FileDescriptorProto, name string) *descriptorpb.DescriptorProto {
 	for _, m := range fdp.GetMessageType() {
 		if m.GetName() == name {

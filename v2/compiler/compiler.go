@@ -203,6 +203,13 @@ peel:
 		typ := b.keywordMessage(node)
 		b.appendMessageField(msg, fieldNameForKeyword(node.GetValue()), typ, label, oneofIdx)
 
+	case KindScalar:
+		name := node.GetValue()
+		if name == "" {
+			name = "value"
+		}
+		b.appendStringField(msg, uniqueFieldName(msg, snakeCase(name)), label, oneofIdx)
+
 	case KindNonterminal:
 		n := node.GetValue()
 		typ := "." + b.pkg + "." + pascalCase(n)
@@ -287,6 +294,21 @@ func (b *builder) appendMessageField(msg *descriptorpb.DescriptorProto, name, ty
 		Label:    &label,
 		Type:     &typeMsg,
 		TypeName: &typ,
+	}
+	if oneofIdx != nil {
+		f.OneofIndex = oneofIdx
+	}
+	msg.Field = append(msg.Field, f)
+}
+
+func (b *builder) appendStringField(msg *descriptorpb.DescriptorProto, name string, label descriptorpb.FieldDescriptorProto_Label, oneofIdx *int32) {
+	num := int32(len(msg.Field) + 1)
+	typeStr := descriptorpb.FieldDescriptorProto_TYPE_STRING
+	f := &descriptorpb.FieldDescriptorProto{
+		Name:   &name,
+		Number: &num,
+		Label:  &label,
+		Type:   &typeStr,
 	}
 	if oneofIdx != nil {
 		f.OneofIndex = oneofIdx
