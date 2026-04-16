@@ -6,6 +6,12 @@ import (
 	pb "github.com/accretional/gluon/v2/pb"
 )
 
+// repSep builds a repetition node whose Value is the separator literal
+// — the shape CollapseCommaList produces.
+func repSep(sep string, child *pb.ASTNode) *pb.ASTNode {
+	return &pb.ASTNode{Kind: KindRepetition, Value: sep, Children: []*pb.ASTNode{child}}
+}
+
 func TestCollapseCommaList_BasicNonterminal(t *testing.T) {
 	// ordering_term ("," ordering_term)*
 	in := seq(
@@ -14,7 +20,7 @@ func TestCollapseCommaList_BasicNonterminal(t *testing.T) {
 	)
 	got := CollapseCommaList(in)
 
-	want := seq(rep(nonterm("ordering_term")))
+	want := seq(repSep(",", nonterm("ordering_term")))
 	if !astEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
@@ -33,7 +39,7 @@ func TestCollapseCommaList_WithLeadingKeywords(t *testing.T) {
 	want := seq(
 		term("WITH"),
 		term("RECURSIVE"),
-		rep(nonterm("common_table_expression")),
+		repSep(",", nonterm("common_table_expression")),
 	)
 	if !astEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -96,11 +102,11 @@ func TestCollapseCommaList_Recurses(t *testing.T) {
 	)
 	got := CollapseCommaList(ast.Root)
 
-	// Expected tree: file → rule → optional → sequence → repetition → nonterminal
+	// Expected tree: file → rule → optional → sequence → repetition(",") → nonterminal
 	want := &pb.ASTNode{
 		Kind: KindFile,
 		Children: []*pb.ASTNode{
-			rule("outer", opt(seq(rep(nonterm("x"))))),
+			rule("outer", opt(seq(repSep(",", nonterm("x"))))),
 		},
 	}
 	if !astEqual(got, want) {
@@ -114,7 +120,7 @@ func TestCollapseCommaList_StructuralEqualityOfSubtrees(t *testing.T) {
 	leaf := group(alt(term("A"), term("B")))
 	in := seq(leaf, rep(seq(term(","), group(alt(term("A"), term("B"))))))
 	got := CollapseCommaList(in)
-	want := seq(rep(group(alt(term("A"), term("B")))))
+	want := seq(repSep(",", group(alt(term("A"), term("B")))))
 	if !astEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}

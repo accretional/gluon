@@ -76,6 +76,37 @@ func TestOnMessage_KeywordMessage(t *testing.T) {
 	}
 }
 
+func TestOnField_CollapseSeparator(t *testing.T) {
+	// CollapseCommaList → repetition with Value="," around the inner X.
+	// OnField must observe that Value on the field derived from that node.
+	ast := fileAST("lang", rule("order_by",
+		seq(nonterm("ordering_term"), rep(seq(term(","), nonterm("ordering_term")))),
+	))
+	ast.Root = CollapseCommaList(ast.Root)
+
+	type key struct{ parent, field string }
+	got := map[key]*pb.ASTNode{}
+	_, err := Compile(ast, Options{
+		Package: "lang",
+		OnField: func(parent, name string, node *pb.ASTNode) {
+			got[key{parent, name}] = node
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, ok := got[key{".lang.OrderBy", "ordering_term"}]
+	if !ok {
+		t.Fatalf("OnField not called for OrderBy.ordering_term; got %+v", got)
+	}
+	if node.GetKind() != KindRepetition {
+		t.Errorf("node kind: got %q, want repetition", node.GetKind())
+	}
+	if node.GetValue() != "," {
+		t.Errorf("node separator: got %q, want ','", node.GetValue())
+	}
+}
+
 func keys(m map[string]*pb.ASTNode) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

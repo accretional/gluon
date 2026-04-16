@@ -16,8 +16,13 @@ import (
 //
 // the pair is replaced with:
 //
-//	repetition
+//	repetition  (Value = SEP)
 //	  └── X
+//
+// The separator literal is stashed in the repetition node's Value so
+// downstream consumers (e.g. a SQL renderer) can reconstruct the
+// comma-separated text form. The compiler's OnField hook reports this
+// Value for every field it emits.
 //
 // Applied recursively bottom-up. SEP is any terminal literal — the
 // transform is grammar-agnostic (works for "," ";" "." any one-token
@@ -52,9 +57,10 @@ func collapseSeparatedTail(items []*pb.ASTNode) []*pb.ASTNode {
 	for i < len(items) {
 		if i+1 < len(items) {
 			x := items[i]
-			if inner, ok := matchSeparatedRepetition(items[i+1], x); ok {
+			if inner, sep, ok := matchSeparatedRepetition(items[i+1], x); ok {
 				out = append(out, &pb.ASTNode{
 					Kind:     KindRepetition,
+					Value:    sep,
 					Children: []*pb.ASTNode{inner},
 				})
 				i += 2
@@ -69,23 +75,23 @@ func collapseSeparatedTail(items []*pb.ASTNode) []*pb.ASTNode {
 
 // matchSeparatedRepetition reports whether `rep` is
 // repetition[sequence[terminal, X']] with X' structurally equal to
-// `want`, and returns the inner X'.
-func matchSeparatedRepetition(rep, want *pb.ASTNode) (*pb.ASTNode, bool) {
+// `want`, and returns the inner X' plus the separator literal.
+func matchSeparatedRepetition(rep, want *pb.ASTNode) (*pb.ASTNode, string, bool) {
 	if rep.GetKind() != KindRepetition || len(rep.GetChildren()) != 1 {
-		return nil, false
+		return nil, "", false
 	}
 	body := rep.GetChildren()[0]
 	if body.GetKind() != KindSequence || len(body.GetChildren()) != 2 {
-		return nil, false
+		return nil, "", false
 	}
 	sep, tail := body.GetChildren()[0], body.GetChildren()[1]
 	if sep.GetKind() != KindTerminal {
-		return nil, false
+		return nil, "", false
 	}
 	if !astEqual(tail, want) {
-		return nil, false
+		return nil, "", false
 	}
-	return tail, true
+	return tail, sep.GetValue(), true
 }
 
 // astEqual reports whether two AST subtrees are structurally

@@ -29,6 +29,15 @@ type Options struct {
 	// a sequence node for nested sequence wrappers, an alternation
 	// node for nested alternation wrappers. Nil is ignored.
 	OnMessage func(fqn string, node *pb.ASTNode)
+
+	// OnField is invoked for each emitted field. parentFQN is the
+	// fully-qualified name of the enclosing message; fieldName is the
+	// proto field name as appended; node is the AST node that produced
+	// the field *before* repetition/optional/group peeling, so callers
+	// can inspect wrapper metadata (e.g. the separator stashed on a
+	// repetition node by CollapseCommaList). Nil is ignored. Range
+	// lowering emits two fields per node and fires OnField for each.
+	OnField func(parentFQN, fieldName string, node *pb.ASTNode)
 }
 
 // Compile lowers a schema-shaped ASTDescriptor into a FileDescriptorProto.
@@ -52,6 +61,7 @@ func Compile(ast *pb.ASTDescriptor, opts Options) (*descriptorpb.FileDescriptorP
 		keywords:  map[string]*descriptorpb.DescriptorProto{},
 		fqn:       map[*descriptorpb.DescriptorProto]string{},
 		onMessage: opts.OnMessage,
+		onField:   opts.OnField,
 	}
 	if b.pkg == "" {
 		b.pkg = sanitizePackage(ast.GetLanguage())
@@ -105,6 +115,7 @@ type builder struct {
 	usesUTF8  bool
 	fqn       map[*descriptorpb.DescriptorProto]string
 	onMessage func(fqn string, node *pb.ASTNode)
+	onField   func(parentFQN, fieldName string, node *pb.ASTNode)
 }
 
 func (b *builder) dependencies() []string {
@@ -168,10 +179,11 @@ func (b *builder) emitOneof(msg *descriptorpb.DescriptorProto, oneofName string,
 // Sub-expressions that aren't atomic (terminal / nonterminal / range)
 // are promoted to a nested message so the output tree mirrors the
 // grammar.
-func (b *builder) emitField(msg *descriptorpb.DescriptorProto, node *pb.ASTNode, oneofIdx *int32) error {
-	if node == nil {
+func (b *builder) emitField(msg *descriptorpb.DescriptorProto, origNode *pb.ASTNode, oneofIdx *int32) error {
+	if origNode == nil {
 		return nil
 	}
+	node := origNode
 	label := descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL
 	repeated := false
 
@@ -201,36 +213,36 @@ peel:
 	switch node.GetKind() {
 	case KindTerminal:
 		typ := b.keywordMessage(node)
-		b.appendMessageField(msg, fieldNameForKeyword(node.GetValue()), typ, label, oneofIdx)
+		b.appendMessageField(msg, fieldNameForKeyword(node.GetValue()), typ, label, oneofIdx, origNode)
 
 	case KindScalar:
 		name := node.GetValue()
 		if name == "" {
 			name = "value"
 		}
-		b.appendStringField(msg, uniqueFieldName(msg, snakeCase(name)), label, oneofIdx)
+		b.appendStringField(msg, uniqueFieldName(msg, snakeCase(name)), label, oneofIdx, origNode)
 
 	case KindNonterminal:
 		n := node.GetValue()
 		typ := "." + b.pkg + "." + pascalCase(n)
-		b.appendMessageField(msg, uniqueFieldName(msg, snakeCase(n)), typ, label, oneofIdx)
+		b.appendMessageField(msg, uniqueFieldName(msg, snakeCase(n)), typ, label, oneofIdx, origNode)
 
 	case KindSequence:
 		nested, err := b.nestedFromSequence(msg, node)
 		if err != nil {
 			return err
 		}
-		b.appendMessageField(msg, uniqueFieldName(msg, snakeCase(nested.GetName())), b.fqn[nested], label, oneofIdx)
+		b.appendMessageField(msg, uniqueFieldName(msg, snakeCase(nested.GetName())), b.fqn[nested], label, oneofIdx, origNode)
 
 	case KindAlternation:
 		nested, err := b.nestedFromAlternation(msg, node)
 		if err != nil {
 			return err
 		}
-		b.appendMessageField(msg, uniqueFieldName(msg, snakeCase(nested.GetName())), b.fqn[nested], label, oneofIdx)
+		b.appendMessageField(msg, uniqueFieldName(msg, snakeCase(nested.GetName())), b.fqn[nested], label, oneofIdx, origNode)
 
 	case KindRange:
-		return b.emitRange(msg, node, label, oneofIdx)
+		return b.emitRange(msg, node, label, oneofIdx, origNode)
 
 	case KindRangeLower, KindRangeUpper:
 		return fmt.Errorf("%s must appear inside a range node", node.GetKind())
@@ -271,7 +283,7 @@ func (b *builder) nestedFromAlternation(parent *descriptorpb.DescriptorProto, no
 	return nested, nil
 }
 
-func (b *builder) emitRange(msg *descriptorpb.DescriptorProto, node *pb.ASTNode, label descriptorpb.FieldDescriptorProto_Label, oneofIdx *int32) error {
+func (b *builder) emitRange(msg *descriptorpb.DescriptorProto, node *pb.ASTNode, label descriptorpb.FieldDescriptorProto_Label, oneofIdx *int32, origNode *pb.ASTNode) error {
 	kids := node.GetChildren()
 	if len(kids) != 2 || kids[0].GetKind() != KindRangeLower || kids[1].GetKind() != KindRangeUpper {
 		return fmt.Errorf("range: want [range_lower, range_upper] children, got %d children", len(kids))
@@ -279,13 +291,13 @@ func (b *builder) emitRange(msg *descriptorpb.DescriptorProto, node *pb.ASTNode,
 	b.usesUTF8 = true
 	utf8Type := ".unicode.UTF8"
 	loName := uniqueFieldName(msg, "range_lower"+suffix(msg))
-	b.appendMessageField(msg, loName, utf8Type, label, oneofIdx)
+	b.appendMessageField(msg, loName, utf8Type, label, oneofIdx, origNode)
 	hiName := uniqueFieldName(msg, "range_upper"+suffix(msg))
-	b.appendMessageField(msg, hiName, utf8Type, label, oneofIdx)
+	b.appendMessageField(msg, hiName, utf8Type, label, oneofIdx, origNode)
 	return nil
 }
 
-func (b *builder) appendMessageField(msg *descriptorpb.DescriptorProto, name, typ string, label descriptorpb.FieldDescriptorProto_Label, oneofIdx *int32) {
+func (b *builder) appendMessageField(msg *descriptorpb.DescriptorProto, name, typ string, label descriptorpb.FieldDescriptorProto_Label, oneofIdx *int32, origNode *pb.ASTNode) {
 	num := int32(len(msg.Field) + 1)
 	typeMsg := descriptorpb.FieldDescriptorProto_TYPE_MESSAGE
 	f := &descriptorpb.FieldDescriptorProto{
@@ -299,9 +311,12 @@ func (b *builder) appendMessageField(msg *descriptorpb.DescriptorProto, name, ty
 		f.OneofIndex = oneofIdx
 	}
 	msg.Field = append(msg.Field, f)
+	if b.onField != nil {
+		b.onField(b.fqn[msg], name, origNode)
+	}
 }
 
-func (b *builder) appendStringField(msg *descriptorpb.DescriptorProto, name string, label descriptorpb.FieldDescriptorProto_Label, oneofIdx *int32) {
+func (b *builder) appendStringField(msg *descriptorpb.DescriptorProto, name string, label descriptorpb.FieldDescriptorProto_Label, oneofIdx *int32, origNode *pb.ASTNode) {
 	num := int32(len(msg.Field) + 1)
 	typeStr := descriptorpb.FieldDescriptorProto_TYPE_STRING
 	f := &descriptorpb.FieldDescriptorProto{
@@ -314,6 +329,9 @@ func (b *builder) appendStringField(msg *descriptorpb.DescriptorProto, name stri
 		f.OneofIndex = oneofIdx
 	}
 	msg.Field = append(msg.Field, f)
+	if b.onField != nil {
+		b.onField(b.fqn[msg], name, origNode)
+	}
 }
 
 func (b *builder) keywordMessage(node *pb.ASTNode) string {
