@@ -47,6 +47,35 @@ func TestOnMessage_RuleAndNested(t *testing.T) {
 	}
 }
 
+func TestOnMessage_KeywordMessage(t *testing.T) {
+	// Sequence with a non-leading terminal keeps the keyword message;
+	// OnMessage should fire once for it with a terminal AST node.
+	ast := fileAST("lang", rule("stmt", seq(
+		nonterm("schema_name"), term("."), nonterm("table_name"),
+	)))
+
+	got := map[string]*pb.ASTNode{}
+	_, err := Compile(ast, Options{
+		Package: "lang",
+		OnMessage: func(fqn string, node *pb.ASTNode) {
+			got[fqn] = node
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, ok := got[".lang.FullStopKeyword"]
+	if !ok {
+		t.Fatalf("missing keyword message; got keys %v", keys(got))
+	}
+	if node.GetKind() != KindTerminal {
+		t.Errorf("keyword node kind: got %q, want terminal", node.GetKind())
+	}
+	if node.GetValue() != "." {
+		t.Errorf("keyword node value: got %q, want .", node.GetValue())
+	}
+}
+
 func keys(m map[string]*pb.ASTNode) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

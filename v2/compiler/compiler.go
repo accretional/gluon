@@ -200,7 +200,7 @@ peel:
 
 	switch node.GetKind() {
 	case KindTerminal:
-		typ := b.keywordMessage(node.GetValue())
+		typ := b.keywordMessage(node)
 		b.appendMessageField(msg, fieldNameForKeyword(node.GetValue()), typ, label, oneofIdx)
 
 	case KindNonterminal:
@@ -294,12 +294,17 @@ func (b *builder) appendMessageField(msg *descriptorpb.DescriptorProto, name, ty
 	msg.Field = append(msg.Field, f)
 }
 
-func (b *builder) keywordMessage(literal string) string {
+func (b *builder) keywordMessage(node *pb.ASTNode) string {
+	literal := node.GetValue()
 	name := keywordMessageName(literal)
+	fqn := "." + b.pkg + "." + name
 	if _, ok := b.keywords[name]; !ok {
 		b.keywords[name] = &descriptorpb.DescriptorProto{Name: strPtr(name)}
+		if b.onMessage != nil {
+			b.onMessage(fqn, node)
+		}
 	}
-	return "." + b.pkg + "." + name
+	return fqn
 }
 
 func uniqueFieldName(msg *descriptorpb.DescriptorProto, base string) string {
