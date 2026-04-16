@@ -13,6 +13,18 @@ option go_package = "github.com/accretional/gluon/v2/pb";
 // persist the role as an enum value rather than re-encoding the raw
 // character, which keeps those artifacts compact and notation-agnostic.
 enum Delimiter {
+  // ==========================================================================
+  // LOAD-BEARING: DELIMITER_UNSPECIFIED has a special meaning inside Token.
+  //
+  // When a Token's `kind` oneof is unset — which, because proto3 treats the
+  // zero-valued enum as indistinguishable from an unset oneof field, also
+  // includes a Token whose delimiter is DELIMITER_UNSPECIFIED — that Token
+  // is interpreted as a LITERAL run starting at Token.offset, not as a
+  // "missing delimiter." See Token in v2/tokens.proto.
+  //
+  // Do NOT reorder these enum values. Do NOT use DELIMITER_UNSPECIFIED as
+  // a real delimiter role; it is the canonical tag for "this token is text."
+  // ==========================================================================
   DELIMITER_UNSPECIFIED = 0;
 
   // Separates tokens without contributing to structure (space, tab, CR, LF).
@@ -36,6 +48,14 @@ enum Delimiter {
 // Every scoper opens a nested context and must be closed by its matching
 // partner; the body between them is treated as a sub-expression.
 enum Scoper {
+  // ==========================================================================
+  // LOAD-BEARING: SCOPER_UNSPECIFIED, like DELIMITER_UNSPECIFIED, participates
+  // in the "this token is text" convention used by Token in v2/tokens.proto.
+  // A Token whose `kind` is a ScoperToken carrying SCOPER_UNSPECIFIED on
+  // either lhs or rhs is equivalent to an unset oneof — i.e. a literal run.
+  //
+  // Do NOT reorder. Do NOT use SCOPER_UNSPECIFIED as a real scoper role.
+  // ==========================================================================
   SCOPER_UNSPECIFIED = 0;
 
   // Encloses an optional sub-expression (0 or 1 occurrence). Std EBNF: [ ].

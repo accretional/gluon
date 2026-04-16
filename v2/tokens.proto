@@ -28,17 +28,42 @@ message TokenSequence {
 //
 // Every token carries an `offset` into TokenSequence.uri. The optional
 // `kind` oneof says what role (if any) the characters at that offset
-// play; when the oneof is unset — canonically represented by an empty
-// Token with only `offset` populated, but also matched by an explicit
-// DELIMITER_UNSPECIFIED or a ScoperToken whose inner Scoper is
-// SCOPER_UNSPECIFIED — the token is a literal run starting at `offset`.
+// play.
 //
-// The length of a literal run is implied by the position of the next
-// token: each non-literal token effectively closes the literal before
-// it. That means whitespace must be emitted as tokens (as Delimiter
-// WHITESPACE) for literal boundaries to be recoverable, even if the
-// exact original formatting is not.
+// ===========================================================================
+// LOAD-BEARING CONVENTION — READ BEFORE TOUCHING THIS MESSAGE
+// ===========================================================================
+//
+// A Token whose `kind` oneof is unset is a LITERAL TEXT run beginning at
+// `offset`. This is the canonical representation of a text/identifier
+// token; there is no separate "text" variant.
+//
+// Because proto3 cannot distinguish "oneof unset" from "oneof set to the
+// zero value" at the wire level, the following forms are ALL equivalent
+// and all mean "literal text":
+//
+//   1. Token { offset: N }                          ← canonical
+//   2. Token { offset: N, delimiter: DELIMITER_UNSPECIFIED }
+//   3. Token { offset: N, scoper: { lhs: SCOPER_UNSPECIFIED } }
+//   4. Token { offset: N, scoper: { rhs: SCOPER_UNSPECIFIED } }
+//   5. Token { offset: N, scoper: {} }              ← empty ScoperToken
+//
+// Producers SHOULD emit form (1). Consumers MUST accept all five.
+//
+// Implications:
+//   - Never assign DELIMITER_UNSPECIFIED or SCOPER_UNSPECIFIED as a real
+//     role — doing so silently reclassifies the token as literal text.
+//   - Never reorder Delimiter or Scoper enum values; keeping the zero
+//     value reserved for "unspecified" is what makes the convention work.
+//   - Literal-run length is implied by the next token's offset, so the
+//     lexer MUST emit a token (typically Delimiter.WHITESPACE) for every
+//     skipped run — otherwise literal boundaries are lost.
+//
+// ===========================================================================
 message Token {
+  // If unset (or populated with the UNSPECIFIED zero value of either
+  // inner enum), this Token is a literal text run starting at `offset`.
+  // See the banner above.
   oneof kind {
     Delimiter delimiter = 1;
     ScoperToken scoper = 2;
