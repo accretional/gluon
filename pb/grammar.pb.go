@@ -7,7 +7,6 @@
 package pb
 
 import (
-	proto_expr "github.com/accretional/proto-expr"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -88,18 +87,8 @@ type ProductionDescriptor struct {
 	// The expression body as a token sequence — each character of the
 	// EBNF expression represented as a unicode.UTF8 value.
 	Token *TokenDescriptor `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
-	// Structured RHS as an S-expression. Populated by lexkit.Parse alongside
-	// `token`. Encoding:
-	//
-	//	("seq" . args)              concatenation
-	//	("alt" . args)              alternation
-	//	("opt" . body)              [x]
-	//	("rep" . body)              {x}
-	//	("group" . body)            (x)
-	//	("term" . "LITERAL")        quoted terminal
-	//	("nonterm" . "name")        identifier reference
-	//	("range" lo hi)             character range
-	Body          *proto_expr.Expression `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	// Structured RHS. Populated by lexkit.Parse alongside `token`.
+	Body          *ProductionExpression `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -148,9 +137,553 @@ func (x *ProductionDescriptor) GetToken() *TokenDescriptor {
 	return nil
 }
 
-func (x *ProductionDescriptor) GetBody() *proto_expr.Expression {
+func (x *ProductionDescriptor) GetBody() *ProductionExpression {
 	if x != nil {
 		return x.Body
+	}
+	return nil
+}
+
+// ProductionExpression is a node in the structured tree of an EBNF
+// production's right-hand side. Each kind is its own typed message so
+// readers don't need to decode a generic S-expression.
+type ProductionExpression struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Kind:
+	//
+	//	*ProductionExpression_Sequence
+	//	*ProductionExpression_Alternation
+	//	*ProductionExpression_Optional
+	//	*ProductionExpression_Repetition
+	//	*ProductionExpression_Group
+	//	*ProductionExpression_Terminal
+	//	*ProductionExpression_Nonterminal
+	//	*ProductionExpression_Range
+	Kind          isProductionExpression_Kind `protobuf_oneof:"kind"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProductionExpression) Reset() {
+	*x = ProductionExpression{}
+	mi := &file_grammar_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProductionExpression) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProductionExpression) ProtoMessage() {}
+
+func (x *ProductionExpression) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProductionExpression.ProtoReflect.Descriptor instead.
+func (*ProductionExpression) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ProductionExpression) GetKind() isProductionExpression_Kind {
+	if x != nil {
+		return x.Kind
+	}
+	return nil
+}
+
+func (x *ProductionExpression) GetSequence() *Sequence {
+	if x != nil {
+		if x, ok := x.Kind.(*ProductionExpression_Sequence); ok {
+			return x.Sequence
+		}
+	}
+	return nil
+}
+
+func (x *ProductionExpression) GetAlternation() *Alternation {
+	if x != nil {
+		if x, ok := x.Kind.(*ProductionExpression_Alternation); ok {
+			return x.Alternation
+		}
+	}
+	return nil
+}
+
+func (x *ProductionExpression) GetOptional() *Optional {
+	if x != nil {
+		if x, ok := x.Kind.(*ProductionExpression_Optional); ok {
+			return x.Optional
+		}
+	}
+	return nil
+}
+
+func (x *ProductionExpression) GetRepetition() *Repetition {
+	if x != nil {
+		if x, ok := x.Kind.(*ProductionExpression_Repetition); ok {
+			return x.Repetition
+		}
+	}
+	return nil
+}
+
+func (x *ProductionExpression) GetGroup() *Group {
+	if x != nil {
+		if x, ok := x.Kind.(*ProductionExpression_Group); ok {
+			return x.Group
+		}
+	}
+	return nil
+}
+
+func (x *ProductionExpression) GetTerminal() *Terminal {
+	if x != nil {
+		if x, ok := x.Kind.(*ProductionExpression_Terminal); ok {
+			return x.Terminal
+		}
+	}
+	return nil
+}
+
+func (x *ProductionExpression) GetNonterminal() *NonTerminal {
+	if x != nil {
+		if x, ok := x.Kind.(*ProductionExpression_Nonterminal); ok {
+			return x.Nonterminal
+		}
+	}
+	return nil
+}
+
+func (x *ProductionExpression) GetRange() *Range {
+	if x != nil {
+		if x, ok := x.Kind.(*ProductionExpression_Range); ok {
+			return x.Range
+		}
+	}
+	return nil
+}
+
+type isProductionExpression_Kind interface {
+	isProductionExpression_Kind()
+}
+
+type ProductionExpression_Sequence struct {
+	Sequence *Sequence `protobuf:"bytes,1,opt,name=sequence,proto3,oneof"` // a , b , c
+}
+
+type ProductionExpression_Alternation struct {
+	Alternation *Alternation `protobuf:"bytes,2,opt,name=alternation,proto3,oneof"` // a | b | c
+}
+
+type ProductionExpression_Optional struct {
+	Optional *Optional `protobuf:"bytes,3,opt,name=optional,proto3,oneof"` // [ x ]
+}
+
+type ProductionExpression_Repetition struct {
+	Repetition *Repetition `protobuf:"bytes,4,opt,name=repetition,proto3,oneof"` // { x }
+}
+
+type ProductionExpression_Group struct {
+	Group *Group `protobuf:"bytes,5,opt,name=group,proto3,oneof"` // ( x )
+}
+
+type ProductionExpression_Terminal struct {
+	Terminal *Terminal `protobuf:"bytes,6,opt,name=terminal,proto3,oneof"` // "literal"
+}
+
+type ProductionExpression_Nonterminal struct {
+	Nonterminal *NonTerminal `protobuf:"bytes,7,opt,name=nonterminal,proto3,oneof"` // production_name
+}
+
+type ProductionExpression_Range struct {
+	Range *Range `protobuf:"bytes,8,opt,name=range,proto3,oneof"` // "a" … "z"
+}
+
+func (*ProductionExpression_Sequence) isProductionExpression_Kind() {}
+
+func (*ProductionExpression_Alternation) isProductionExpression_Kind() {}
+
+func (*ProductionExpression_Optional) isProductionExpression_Kind() {}
+
+func (*ProductionExpression_Repetition) isProductionExpression_Kind() {}
+
+func (*ProductionExpression_Group) isProductionExpression_Kind() {}
+
+func (*ProductionExpression_Terminal) isProductionExpression_Kind() {}
+
+func (*ProductionExpression_Nonterminal) isProductionExpression_Kind() {}
+
+func (*ProductionExpression_Range) isProductionExpression_Kind() {}
+
+type Sequence struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Items         []*ProductionExpression `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Sequence) Reset() {
+	*x = Sequence{}
+	mi := &file_grammar_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Sequence) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Sequence) ProtoMessage() {}
+
+func (x *Sequence) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Sequence.ProtoReflect.Descriptor instead.
+func (*Sequence) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Sequence) GetItems() []*ProductionExpression {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type Alternation struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Variants      []*ProductionExpression `protobuf:"bytes,1,rep,name=variants,proto3" json:"variants,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Alternation) Reset() {
+	*x = Alternation{}
+	mi := &file_grammar_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Alternation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Alternation) ProtoMessage() {}
+
+func (x *Alternation) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Alternation.ProtoReflect.Descriptor instead.
+func (*Alternation) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Alternation) GetVariants() []*ProductionExpression {
+	if x != nil {
+		return x.Variants
+	}
+	return nil
+}
+
+type Optional struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Body          *ProductionExpression  `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Optional) Reset() {
+	*x = Optional{}
+	mi := &file_grammar_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Optional) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Optional) ProtoMessage() {}
+
+func (x *Optional) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Optional.ProtoReflect.Descriptor instead.
+func (*Optional) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Optional) GetBody() *ProductionExpression {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+type Repetition struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Body          *ProductionExpression  `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Repetition) Reset() {
+	*x = Repetition{}
+	mi := &file_grammar_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Repetition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Repetition) ProtoMessage() {}
+
+func (x *Repetition) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Repetition.ProtoReflect.Descriptor instead.
+func (*Repetition) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Repetition) GetBody() *ProductionExpression {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+type Group struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Body          *ProductionExpression  `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Group) Reset() {
+	*x = Group{}
+	mi := &file_grammar_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Group) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Group) ProtoMessage() {}
+
+func (x *Group) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Group.ProtoReflect.Descriptor instead.
+func (*Group) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Group) GetBody() *ProductionExpression {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
+type Terminal struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The literal text (without the surrounding quote characters).
+	Literal       string `protobuf:"bytes,1,opt,name=literal,proto3" json:"literal,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Terminal) Reset() {
+	*x = Terminal{}
+	mi := &file_grammar_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Terminal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Terminal) ProtoMessage() {}
+
+func (x *Terminal) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Terminal.ProtoReflect.Descriptor instead.
+func (*Terminal) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Terminal) GetLiteral() string {
+	if x != nil {
+		return x.Literal
+	}
+	return ""
+}
+
+type NonTerminal struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Name of the referenced production.
+	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NonTerminal) Reset() {
+	*x = NonTerminal{}
+	mi := &file_grammar_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NonTerminal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NonTerminal) ProtoMessage() {}
+
+func (x *NonTerminal) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NonTerminal.ProtoReflect.Descriptor instead.
+func (*NonTerminal) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *NonTerminal) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type Range struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Inclusive lower and upper bounds, encoded as single UTF-8 characters.
+	Lower         *UTF8 `protobuf:"bytes,1,opt,name=lower,proto3" json:"lower,omitempty"`
+	Upper         *UTF8 `protobuf:"bytes,2,opt,name=upper,proto3" json:"upper,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Range) Reset() {
+	*x = Range{}
+	mi := &file_grammar_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Range) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Range) ProtoMessage() {}
+
+func (x *Range) ProtoReflect() protoreflect.Message {
+	mi := &file_grammar_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Range.ProtoReflect.Descriptor instead.
+func (*Range) Descriptor() ([]byte, []int) {
+	return file_grammar_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Range) GetLower() *UTF8 {
+	if x != nil {
+		return x.Lower
+	}
+	return nil
+}
+
+func (x *Range) GetUpper() *UTF8 {
+	if x != nil {
+		return x.Upper
 	}
 	return nil
 }
@@ -167,7 +700,7 @@ type TokenDescriptor struct {
 
 func (x *TokenDescriptor) Reset() {
 	*x = TokenDescriptor{}
-	mi := &file_grammar_proto_msgTypes[2]
+	mi := &file_grammar_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -179,7 +712,7 @@ func (x *TokenDescriptor) String() string {
 func (*TokenDescriptor) ProtoMessage() {}
 
 func (x *TokenDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_grammar_proto_msgTypes[2]
+	mi := &file_grammar_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -192,7 +725,7 @@ func (x *TokenDescriptor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenDescriptor.ProtoReflect.Descriptor instead.
 func (*TokenDescriptor) Descriptor() ([]byte, []int) {
-	return file_grammar_proto_rawDescGZIP(), []int{2}
+	return file_grammar_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TokenDescriptor) GetChars() []*UTF8 {
@@ -206,14 +739,44 @@ var File_grammar_proto protoreflect.FileDescriptor
 
 const file_grammar_proto_rawDesc = "" +
 	"\n" +
-	"\rgrammar.proto\x12\x05gluon\x1a\tlex.proto\x1a\x13unicode/utf_8.proto\x1a\x10expression.proto\"z\n" +
+	"\rgrammar.proto\x12\x05gluon\x1a\tlex.proto\x1a\x13unicode/utf_8.proto\"z\n" +
 	"\x11GrammarDescriptor\x12&\n" +
 	"\x03lex\x18\x01 \x01(\v2\x14.gluon.LexDescriptorR\x03lex\x12=\n" +
-	"\vproductions\x18\x02 \x03(\v2\x1b.gluon.ProductionDescriptorR\vproductions\"\x84\x01\n" +
+	"\vproductions\x18\x02 \x03(\v2\x1b.gluon.ProductionDescriptorR\vproductions\"\x89\x01\n" +
 	"\x14ProductionDescriptor\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12,\n" +
-	"\x05token\x18\x02 \x01(\v2\x16.gluon.TokenDescriptorR\x05token\x12*\n" +
-	"\x04body\x18\x03 \x01(\v2\x16.proto_expr.ExpressionR\x04body\"6\n" +
+	"\x05token\x18\x02 \x01(\v2\x16.gluon.TokenDescriptorR\x05token\x12/\n" +
+	"\x04body\x18\x03 \x01(\v2\x1b.gluon.ProductionExpressionR\x04body\"\x9c\x03\n" +
+	"\x14ProductionExpression\x12-\n" +
+	"\bsequence\x18\x01 \x01(\v2\x0f.gluon.SequenceH\x00R\bsequence\x126\n" +
+	"\valternation\x18\x02 \x01(\v2\x12.gluon.AlternationH\x00R\valternation\x12-\n" +
+	"\boptional\x18\x03 \x01(\v2\x0f.gluon.OptionalH\x00R\boptional\x123\n" +
+	"\n" +
+	"repetition\x18\x04 \x01(\v2\x11.gluon.RepetitionH\x00R\n" +
+	"repetition\x12$\n" +
+	"\x05group\x18\x05 \x01(\v2\f.gluon.GroupH\x00R\x05group\x12-\n" +
+	"\bterminal\x18\x06 \x01(\v2\x0f.gluon.TerminalH\x00R\bterminal\x126\n" +
+	"\vnonterminal\x18\a \x01(\v2\x12.gluon.NonTerminalH\x00R\vnonterminal\x12$\n" +
+	"\x05range\x18\b \x01(\v2\f.gluon.RangeH\x00R\x05rangeB\x06\n" +
+	"\x04kind\"=\n" +
+	"\bSequence\x121\n" +
+	"\x05items\x18\x01 \x03(\v2\x1b.gluon.ProductionExpressionR\x05items\"F\n" +
+	"\vAlternation\x127\n" +
+	"\bvariants\x18\x01 \x03(\v2\x1b.gluon.ProductionExpressionR\bvariants\";\n" +
+	"\bOptional\x12/\n" +
+	"\x04body\x18\x01 \x01(\v2\x1b.gluon.ProductionExpressionR\x04body\"=\n" +
+	"\n" +
+	"Repetition\x12/\n" +
+	"\x04body\x18\x01 \x01(\v2\x1b.gluon.ProductionExpressionR\x04body\"8\n" +
+	"\x05Group\x12/\n" +
+	"\x04body\x18\x01 \x01(\v2\x1b.gluon.ProductionExpressionR\x04body\"$\n" +
+	"\bTerminal\x12\x18\n" +
+	"\aliteral\x18\x01 \x01(\tR\aliteral\"!\n" +
+	"\vNonTerminal\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"Q\n" +
+	"\x05Range\x12#\n" +
+	"\x05lower\x18\x01 \x01(\v2\r.unicode.UTF8R\x05lower\x12#\n" +
+	"\x05upper\x18\x02 \x01(\v2\r.unicode.UTF8R\x05upper\"6\n" +
 	"\x0fTokenDescriptor\x12#\n" +
 	"\x05chars\x18\x01 \x03(\v2\r.unicode.UTF8R\x05charsB!Z\x1fgithub.com/accretional/gluon/pbb\x06proto3"
 
@@ -229,26 +792,49 @@ func file_grammar_proto_rawDescGZIP() []byte {
 	return file_grammar_proto_rawDescData
 }
 
-var file_grammar_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_grammar_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_grammar_proto_goTypes = []any{
-	(*GrammarDescriptor)(nil),     // 0: gluon.GrammarDescriptor
-	(*ProductionDescriptor)(nil),  // 1: gluon.ProductionDescriptor
-	(*TokenDescriptor)(nil),       // 2: gluon.TokenDescriptor
-	(*LexDescriptor)(nil),         // 3: gluon.LexDescriptor
-	(*proto_expr.Expression)(nil), // 4: proto_expr.Expression
-	(*UTF8)(nil),                  // 5: unicode.UTF8
+	(*GrammarDescriptor)(nil),    // 0: gluon.GrammarDescriptor
+	(*ProductionDescriptor)(nil), // 1: gluon.ProductionDescriptor
+	(*ProductionExpression)(nil), // 2: gluon.ProductionExpression
+	(*Sequence)(nil),             // 3: gluon.Sequence
+	(*Alternation)(nil),          // 4: gluon.Alternation
+	(*Optional)(nil),             // 5: gluon.Optional
+	(*Repetition)(nil),           // 6: gluon.Repetition
+	(*Group)(nil),                // 7: gluon.Group
+	(*Terminal)(nil),             // 8: gluon.Terminal
+	(*NonTerminal)(nil),          // 9: gluon.NonTerminal
+	(*Range)(nil),                // 10: gluon.Range
+	(*TokenDescriptor)(nil),      // 11: gluon.TokenDescriptor
+	(*LexDescriptor)(nil),        // 12: gluon.LexDescriptor
+	(*UTF8)(nil),                 // 13: unicode.UTF8
 }
 var file_grammar_proto_depIdxs = []int32{
-	3, // 0: gluon.GrammarDescriptor.lex:type_name -> gluon.LexDescriptor
-	1, // 1: gluon.GrammarDescriptor.productions:type_name -> gluon.ProductionDescriptor
-	2, // 2: gluon.ProductionDescriptor.token:type_name -> gluon.TokenDescriptor
-	4, // 3: gluon.ProductionDescriptor.body:type_name -> proto_expr.Expression
-	5, // 4: gluon.TokenDescriptor.chars:type_name -> unicode.UTF8
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	12, // 0: gluon.GrammarDescriptor.lex:type_name -> gluon.LexDescriptor
+	1,  // 1: gluon.GrammarDescriptor.productions:type_name -> gluon.ProductionDescriptor
+	11, // 2: gluon.ProductionDescriptor.token:type_name -> gluon.TokenDescriptor
+	2,  // 3: gluon.ProductionDescriptor.body:type_name -> gluon.ProductionExpression
+	3,  // 4: gluon.ProductionExpression.sequence:type_name -> gluon.Sequence
+	4,  // 5: gluon.ProductionExpression.alternation:type_name -> gluon.Alternation
+	5,  // 6: gluon.ProductionExpression.optional:type_name -> gluon.Optional
+	6,  // 7: gluon.ProductionExpression.repetition:type_name -> gluon.Repetition
+	7,  // 8: gluon.ProductionExpression.group:type_name -> gluon.Group
+	8,  // 9: gluon.ProductionExpression.terminal:type_name -> gluon.Terminal
+	9,  // 10: gluon.ProductionExpression.nonterminal:type_name -> gluon.NonTerminal
+	10, // 11: gluon.ProductionExpression.range:type_name -> gluon.Range
+	2,  // 12: gluon.Sequence.items:type_name -> gluon.ProductionExpression
+	2,  // 13: gluon.Alternation.variants:type_name -> gluon.ProductionExpression
+	2,  // 14: gluon.Optional.body:type_name -> gluon.ProductionExpression
+	2,  // 15: gluon.Repetition.body:type_name -> gluon.ProductionExpression
+	2,  // 16: gluon.Group.body:type_name -> gluon.ProductionExpression
+	13, // 17: gluon.Range.lower:type_name -> unicode.UTF8
+	13, // 18: gluon.Range.upper:type_name -> unicode.UTF8
+	13, // 19: gluon.TokenDescriptor.chars:type_name -> unicode.UTF8
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_grammar_proto_init() }
@@ -258,13 +844,23 @@ func file_grammar_proto_init() {
 	}
 	file_lex_proto_init()
 	file_unicode_utf_8_proto_init()
+	file_grammar_proto_msgTypes[2].OneofWrappers = []any{
+		(*ProductionExpression_Sequence)(nil),
+		(*ProductionExpression_Alternation)(nil),
+		(*ProductionExpression_Optional)(nil),
+		(*ProductionExpression_Repetition)(nil),
+		(*ProductionExpression_Group)(nil),
+		(*ProductionExpression_Terminal)(nil),
+		(*ProductionExpression_Nonterminal)(nil),
+		(*ProductionExpression_Range)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_grammar_proto_rawDesc), len(file_grammar_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

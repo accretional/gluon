@@ -1,5 +1,3 @@
-github.com/accretional/proto-expr v0.0.0-20260416002208-525cba2a2382 h1:Z55oyQJIMCb8eEtKQA8wNh6yTJ6nhbKsD7U0uiFf4yg=
-github.com/accretional/proto-expr v0.0.0-20260416002208-525cba2a2382/go.mod h1:+o4pTtSMpxmdp2i2RygV7L4JpQamDa3pna/ypi9QcUw=
 github.com/accretional/runrpc v0.0.0-20260312135111-3b4543f39b87 h1:wjxRMJJd8eDt5wqTGKd0H8tzsVZGUHYc+JKhRUtMEy4=
 github.com/accretional/runrpc v0.0.0-20260312135111-3b4543f39b87/go.mod h1:hMwQdlgNDjQfCydnDBtj46Y1YHp2bnRv62yBE4cJ00U=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=

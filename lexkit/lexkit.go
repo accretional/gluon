@@ -205,7 +205,7 @@ func (p *parser) parse() ([]*pb.ProductionDescriptor, error) {
 			Token: RawToToken(raw),
 		}
 		if tree, perr := ParseExpr(raw, LexConfigFrom(p.lex)); perr == nil && tree != nil {
-			prod.Body = ExprToExpression(tree)
+			prod.Body = ExprToProductionExpression(tree)
 		}
 		prods = append(prods, prod)
 	}

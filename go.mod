@@ -3,7 +3,6 @@ module github.com/accretional/gluon
 go 1.25.5
 
 require (
-	github.com/accretional/proto-expr v0.0.0-20260416002208-525cba2a2382
 	github.com/accretional/runrpc v0.0.0-20260312135111-3b4543f39b87
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90
 	golang.org/x/net v0.52.0

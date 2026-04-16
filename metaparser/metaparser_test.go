@@ -56,7 +56,7 @@ table_name = "name" ;
 			t.Errorf("missing production message %q; have %v", want, byName)
 		}
 	}
-	for _, want := range []string{"CreateKw", "TableKw", "DropKw", "NameKw"} {
+	for _, want := range []string{"CreateKeyword", "TableKeyword", "DropKeyword", "NameKeyword", "SemicolonKeyword"} {
 		if !byName[want] {
 			t.Errorf("missing keyword message %q; have %v", want, byName)
 		}

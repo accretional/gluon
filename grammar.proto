@@ -6,7 +6,6 @@ option go_package = "github.com/accretional/gluon/pb";
 
 import "lex.proto";
 import "unicode/utf_8.proto";
-import "expression.proto";
 
 // GrammarDescriptor represents a complete grammar defined in EBNF notation.
 // It pairs the lexical configuration (how to read the EBNF) with the
@@ -29,17 +28,60 @@ message ProductionDescriptor {
   // EBNF expression represented as a unicode.UTF8 value.
   TokenDescriptor token = 2;
 
-  // Structured RHS as an S-expression. Populated by lexkit.Parse alongside
-  // `token`. Encoding:
-  //   ("seq" . args)              concatenation
-  //   ("alt" . args)              alternation
-  //   ("opt" . body)              [x]
-  //   ("rep" . body)              {x}
-  //   ("group" . body)            (x)
-  //   ("term" . "LITERAL")        quoted terminal
-  //   ("nonterm" . "name")        identifier reference
-  //   ("range" lo hi)             character range
-  proto_expr.Expression body = 3;
+  // Structured RHS. Populated by lexkit.Parse alongside `token`.
+  ProductionExpression body = 3;
+}
+
+// ProductionExpression is a node in the structured tree of an EBNF
+// production's right-hand side. Each kind is its own typed message so
+// readers don't need to decode a generic S-expression.
+message ProductionExpression {
+  oneof kind {
+    Sequence sequence = 1;       // a , b , c
+    Alternation alternation = 2; // a | b | c
+    Optional optional = 3;       // [ x ]
+    Repetition repetition = 4;   // { x }
+    Group group = 5;             // ( x )
+    Terminal terminal = 6;       // "literal"
+    NonTerminal nonterminal = 7; // production_name
+    Range range = 8;             // "a" … "z"
+  }
+}
+
+message Sequence {
+  repeated ProductionExpression items = 1;
+}
+
+message Alternation {
+  repeated ProductionExpression variants = 1;
+}
+
+message Optional {
+  ProductionExpression body = 1;
+}
+
+message Repetition {
+  ProductionExpression body = 1;
+}
+
+message Group {
+  ProductionExpression body = 1;
+}
+
+message Terminal {
+  // The literal text (without the surrounding quote characters).
+  string literal = 1;
+}
+
+message NonTerminal {
+  // Name of the referenced production.
+  string name = 1;
+}
+
+message Range {
+  // Inclusive lower and upper bounds, encoded as single UTF-8 characters.
+  unicode.UTF8 lower = 1;
+  unicode.UTF8 upper = 2;
 }
 
 // TokenDescriptor represents a sequence of characters, each encoded as
