@@ -104,6 +104,7 @@ input hint — but the source is the load-bearing input.
 | `grammar.proto` | `Production` (oneof), `ScopedProduction`, `StringRange`, `RuleDescriptor`, `GrammarDescriptor` |
 | `ast.proto` | `ASTDescriptor`, `ASTNode` |
 | `metaparser.proto` | `service Metaparser`, `CstRequest` |
+| `astkit.proto` | `service Transformer`, Find/Replace/Filter Request+Response messages |
 
 ## Metaparser pipeline
 
@@ -181,8 +182,42 @@ The rough path:
    continue to depend on v1 internally (as a parser engine), so v1
    cannot be fully deleted yet — but it can be marked internal.
 
+## Language-agnostic tree operations (`v2/astkit`)
+
+`v2/astkit/` is the v2 replacement for the Go-ast-specific
+`github.com/accretional/gluon/astkit` package. It offers plain-Go
+helpers (`Walk`, `Find`, `FindAll`, `ReplaceKind`, `Filter`, `Node`,
+`Leaf`, …) that operate on `pb.ASTNode` trees, plus an
+`astkit.Transformer` interface whose method shape
+`(ctx, *Request) (*Response, error)` is designed for `codegen.OnboardDir`.
+
+Running `OnboardDir("astkit", "v2/astkit")` yields the
+`service Transformer` proto — 6 rpcs (Find, FindAll, Count,
+ReplaceKind, ReplaceValue, Filter). The checked-in `v2/astkit.proto`
+is a lightly post-processed version of that output (fixed package
+namespace to `gluon.v2`, added `v2/ast.proto` import, un-qualified
+the `ASTNode` reference). The generated Go code lives in `v2/pb/`
+alongside the other v2 protos.
+
+The in-process implementation + gRPC adapter live in
+`v2/astkit/server/`:
+
+- `server.New() astkit.Transformer` — pure-Go implementation.
+- `server.NewGRPCServer() pb.TransformerServer` — gRPC adapter for
+  wiring the service into a `grpc.Server`.
+
+`go test ./v2/astkit/... ./v2/metaparser/` is green (19 astkit unit +
+11 server + 7 e2e tests).
+
 ## Open work
 
+- **Protosh.Run** — proto-expr's scripting runtime. Interprets a
+  `ScriptDescriptor` by executing `Import` / `Dispatch` / `Variable`
+  statements. Required before Metaparser.Transform can be wired up.
+- **Metaparser.Transform** — new RPC that takes an `ASTDescriptor`
+  and a `ScriptDescriptor`, delegates to Protosh.Run, and returns the
+  final `Data` (typically a `FileDescriptorProto`). This is how
+  proto-sqlite will drive the CST→proto pipeline.
 - **v2 compiler** — grammar/AST → `FileDescriptorProto`. The next
   real feature; blocks step 3 of the migration plan.
 - **Native v2 parser** — replace the v1-parser shim inside

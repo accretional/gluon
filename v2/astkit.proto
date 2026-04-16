@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+// The Transformer service exposes universal tree operations over v2
+// ASTNode trees. It is the RPC surface that proto-expr scripts drive
+// via Dispatch — see v2/metaparser.proto's Transform flow.
+//
+// The Go implementation lives in v2/astkit (pure-Go helpers) and
+// v2/astkit/server (Transformer impl). This proto was seeded from
+// gluon/codegen.OnboardDir("astkit", "v2/astkit") and then edited to
+// (a) use the gluon.v2 package namespace, (b) add the v2/ast.proto
+// import, and (c) reference ASTNode unqualified (same package).
+package gluon.v2;
+
+option go_package = "github.com/accretional/gluon/v2/pb";
+
+import "v2/ast.proto";
+
+message FindRequest {
+  ASTNode root = 1;
+  // Kind and Value are ANDed. An empty field is ignored; at least one
+  // must be set — empty-predicate requests return InvalidArgument.
+  string kind = 2;
+  string value = 3;
+}
+
+message FindResponse {
+  // First matching descendant (inclusive of root), or unset if none.
+  ASTNode node = 1;
+}
+
+message FindAllResponse {
+  repeated ASTNode nodes = 1;
+}
+
+message CountResponse {
+  int32 count = 1;
+}
+
+message ReplaceRequest {
+  ASTNode root = 1;
+  // ReplaceKind: nodes whose Kind == from get Kind = to.
+  // ReplaceValue: leaves whose Value == from get Value = to.
+  string from = 2;
+  string to = 3;
+}
+
+message ReplaceResponse {
+  ASTNode root = 1;
+}
+
+message FilterRequest {
+  ASTNode root = 1;
+  // Kind and Value match as in FindRequest. Matching interior nodes
+  // are dropped and their children are lifted into the parent;
+  // matching leaves are dropped outright.
+  string kind = 2;
+  string value = 3;
+}
+
+message FilterResponse {
+  ASTNode root = 1;
+}
+
+// Transformer is the gRPC surface for language-agnostic tree
+// operations. Each RPC takes an ASTNode tree and returns either a
+// query result or a rewritten tree; inputs are never mutated.
+service Transformer {
+  rpc Find(FindRequest) returns (FindResponse);
+  rpc FindAll(FindRequest) returns (FindAllResponse);
+  rpc Count(FindRequest) returns (CountResponse);
+  rpc ReplaceKind(ReplaceRequest) returns (ReplaceResponse);
+  rpc ReplaceValue(ReplaceRequest) returns (ReplaceResponse);
+  rpc Filter(FilterRequest) returns (FilterResponse);
+}
