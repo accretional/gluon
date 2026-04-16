@@ -49,11 +49,17 @@ service Metaparser {
   rpc CST(CstRequest) returns (ASTDescriptor);
 }
 
-// CstRequest bundles the grammar with the token stream to parse against
-// it. The grammar carries its own LexDescriptor — callers are expected
-// to have lexed `tokens` with that same LexDescriptor (or a compatible
-// one); the RPC does not re-lex.
+// CstRequest bundles the grammar, the token stream, and the source
+// document to parse against. The grammar carries its own LexDescriptor —
+// callers are expected to have lexed `tokens` with that same
+// LexDescriptor (or a compatible one); the RPC does not re-lex.
+//
+// `document` is required because tokens carry offsets (not text), and
+// matching a grammar Terminal against the source requires the actual
+// characters. `tokens.uri` SHOULD equal `document.uri` so offsets
+// resolve correctly, but the RPC does not enforce this.
 message CstRequest {
   GrammarDescriptor grammar = 1;
   TokenSequence tokens = 2;
+  DocumentDescriptor document = 3;
 }

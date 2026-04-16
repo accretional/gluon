@@ -22,14 +22,20 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// CstRequest bundles the grammar with the token stream to parse against
-// it. The grammar carries its own LexDescriptor — callers are expected
-// to have lexed `tokens` with that same LexDescriptor (or a compatible
-// one); the RPC does not re-lex.
+// CstRequest bundles the grammar, the token stream, and the source
+// document to parse against. The grammar carries its own LexDescriptor —
+// callers are expected to have lexed `tokens` with that same
+// LexDescriptor (or a compatible one); the RPC does not re-lex.
+//
+// `document` is required because tokens carry offsets (not text), and
+// matching a grammar Terminal against the source requires the actual
+// characters. `tokens.uri` SHOULD equal `document.uri` so offsets
+// resolve correctly, but the RPC does not enforce this.
 type CstRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Grammar       *GrammarDescriptor     `protobuf:"bytes,1,opt,name=grammar,proto3" json:"grammar,omitempty"`
 	Tokens        *TokenSequence         `protobuf:"bytes,2,opt,name=tokens,proto3" json:"tokens,omitempty"`
+	Document      *DocumentDescriptor    `protobuf:"bytes,3,opt,name=document,proto3" json:"document,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -78,15 +84,23 @@ func (x *CstRequest) GetTokens() *TokenSequence {
 	return nil
 }
 
+func (x *CstRequest) GetDocument() *DocumentDescriptor {
+	if x != nil {
+		return x.Document
+	}
+	return nil
+}
+
 var File_v2_metaparser_proto protoreflect.FileDescriptor
 
 const file_v2_metaparser_proto_rawDesc = "" +
 	"\n" +
-	"\x13v2/metaparser.proto\x12\bgluon.v2\x1a\x1egoogle/protobuf/wrappers.proto\x1a\fv2/ast.proto\x1a\x11v2/document.proto\x1a\x10v2/grammar.proto\x1a\rv2/text.proto\x1a\x0fv2/tokens.proto\"t\n" +
+	"\x13v2/metaparser.proto\x12\bgluon.v2\x1a\x1egoogle/protobuf/wrappers.proto\x1a\fv2/ast.proto\x1a\x11v2/document.proto\x1a\x10v2/grammar.proto\x1a\rv2/text.proto\x1a\x0fv2/tokens.proto\"\xae\x01\n" +
 	"\n" +
 	"CstRequest\x125\n" +
 	"\agrammar\x18\x01 \x01(\v2\x1b.gluon.v2.GrammarDescriptorR\agrammar\x12/\n" +
-	"\x06tokens\x18\x02 \x01(\v2\x17.gluon.v2.TokenSequenceR\x06tokens2\x93\x02\n" +
+	"\x06tokens\x18\x02 \x01(\v2\x17.gluon.v2.TokenSequenceR\x06tokens\x128\n" +
+	"\bdocument\x18\x03 \x01(\v2\x1c.gluon.v2.DocumentDescriptorR\bdocument2\x93\x02\n" +
 	"\n" +
 	"Metaparser\x12B\n" +
 	"\tReadBytes\x12\x1b.google.protobuf.BytesValue\x1a\x18.gluon.v2.TextDescriptor\x12H\n" +
@@ -112,28 +126,29 @@ var file_v2_metaparser_proto_goTypes = []any{
 	(*CstRequest)(nil),             // 0: gluon.v2.CstRequest
 	(*GrammarDescriptor)(nil),      // 1: gluon.v2.GrammarDescriptor
 	(*TokenSequence)(nil),          // 2: gluon.v2.TokenSequence
-	(*wrapperspb.BytesValue)(nil),  // 3: google.protobuf.BytesValue
-	(*wrapperspb.StringValue)(nil), // 4: google.protobuf.StringValue
-	(*DocumentDescriptor)(nil),     // 5: gluon.v2.DocumentDescriptor
+	(*DocumentDescriptor)(nil),     // 3: gluon.v2.DocumentDescriptor
+	(*wrapperspb.BytesValue)(nil),  // 4: google.protobuf.BytesValue
+	(*wrapperspb.StringValue)(nil), // 5: google.protobuf.StringValue
 	(*TextDescriptor)(nil),         // 6: gluon.v2.TextDescriptor
 	(*ASTDescriptor)(nil),          // 7: gluon.v2.ASTDescriptor
 }
 var file_v2_metaparser_proto_depIdxs = []int32{
 	1, // 0: gluon.v2.CstRequest.grammar:type_name -> gluon.v2.GrammarDescriptor
 	2, // 1: gluon.v2.CstRequest.tokens:type_name -> gluon.v2.TokenSequence
-	3, // 2: gluon.v2.Metaparser.ReadBytes:input_type -> google.protobuf.BytesValue
-	4, // 3: gluon.v2.Metaparser.ReadString:input_type -> google.protobuf.StringValue
-	5, // 4: gluon.v2.Metaparser.EBNF:input_type -> gluon.v2.DocumentDescriptor
-	0, // 5: gluon.v2.Metaparser.CST:input_type -> gluon.v2.CstRequest
-	6, // 6: gluon.v2.Metaparser.ReadBytes:output_type -> gluon.v2.TextDescriptor
-	5, // 7: gluon.v2.Metaparser.ReadString:output_type -> gluon.v2.DocumentDescriptor
-	1, // 8: gluon.v2.Metaparser.EBNF:output_type -> gluon.v2.GrammarDescriptor
-	7, // 9: gluon.v2.Metaparser.CST:output_type -> gluon.v2.ASTDescriptor
-	6, // [6:10] is the sub-list for method output_type
-	2, // [2:6] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	3, // 2: gluon.v2.CstRequest.document:type_name -> gluon.v2.DocumentDescriptor
+	4, // 3: gluon.v2.Metaparser.ReadBytes:input_type -> google.protobuf.BytesValue
+	5, // 4: gluon.v2.Metaparser.ReadString:input_type -> google.protobuf.StringValue
+	3, // 5: gluon.v2.Metaparser.EBNF:input_type -> gluon.v2.DocumentDescriptor
+	0, // 6: gluon.v2.Metaparser.CST:input_type -> gluon.v2.CstRequest
+	6, // 7: gluon.v2.Metaparser.ReadBytes:output_type -> gluon.v2.TextDescriptor
+	3, // 8: gluon.v2.Metaparser.ReadString:output_type -> gluon.v2.DocumentDescriptor
+	1, // 9: gluon.v2.Metaparser.EBNF:output_type -> gluon.v2.GrammarDescriptor
+	7, // 10: gluon.v2.Metaparser.CST:output_type -> gluon.v2.ASTDescriptor
+	7, // [7:11] is the sub-list for method output_type
+	3, // [3:7] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_v2_metaparser_proto_init() }
