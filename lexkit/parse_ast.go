@@ -85,6 +85,16 @@ func ParseASTWithOptions(src, language, startRule string, gd *pb.GrammarDescript
 		return nil, fmt.Errorf("parsing %q: %w", startRule, err)
 	}
 
+	// A successful parse must consume the entire input. Trailing
+	// whitespace and comments are skipped (matching the existing
+	// behavior of lexkit.Parse, which accepts trailing whitespace
+	// in EBNF source); anything else after the start rule completes
+	// is a parse error.
+	ap.skipWSAndComments()
+	if ap.pos < len(ap.src) {
+		return nil, fmt.Errorf("parsing %q: unconsumed input at offset %d of %d", startRule, ap.pos, len(ap.src))
+	}
+
 	return &pb.ASTDescriptor{
 		Language: language,
 		Root:     root,
