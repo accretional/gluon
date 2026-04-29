@@ -30,6 +30,13 @@ func TestParseASTRequiresFullInput(t *testing.T) {
 		{"trailing dot", "1.2.3.4.", true},
 		{"prefix only", "1.2.3", true},
 		{"trailing whitespace", "1.2.3.4 ", false}, // syntactic-mode WS skip after the last terminal is fine
+		// Trailing comment markers are NOT silently consumed —
+		// comments are an EBNF-source convention; treating them as
+		// trailing-skip in user input would silently swallow
+		// malformed input, which is what fuzzing turned up.
+		{"trailing ebnf comment open", "1.2.3.4(*", true},
+		{"trailing c block comment", "1.2.3.4/*", true},
+		{"trailing line comment", "1.2.3.4//", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
