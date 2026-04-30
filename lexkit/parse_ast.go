@@ -86,20 +86,19 @@ func ParseASTWithOptions(src, language, startRule string, gd *pb.GrammarDescript
 	}
 
 	// A successful parse must consume the entire input. Trailing
-	// whitespace is skipped (matching the existing behavior of
-	// lexkit.Parse for EBNF source); comments are NOT skipped at
-	// EOF — comments are an EBNF-source convention, and treating
-	// trailing "(*" / "/*" / "//" in user input as a "comment"
-	// would silently swallow malformed trailing data. Anything
-	// non-whitespace after the start rule completes is a parse
-	// error.
+	// whitespace (per the grammar's LexDescriptor.whitespace) is
+	// skipped, matching what lexkit.Parse does for EBNF source.
+	// Comments are NOT skipped at EOF — comments are an EBNF-source
+	// convention, and treating trailing "(*" / "/*" / "//" in user
+	// input as a "comment" would silently swallow malformed
+	// trailing data. Anything non-whitespace after the start rule
+	// completes is a parse error.
 	for ap.pos < len(ap.src) {
-		ch := ap.src[ap.pos]
-		if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
-			ap.pos++
-			continue
+		r, sz := utf8.DecodeRuneInString(ap.src[ap.pos:])
+		if !ap.lex.IsWhitespace(r) {
+			break
 		}
-		break
+		ap.pos += sz
 	}
 	if ap.pos < len(ap.src) {
 		return nil, fmt.Errorf("parsing %q: unconsumed input at offset %d of %d", startRule, ap.pos, len(ap.src))
@@ -284,17 +283,21 @@ func (ap *astParser) loc() *pb.SourceLocation {
 }
 
 // skipWSAndComments skips whitespace and comments. In lexical mode
-// (inside a lexical production), nothing is skipped.
+// (inside a lexical production), nothing is skipped. Whitespace is
+// determined by the grammar's LexDescriptor.whitespace — a grammar
+// whose lex has no whitespace symbols (e.g. an IP-address grammar
+// where internal whitespace must be rejected) will skip nothing.
 func (ap *astParser) skipWSAndComments() {
 	if ap.inLexical {
 		return
 	}
 	for ap.pos < len(ap.src) {
-		ch := ap.src[ap.pos]
-		if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
-			ap.pos++
+		r, sz := utf8.DecodeRuneInString(ap.src[ap.pos:])
+		if ap.lex.IsWhitespace(r) {
+			ap.pos += sz
 			continue
 		}
+		ch := ap.src[ap.pos]
 		// // line comment
 		if ch == '/' && ap.pos+1 < len(ap.src) && ap.src[ap.pos+1] == '/' {
 			ap.pos += 2

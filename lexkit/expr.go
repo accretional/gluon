@@ -88,10 +88,22 @@ type LexConfig struct {
 	GroupingLhs   rune
 	GroupingRhs   rune
 	Terminal      rune
+
+	// Whitespace runes that the parser skips between tokens in
+	// syntactic mode. Populated from LexDescriptor.whitespace; an
+	// empty slice means "skip no whitespace" — useful for grammars
+	// whose inputs are token-tight (IP addresses, hostnames, …).
+	Whitespace []rune
 }
 
 // LexConfigFrom extracts a LexConfig from a proto LexDescriptor.
 func LexConfigFrom(lex *pb.LexDescriptor) *LexConfig {
+	ws := make([]rune, 0, len(lex.GetWhitespace()))
+	for _, w := range lex.GetWhitespace() {
+		if r := RuneOf(w); r != 0 {
+			ws = append(ws, r)
+		}
+	}
 	return &LexConfig{
 		Alternation:   RuneOf(lex.Alternation),
 		Concatenation: RuneOf(lex.Concatenation),
@@ -102,7 +114,23 @@ func LexConfigFrom(lex *pb.LexDescriptor) *LexConfig {
 		GroupingLhs:   RuneOf(lex.GroupingLhs),
 		GroupingRhs:   RuneOf(lex.GroupingRhs),
 		Terminal:      RuneOf(lex.Terminal),
+		Whitespace:    ws,
 	}
+}
+
+// IsWhitespace reports whether r is in the LexConfig's whitespace
+// set. Used by the AST parser to decide whether to skip a character
+// when not in lexical mode. Returns false for the zero rune.
+func (lc *LexConfig) IsWhitespace(r rune) bool {
+	if r == 0 {
+		return false
+	}
+	for _, w := range lc.Whitespace {
+		if r == w {
+			return true
+		}
+	}
+	return false
 }
 
 type exprParser struct {

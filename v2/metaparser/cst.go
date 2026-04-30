@@ -61,6 +61,14 @@ func ParseCST(req *pb.CstRequest) (*pb.ASTDescriptor, error) {
 // convertGrammarToV1 turns a v2 GrammarDescriptor into a v1 one by
 // serializing each rule's flat Production list back to ISO 14977 EBNF
 // text. v1's parser will re-parse that text via its own EBNF lexer.
+//
+// The lex carried on the v1 result is the standard EBNF lex (so the
+// rule-body re-parser can read concatenations / alternations) but
+// its `whitespace` is REPLACED with whatever the v2 grammar's lex
+// has — letting callers express "no internal whitespace" by handing
+// in a v2 lex with no WHITESPACE delimiters. Default behavior
+// (proto-ip's, proto-domain's) is unchanged when the v2 lex is the
+// stock EBNFLexV2 with the four ASCII whitespace symbols.
 func convertGrammarToV1(gd *pb.GrammarDescriptor) *v1pb.GrammarDescriptor {
 	prods := make([]*v1pb.ProductionDescriptor, 0, len(gd.GetRules()))
 	for _, rule := range gd.GetRules() {
@@ -70,10 +78,36 @@ func convertGrammarToV1(gd *pb.GrammarDescriptor) *v1pb.GrammarDescriptor {
 			Token: lexkit.RawToToken(raw),
 		})
 	}
+	v1lex := lexkit.EBNFLex()
+	v1lex.Whitespace = whitespaceFromV2Lex(gd.GetLex())
 	return &v1pb.GrammarDescriptor{
-		Lex:         lexkit.EBNFLex(),
+		Lex:         v1lex,
 		Productions: prods,
 	}
+}
+
+// whitespaceFromV2Lex extracts the WHITESPACE delimiters from a v2
+// LexDescriptor and returns them as v1 unicode.UTF8 messages. Each
+// WHITESPACE-roled LexicalDelimiter contributes one rune (the first
+// rune of its symbol field). Returns nil for a lex with no
+// WHITESPACE entries — the parser will then skip nothing.
+func whitespaceFromV2Lex(lex *pb.LexDescriptor) []*v1pb.UTF8 {
+	var out []*v1pb.UTF8
+	for _, sym := range lex.GetSymbols() {
+		d := sym.GetDelimiter()
+		if d == nil || d.GetKind() != pb.Delimiter_WHITESPACE {
+			continue
+		}
+		s := d.GetSymbol()
+		if s == "" {
+			continue
+		}
+		for _, r := range s {
+			out = append(out, lexkit.Char(r))
+			break // one rune per delimiter symbol; matches EBNFLexV2
+		}
+	}
+	return out
 }
 
 // printExpressions renders a flat Production list as EBNF source text
