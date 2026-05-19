@@ -51,7 +51,9 @@ func ParseCST(req *pb.CstRequest) (*pb.ASTDescriptor, error) {
 	startRule := gd.GetRules()[0].GetName()
 
 	v1gd := convertGrammarToV1(gd)
-	v1ast, err := lexkit.ParseAST(src, gd.GetName(), startRule, v1gd)
+	v1ast, err := lexkit.ParseASTWithOptions(src, gd.GetName(), startRule, v1gd, &lexkit.ASTParseOptions{
+		IsLexical: lexkit.DefaultIsLexical,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -124,10 +126,26 @@ func printExpressions(ps []*pb.Production) string {
 	return b.String()
 }
 
+// printTerminal renders a terminal value as an EBNF-quoted string using
+// whichever quote style does not appear in the value, so the v1 EBNF
+// re-parser (which scans for the raw closing delimiter without escape
+// interpretation) always recovers the correct character.
+//
+// Single-character quote terminals are the key case: the double-quote
+// character (") must be wrapped in single-quote delimiters → '"', and
+// a single-quote character (') must be wrapped in double-quote delimiters
+// → "'". For all other strings, double-quote delimiters are used.
+func printTerminal(t string) string {
+	if !strings.Contains(t, "\"") {
+		return "\"" + t + "\""
+	}
+	return "'" + t + "'"
+}
+
 func printProduction(p *pb.Production) string {
 	switch k := p.GetKind().(type) {
 	case *pb.Production_Terminal:
-		return fmt.Sprintf("%q", k.Terminal)
+		return printTerminal(k.Terminal)
 	case *pb.Production_Nonterminal:
 		return k.Nonterminal
 	case *pb.Production_Delimiter:

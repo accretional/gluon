@@ -404,16 +404,18 @@ func (ap *astParser) matchExpr(expr *Expr, context string) (*pb.ASTNodeDescripto
 }
 
 // matchTerminal tries to match a literal string. Applies keyword
-// boundary checking: an all-alpha terminal must not be followed by
-// a letter, digit, or underscore.
+// boundary checking: a multi-character all-alpha terminal must not be
+// followed by a letter, digit, or underscore. Single-character terminals
+// (e.g. "s" in a letter-by-letter grammar) are exempt — they are building
+// blocks of larger tokens, not keywords.
 func (ap *astParser) matchTerminal(value string) (*pb.ASTNodeDescriptor, error) {
 	ap.skipWSAndComments()
 	if ap.pos >= len(ap.src) || !strings.HasPrefix(ap.src[ap.pos:], value) {
 		return nil, nil
 	}
 
-	// Keyword boundary check
-	if len(value) > 0 && isAllAlpha(value) {
+	// Keyword boundary check (multi-character all-alpha terminals only).
+	if len(value) > 1 && isAllAlpha(value) {
 		endPos := ap.pos + len(value)
 		if endPos < len(ap.src) {
 			next, _ := utf8.DecodeRuneInString(ap.src[endPos:])
@@ -480,8 +482,13 @@ func (ap *astParser) tryProduction(name string) (*pb.ASTNodeDescriptor, error) {
 	}
 
 	// Enter lexical mode if this is a lexical production.
+	// When crossing from syntactic context into a lexical production, consume
+	// any pending whitespace first — the syntactic caller expects WS to be
+	// skipped before the token, but once we set inLexical the terminal matcher
+	// will no longer skip it.
 	wasLexical := ap.inLexical
 	if !ap.inLexical && ap.isLexicalProd(name) {
+		ap.skipWSAndComments()
 		ap.inLexical = true
 	}
 
