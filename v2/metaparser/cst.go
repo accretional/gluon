@@ -3,7 +3,6 @@ package metaparser
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -174,7 +173,7 @@ func printProduction(p *pb.Production) string {
 		}
 		return "( " + body + " )"
 	case *pb.Production_Range:
-		return fmt.Sprintf("%q ... %q", k.Range.GetLower(), k.Range.GetUpper())
+		return printTerminal(k.Range.GetLower()) + " ... " + printTerminal(k.Range.GetUpper())
 	}
 	return ""
 }
