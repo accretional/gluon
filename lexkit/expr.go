@@ -356,8 +356,12 @@ func (p *exprParser) parseFactor() (*Expr, error) {
 func (p *exprParser) parseTerminal(quote rune) (*Expr, error) {
 	p.advance() // skip opening quote
 	start := p.pos
-	for p.pos < len(p.src) && rune(p.src[p.pos]) != quote {
-		p.pos++
+	for p.pos < len(p.src) {
+		r, sz := utf8.DecodeRuneInString(p.src[p.pos:])
+		if r == quote {
+			break
+		}
+		p.pos += sz
 	}
 	value := p.src[start:p.pos]
 	if p.pos < len(p.src) {

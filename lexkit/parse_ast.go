@@ -440,9 +440,9 @@ func (ap *astParser) matchRange(lower, upper *Expr) (*pb.ASTNodeDescriptor, erro
 		return nil, nil
 	}
 	ch, sz := utf8.DecodeRuneInString(ap.src[ap.pos:])
-	lo := firstRune(lower.Value)
-	hi := firstRune(upper.Value)
-	if lo == 0 || hi == 0 {
+	lo, loOK := firstRune(lower.Value)
+	hi, hiOK := firstRune(upper.Value)
+	if !loOK || !hiOK {
 		return nil, fmt.Errorf("range bounds must be non-empty")
 	}
 	if ch >= lo && ch <= hi {
@@ -457,12 +457,15 @@ func (ap *astParser) matchRange(lower, upper *Expr) (*pb.ASTNodeDescriptor, erro
 	return nil, nil
 }
 
-func firstRune(s string) rune {
+// firstRune returns the first rune from a string and whether it was found.
+// This correctly handles rune(0) (NULL) as a valid character rather than
+// conflating it with the empty-string case.
+func firstRune(s string) (rune, bool) {
 	if s == "" {
-		return 0
+		return 0, false
 	}
 	r, _ := utf8.DecodeRuneInString(s)
-	return r
+	return r, true
 }
 
 // tryProduction tries to match a production, supporting backtracking.
