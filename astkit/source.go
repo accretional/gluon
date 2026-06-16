@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/format"
 	"go/token"
+	"sort"
 	"strings"
 )
 
@@ -126,4 +127,27 @@ func FormatFile(fset *token.FileSet, f *ast.File) ([]byte, error) {
 		return nil, err
 	}
 	return []byte(buf.String()), nil
+}
+
+// RenderFile assembles a complete, formatted Go source file from a package
+// name, an import set (import path -> alias) and declarations. Imports are added
+// (sorted by path) via AddNamedImportToFile and the result is rendered with
+// FormatFile. This is the one-call companion to the AST builders for generating
+// whole files from scratch.
+func RenderFile(pkg string, imports map[string]string, decls []ast.Decl) (string, error) {
+	fset := token.NewFileSet()
+	f := &ast.File{Name: NewIdent(pkg), Decls: decls}
+	paths := make([]string, 0, len(imports))
+	for p := range imports {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	for _, p := range paths {
+		AddNamedImportToFile(fset, f, imports[p], p)
+	}
+	out, err := FormatFile(fset, f)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }

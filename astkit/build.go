@@ -3,6 +3,7 @@ package astkit
 import (
 	"go/ast"
 	"go/token"
+	"strconv"
 )
 
 // NewIdent creates a new identifier.
@@ -60,6 +61,19 @@ func CallVariadic(fun ast.Expr, args ast.Expr) *ast.CallExpr {
 	return &ast.CallExpr{Fun: fun, Args: []ast.Expr{args}, Ellipsis: 1}
 }
 
+// CallEllipsis creates a call whose FINAL argument is spread
+// (fn(a, b, last...)). Use when there are leading args before the spread.
+func CallEllipsis(fun ast.Expr, args ...ast.Expr) *ast.CallExpr {
+	return &ast.CallExpr{Fun: fun, Args: args, Ellipsis: 1}
+}
+
+// FuncTypeExpr builds a function type expression (e.g. `func()` or
+// `func(int) error`). Pass nil for no params/results. (Companion to
+// StructTypeExpr / InterfaceTypeExpr / MapTypeExpr.)
+func FuncTypeExpr(params, results *ast.FieldList) *ast.FuncType {
+	return &ast.FuncType{Params: params, Results: results}
+}
+
 // Assign creates an assignment statement.
 func Assign(tok token.Token, lhs []ast.Expr, rhs []ast.Expr) *ast.AssignStmt {
 	return &ast.AssignStmt{Lhs: lhs, Tok: tok, Rhs: rhs}
@@ -89,8 +103,10 @@ func Defer(call *ast.CallExpr) *ast.DeferStmt {
 }
 
 // StringLit creates a string literal.
+// StringLit builds an interpreted string literal, properly escaping s
+// (quotes, backslashes, newlines, control chars, etc.) via strconv.Quote.
 func StringLit(s string) *ast.BasicLit {
-	return &ast.BasicLit{Kind: token.STRING, Value: `"` + s + `"`}
+	return &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(s)}
 }
 
 // RawStringLit creates a raw string literal.
