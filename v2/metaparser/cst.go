@@ -3,7 +3,6 @@ package metaparser
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -124,10 +123,24 @@ func printExpressions(ps []*pb.Production) string {
 	return b.String()
 }
 
+// quoteEBNFTerminal wraps a terminal in EBNF quotes the v1 re-parser can read.
+// lexkit's matchEBNFTerminal reads to the next matching quote with no escape
+// handling, so a terminal containing a double quote must be single-quoted (and
+// vice-versa) rather than Go-escaped via %q. This lets grammars whose terminals
+// are themselves quote characters (e.g. XML's VersionInfo:
+// ( "'" , VersionNum , "'" | '"' , VersionNum , '"' )) round-trip through
+// convertGrammarToV1.
+func quoteEBNFTerminal(s string) string {
+	if strings.Contains(s, `"`) && !strings.Contains(s, `'`) {
+		return "'" + s + "'"
+	}
+	return `"` + s + `"`
+}
+
 func printProduction(p *pb.Production) string {
 	switch k := p.GetKind().(type) {
 	case *pb.Production_Terminal:
-		return fmt.Sprintf("%q", k.Terminal)
+		return quoteEBNFTerminal(k.Terminal)
 	case *pb.Production_Nonterminal:
 		return k.Nonterminal
 	case *pb.Production_Delimiter:
@@ -156,7 +169,7 @@ func printProduction(p *pb.Production) string {
 		}
 		return "( " + body + " )"
 	case *pb.Production_Range:
-		return fmt.Sprintf("%q ... %q", k.Range.GetLower(), k.Range.GetUpper())
+		return quoteEBNFTerminal(k.Range.GetLower()) + " ... " + quoteEBNFTerminal(k.Range.GetUpper())
 	}
 	return ""
 }
