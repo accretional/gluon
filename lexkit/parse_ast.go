@@ -15,6 +15,7 @@ package lexkit
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -120,13 +121,29 @@ func ParseASTWithOptions(src, language, startRule string, gd *pb.GrammarDescript
 
 // astParser holds the state for grammar-driven parsing.
 type astParser struct {
-	src       string
-	pos       int
-	rules     map[string]*Expr // production name -> parsed expression
-	lex       *LexConfig
-	opts      *ASTParseOptions
-	keywords  map[string]bool // alphabetic terminals extracted from grammar
-	inLexical bool            // currently inside a lexical production
+	src        string
+	pos        int
+	lineStarts []int            // byte offset of the start of each line (see loc)
+	rules      map[string]*Expr // production name -> parsed expression
+	lex        *LexConfig
+	opts       *ASTParseOptions
+	keywords   map[string]bool // alphabetic terminals extracted from grammar
+	inLexical  bool            // currently inside a lexical production
+}
+
+// computeLineStarts returns the byte offsets at which each line begins:
+// element 0 is 0, and every byte after a '\n' starts a new line. It is built
+// once per parse so loc() can resolve a line/column in O(log n) instead of
+// rescanning from the start of the document on every node (which made parsing
+// O(n^2) in document length).
+func computeLineStarts(src string) []int {
+	starts := make([]int, 1, 1+strings.Count(src, "\n"))
+	for i := 0; i < len(src); i++ {
+		if src[i] == '\n' {
+			starts = append(starts, i+1)
+		}
+	}
+	return starts
 }
 
 func newASTParser(src string, gd *pb.GrammarDescriptor, opts *ASTParseOptions) (*astParser, error) {
@@ -157,12 +174,13 @@ func newASTParser(src string, gd *pb.GrammarDescriptor, opts *ASTParseOptions) (
 	}
 
 	return &astParser{
-		src:      src,
-		pos:      0,
-		rules:    rules,
-		lex:      lc,
-		opts:     opts,
-		keywords: keywords,
+		src:        src,
+		pos:        0,
+		lineStarts: computeLineStarts(src),
+		rules:      rules,
+		lex:        lc,
+		opts:       opts,
+		keywords:   keywords,
 	}, nil
 }
 
@@ -271,22 +289,23 @@ func extractRecursiveSuffix(name string, expr *Expr) *Expr {
 	return nil
 }
 
-// loc returns a SourceLocation for the current position.
+// loc returns a SourceLocation for the current position. Line and column are
+// resolved from the precomputed lineStarts index in O(log n): find the last
+// line whose start is <= pos; the column is the byte offset within that line.
+// (This previously rescanned the document from the start on every call, which
+// made parsing quadratic in document length.)
 func (ap *astParser) loc() *pb.SourceLocation {
-	line := 1
-	col := 1
-	for i := 0; i < ap.pos && i < len(ap.src); i++ {
-		if ap.src[i] == '\n' {
-			line++
-			col = 1
-		} else {
-			col++
-		}
+	p := ap.pos
+	if p > len(ap.src) {
+		p = len(ap.src)
 	}
+	// Largest index i with lineStarts[i] <= p. lineStarts[0] == 0 <= p, so the
+	// result is always >= 0.
+	i := sort.Search(len(ap.lineStarts), func(i int) bool { return ap.lineStarts[i] > p }) - 1
 	return &pb.SourceLocation{
 		Offset: int32(ap.pos),
-		Line:   int32(line),
-		Column: int32(col),
+		Line:   int32(i + 1),
+		Column: int32(p - ap.lineStarts[i] + 1),
 	}
 }
 
