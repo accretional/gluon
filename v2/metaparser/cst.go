@@ -35,6 +35,62 @@ func (s *Server) CST(ctx context.Context, req *pb.CstRequest) (*pb.ASTDescriptor
 // The start rule is the first rule in the grammar. If the grammar has
 // no rules an error is returned.
 func ParseCST(req *pb.CstRequest) (*pb.ASTDescriptor, error) {
+	return ParseCSTWithOptions(req, nil)
+}
+
+// TokenMatchFunc matches a token starting at pos in src, returning the
+// matched text and new position, or ("", -1) for no match. It is an alias
+// of the lexkit type so callers depend only on v2/metaparser.
+type TokenMatchFunc = lexkit.TokenMatchFunc
+
+// ParseOptions carries language-specific lexical hooks for CST parsing.
+// It mirrors lexkit.ASTParseOptions but lives on the v2 surface so callers
+// need not import v1 lexkit directly. A nil *ParseOptions reproduces the
+// default ParseCST behavior (standard EBNF-style parsing).
+//
+// TokenMatchers is the load-bearing field: it lets a grammar delegate a
+// production to a custom Go scanner instead of grammar recursion — the
+// intended hook for lexical constructs a CFG cannot express (e.g. XML
+// names, character data, references, CDATA, comments, PIs). A referenced
+// nonterminal with a registered matcher is matched by the matcher, which
+// is consulted before grammar recursion.
+type ParseOptions struct {
+	// TokenMatchers maps production names to custom scanners.
+	TokenMatchers map[string]TokenMatchFunc
+
+	// CharClasses maps empty-bodied production names to single-rune tests.
+	CharClasses map[string]func(rune) bool
+
+	// IsLexical classifies a production as lexical (whitespace not skipped
+	// inside it). If nil, names starting lowercase/'_' are lexical.
+	IsLexical func(string) bool
+
+	// Preprocessor transforms source text before parsing.
+	Preprocessor func(string) string
+
+	// DisableAutoComments turns off built-in //, /*, (* comment skipping
+	// between tokens. Set true for languages (e.g. XML) where those byte
+	// sequences are ordinary data.
+	DisableAutoComments bool
+}
+
+func (o *ParseOptions) toLexkit() *lexkit.ASTParseOptions {
+	if o == nil {
+		return nil
+	}
+	return &lexkit.ASTParseOptions{
+		TokenMatchers:       o.TokenMatchers,
+		CharClasses:         o.CharClasses,
+		IsLexical:           o.IsLexical,
+		Preprocessor:        o.Preprocessor,
+		DisableAutoComments: o.DisableAutoComments,
+	}
+}
+
+// ParseCSTWithOptions is ParseCST with language-specific lexical hooks.
+// Passing nil opts is identical to ParseCST. This entry point is purely
+// additive: the CST RPC and existing ParseCST callers are unaffected.
+func ParseCSTWithOptions(req *pb.CstRequest, opts *ParseOptions) (*pb.ASTDescriptor, error) {
 	gd := req.GetGrammar()
 	if gd == nil {
 		return nil, errors.New("grammar is required")
@@ -51,7 +107,7 @@ func ParseCST(req *pb.CstRequest) (*pb.ASTDescriptor, error) {
 	startRule := gd.GetRules()[0].GetName()
 
 	v1gd := convertGrammarToV1(gd)
-	v1ast, err := lexkit.ParseAST(src, gd.GetName(), startRule, v1gd)
+	v1ast, err := lexkit.ParseASTWithOptions(src, gd.GetName(), startRule, v1gd, opts.toLexkit())
 	if err != nil {
 		return nil, err
 	}
@@ -124,10 +180,30 @@ func printExpressions(ps []*pb.Production) string {
 	return b.String()
 }
 
+// quoteTerminal renders a terminal as an EBNF literal for v1 to re-parse.
+// EBNF terminals are literal — there are NO escape sequences (a backslash
+// is a literal backslash) — so fmt's %q (Go quoting) is wrong: it would
+// turn the terminal " into "\"" which v1 reads as the terminal \. Instead
+// pick a quote style ("…", '…', or `…`) that does not occur in the value,
+// matching what v1's lexer accepts. A value containing all three styles is
+// not representable as an EBNF literal (rare; falls back to double quotes).
+func quoteTerminal(s string) string {
+	switch {
+	case !strings.Contains(s, `"`):
+		return `"` + s + `"`
+	case !strings.Contains(s, "'"):
+		return "'" + s + "'"
+	case !strings.Contains(s, "`"):
+		return "`" + s + "`"
+	default:
+		return `"` + s + `"`
+	}
+}
+
 func printProduction(p *pb.Production) string {
 	switch k := p.GetKind().(type) {
 	case *pb.Production_Terminal:
-		return fmt.Sprintf("%q", k.Terminal)
+		return quoteTerminal(k.Terminal)
 	case *pb.Production_Nonterminal:
 		return k.Nonterminal
 	case *pb.Production_Delimiter:

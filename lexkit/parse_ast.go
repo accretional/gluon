@@ -45,6 +45,14 @@ type ASTParseOptions struct {
 	// Preprocessor transforms source text before parsing.
 	// Used for Go-style semicolon insertion.
 	Preprocessor func(string) string
+
+	// DisableAutoComments turns off the built-in recognition of //, /*,
+	// and (* comment styles that skipWSAndComments applies between tokens
+	// in syntactic mode. Defaults to false — the historical behavior that
+	// EBNF/Go/proto parsing relies on. Set true for target languages —
+	// notably XML — where those byte sequences are ordinary character data
+	// and must not be silently skipped.
+	DisableAutoComments bool
 }
 
 // DefaultIsLexical returns true for production names starting with a
@@ -296,6 +304,9 @@ func (ap *astParser) skipWSAndComments() {
 		if ap.lex.IsWhitespace(r) {
 			ap.pos += sz
 			continue
+		}
+		if ap.opts.DisableAutoComments {
+			break
 		}
 		ch := ap.src[ap.pos]
 		// // line comment
