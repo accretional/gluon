@@ -23,6 +23,55 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ResolveRequest points ResolveDependencies at a Starlark build-dependency
+// file. The path is resolved on the server's local filesystem (this RPC is
+// non-hermetic); relative dependency paths inside the file are resolved
+// against the file's own directory.
+type ResolveRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Path to the Starlark build-dependency file (e.g. "grammar_deps.bzl").
+	BuildFile     string `protobuf:"bytes,1,opt,name=build_file,json=buildFile,proto3" json:"build_file,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveRequest) Reset() {
+	*x = ResolveRequest{}
+	mi := &file_v2_metaparser_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveRequest) ProtoMessage() {}
+
+func (x *ResolveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_v2_metaparser_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveRequest.ProtoReflect.Descriptor instead.
+func (*ResolveRequest) Descriptor() ([]byte, []int) {
+	return file_v2_metaparser_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ResolveRequest) GetBuildFile() string {
+	if x != nil {
+		return x.BuildFile
+	}
+	return ""
+}
+
 // CstRequest bundles the grammar, the token stream, and the source
 // document to parse against. The grammar carries its own LexDescriptor —
 // callers are expected to have lexed `tokens` with that same
@@ -43,7 +92,7 @@ type CstRequest struct {
 
 func (x *CstRequest) Reset() {
 	*x = CstRequest{}
-	mi := &file_v2_metaparser_proto_msgTypes[0]
+	mi := &file_v2_metaparser_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -55,7 +104,7 @@ func (x *CstRequest) String() string {
 func (*CstRequest) ProtoMessage() {}
 
 func (x *CstRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_v2_metaparser_proto_msgTypes[0]
+	mi := &file_v2_metaparser_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -68,7 +117,7 @@ func (x *CstRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CstRequest.ProtoReflect.Descriptor instead.
 func (*CstRequest) Descriptor() ([]byte, []int) {
-	return file_v2_metaparser_proto_rawDescGZIP(), []int{0}
+	return file_v2_metaparser_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CstRequest) GetGrammar() *GrammarDescriptor {
@@ -107,7 +156,7 @@ type TransformRequest struct {
 
 func (x *TransformRequest) Reset() {
 	*x = TransformRequest{}
-	mi := &file_v2_metaparser_proto_msgTypes[1]
+	mi := &file_v2_metaparser_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -119,7 +168,7 @@ func (x *TransformRequest) String() string {
 func (*TransformRequest) ProtoMessage() {}
 
 func (x *TransformRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_v2_metaparser_proto_msgTypes[1]
+	mi := &file_v2_metaparser_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -132,7 +181,7 @@ func (x *TransformRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransformRequest.ProtoReflect.Descriptor instead.
 func (*TransformRequest) Descriptor() ([]byte, []int) {
-	return file_v2_metaparser_proto_rawDescGZIP(), []int{1}
+	return file_v2_metaparser_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *TransformRequest) GetAst() *ASTDescriptor {
@@ -165,7 +214,7 @@ type TransformResponse struct {
 
 func (x *TransformResponse) Reset() {
 	*x = TransformResponse{}
-	mi := &file_v2_metaparser_proto_msgTypes[2]
+	mi := &file_v2_metaparser_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -177,7 +226,7 @@ func (x *TransformResponse) String() string {
 func (*TransformResponse) ProtoMessage() {}
 
 func (x *TransformResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_v2_metaparser_proto_msgTypes[2]
+	mi := &file_v2_metaparser_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -190,7 +239,7 @@ func (x *TransformResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransformResponse.ProtoReflect.Descriptor instead.
 func (*TransformResponse) Descriptor() ([]byte, []int) {
-	return file_v2_metaparser_proto_rawDescGZIP(), []int{2}
+	return file_v2_metaparser_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *TransformResponse) GetDataType() string {
@@ -231,7 +280,7 @@ type CompileRequest struct {
 
 func (x *CompileRequest) Reset() {
 	*x = CompileRequest{}
-	mi := &file_v2_metaparser_proto_msgTypes[3]
+	mi := &file_v2_metaparser_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -243,7 +292,7 @@ func (x *CompileRequest) String() string {
 func (*CompileRequest) ProtoMessage() {}
 
 func (x *CompileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_v2_metaparser_proto_msgTypes[3]
+	mi := &file_v2_metaparser_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -256,7 +305,7 @@ func (x *CompileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileRequest.ProtoReflect.Descriptor instead.
 func (*CompileRequest) Descriptor() ([]byte, []int) {
-	return file_v2_metaparser_proto_rawDescGZIP(), []int{3}
+	return file_v2_metaparser_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CompileRequest) GetAst() *ASTDescriptor {
@@ -297,7 +346,7 @@ type CompileResponse struct {
 
 func (x *CompileResponse) Reset() {
 	*x = CompileResponse{}
-	mi := &file_v2_metaparser_proto_msgTypes[4]
+	mi := &file_v2_metaparser_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -309,7 +358,7 @@ func (x *CompileResponse) String() string {
 func (*CompileResponse) ProtoMessage() {}
 
 func (x *CompileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_v2_metaparser_proto_msgTypes[4]
+	mi := &file_v2_metaparser_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -322,7 +371,7 @@ func (x *CompileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileResponse.ProtoReflect.Descriptor instead.
 func (*CompileResponse) Descriptor() ([]byte, []int) {
-	return file_v2_metaparser_proto_rawDescGZIP(), []int{4}
+	return file_v2_metaparser_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CompileResponse) GetFile() *descriptorpb.FileDescriptorProto {
@@ -336,7 +385,10 @@ var File_v2_metaparser_proto protoreflect.FileDescriptor
 
 const file_v2_metaparser_proto_rawDesc = "" +
 	"\n" +
-	"\x13v2/metaparser.proto\x12\bgluon.v2\x1a google/protobuf/descriptor.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\fv2/ast.proto\x1a\x11v2/document.proto\x1a\x10v2/grammar.proto\x1a\rv2/text.proto\x1a\x0fv2/tokens.proto\"\xae\x01\n" +
+	"\x13v2/metaparser.proto\x12\bgluon.v2\x1a google/protobuf/descriptor.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\fv2/ast.proto\x1a\x11v2/document.proto\x1a\x10v2/grammar.proto\x1a\rv2/text.proto\x1a\x0fv2/tokens.proto\"/\n" +
+	"\x0eResolveRequest\x12\x1d\n" +
+	"\n" +
+	"build_file\x18\x01 \x01(\tR\tbuildFile\"\xae\x01\n" +
 	"\n" +
 	"CstRequest\x125\n" +
 	"\agrammar\x18\x01 \x01(\v2\x1b.gluon.v2.GrammarDescriptorR\agrammar\x12/\n" +
@@ -357,13 +409,14 @@ const file_v2_metaparser_proto_rawDesc = "" +
 	"go_package\x18\x03 \x01(\tR\tgoPackage\x12\x1b\n" +
 	"\tfile_name\x18\x04 \x01(\tR\bfileName\"K\n" +
 	"\x0fCompileResponse\x128\n" +
-	"\x04file\x18\x01 \x01(\v2$.google.protobuf.FileDescriptorProtoR\x04file2\x99\x03\n" +
+	"\x04file\x18\x01 \x01(\v2$.google.protobuf.FileDescriptorProtoR\x04file2\xec\x03\n" +
 	"\n" +
 	"Metaparser\x12B\n" +
 	"\tReadBytes\x12\x1b.google.protobuf.BytesValue\x1a\x18.gluon.v2.TextDescriptor\x12H\n" +
 	"\n" +
-	"ReadString\x12\x1c.google.protobuf.StringValue\x1a\x1c.gluon.v2.DocumentDescriptor\x12A\n" +
-	"\x04EBNF\x12\x1c.gluon.v2.DocumentDescriptor\x1a\x1b.gluon.v2.GrammarDescriptor\x124\n" +
+	"ReadString\x12\x1c.google.protobuf.StringValue\x1a\x1c.gluon.v2.DocumentDescriptor\x12C\n" +
+	"\x04EBNF\x12\x1c.gluon.v2.DocumentDescriptor\x1a\x1b.gluon.v2.GrammarDescriptor(\x01\x12O\n" +
+	"\x13ResolveDependencies\x12\x18.gluon.v2.ResolveRequest\x1a\x1c.gluon.v2.DocumentDescriptor0\x01\x124\n" +
 	"\x03CST\x12\x14.gluon.v2.CstRequest\x1a\x17.gluon.v2.ASTDescriptor\x12D\n" +
 	"\tTransform\x12\x1a.gluon.v2.TransformRequest\x1a\x1b.gluon.v2.TransformResponse\x12>\n" +
 	"\aCompile\x12\x18.gluon.v2.CompileRequest\x1a\x19.gluon.v2.CompileResponseB$Z\"github.com/accretional/gluon/v2/pbb\x06proto3"
@@ -380,43 +433,46 @@ func file_v2_metaparser_proto_rawDescGZIP() []byte {
 	return file_v2_metaparser_proto_rawDescData
 }
 
-var file_v2_metaparser_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_v2_metaparser_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_v2_metaparser_proto_goTypes = []any{
-	(*CstRequest)(nil),                       // 0: gluon.v2.CstRequest
-	(*TransformRequest)(nil),                 // 1: gluon.v2.TransformRequest
-	(*TransformResponse)(nil),                // 2: gluon.v2.TransformResponse
-	(*CompileRequest)(nil),                   // 3: gluon.v2.CompileRequest
-	(*CompileResponse)(nil),                  // 4: gluon.v2.CompileResponse
-	(*GrammarDescriptor)(nil),                // 5: gluon.v2.GrammarDescriptor
-	(*TokenSequence)(nil),                    // 6: gluon.v2.TokenSequence
-	(*DocumentDescriptor)(nil),               // 7: gluon.v2.DocumentDescriptor
-	(*ASTDescriptor)(nil),                    // 8: gluon.v2.ASTDescriptor
-	(*descriptorpb.FileDescriptorProto)(nil), // 9: google.protobuf.FileDescriptorProto
-	(*wrapperspb.BytesValue)(nil),            // 10: google.protobuf.BytesValue
-	(*wrapperspb.StringValue)(nil),           // 11: google.protobuf.StringValue
-	(*TextDescriptor)(nil),                   // 12: gluon.v2.TextDescriptor
+	(*ResolveRequest)(nil),                   // 0: gluon.v2.ResolveRequest
+	(*CstRequest)(nil),                       // 1: gluon.v2.CstRequest
+	(*TransformRequest)(nil),                 // 2: gluon.v2.TransformRequest
+	(*TransformResponse)(nil),                // 3: gluon.v2.TransformResponse
+	(*CompileRequest)(nil),                   // 4: gluon.v2.CompileRequest
+	(*CompileResponse)(nil),                  // 5: gluon.v2.CompileResponse
+	(*GrammarDescriptor)(nil),                // 6: gluon.v2.GrammarDescriptor
+	(*TokenSequence)(nil),                    // 7: gluon.v2.TokenSequence
+	(*DocumentDescriptor)(nil),               // 8: gluon.v2.DocumentDescriptor
+	(*ASTDescriptor)(nil),                    // 9: gluon.v2.ASTDescriptor
+	(*descriptorpb.FileDescriptorProto)(nil), // 10: google.protobuf.FileDescriptorProto
+	(*wrapperspb.BytesValue)(nil),            // 11: google.protobuf.BytesValue
+	(*wrapperspb.StringValue)(nil),           // 12: google.protobuf.StringValue
+	(*TextDescriptor)(nil),                   // 13: gluon.v2.TextDescriptor
 }
 var file_v2_metaparser_proto_depIdxs = []int32{
-	5,  // 0: gluon.v2.CstRequest.grammar:type_name -> gluon.v2.GrammarDescriptor
-	6,  // 1: gluon.v2.CstRequest.tokens:type_name -> gluon.v2.TokenSequence
-	7,  // 2: gluon.v2.CstRequest.document:type_name -> gluon.v2.DocumentDescriptor
-	8,  // 3: gluon.v2.TransformRequest.ast:type_name -> gluon.v2.ASTDescriptor
-	8,  // 4: gluon.v2.CompileRequest.ast:type_name -> gluon.v2.ASTDescriptor
-	9,  // 5: gluon.v2.CompileResponse.file:type_name -> google.protobuf.FileDescriptorProto
-	10, // 6: gluon.v2.Metaparser.ReadBytes:input_type -> google.protobuf.BytesValue
-	11, // 7: gluon.v2.Metaparser.ReadString:input_type -> google.protobuf.StringValue
-	7,  // 8: gluon.v2.Metaparser.EBNF:input_type -> gluon.v2.DocumentDescriptor
-	0,  // 9: gluon.v2.Metaparser.CST:input_type -> gluon.v2.CstRequest
-	1,  // 10: gluon.v2.Metaparser.Transform:input_type -> gluon.v2.TransformRequest
-	3,  // 11: gluon.v2.Metaparser.Compile:input_type -> gluon.v2.CompileRequest
-	12, // 12: gluon.v2.Metaparser.ReadBytes:output_type -> gluon.v2.TextDescriptor
-	7,  // 13: gluon.v2.Metaparser.ReadString:output_type -> gluon.v2.DocumentDescriptor
-	5,  // 14: gluon.v2.Metaparser.EBNF:output_type -> gluon.v2.GrammarDescriptor
-	8,  // 15: gluon.v2.Metaparser.CST:output_type -> gluon.v2.ASTDescriptor
-	2,  // 16: gluon.v2.Metaparser.Transform:output_type -> gluon.v2.TransformResponse
-	4,  // 17: gluon.v2.Metaparser.Compile:output_type -> gluon.v2.CompileResponse
-	12, // [12:18] is the sub-list for method output_type
-	6,  // [6:12] is the sub-list for method input_type
+	6,  // 0: gluon.v2.CstRequest.grammar:type_name -> gluon.v2.GrammarDescriptor
+	7,  // 1: gluon.v2.CstRequest.tokens:type_name -> gluon.v2.TokenSequence
+	8,  // 2: gluon.v2.CstRequest.document:type_name -> gluon.v2.DocumentDescriptor
+	9,  // 3: gluon.v2.TransformRequest.ast:type_name -> gluon.v2.ASTDescriptor
+	9,  // 4: gluon.v2.CompileRequest.ast:type_name -> gluon.v2.ASTDescriptor
+	10, // 5: gluon.v2.CompileResponse.file:type_name -> google.protobuf.FileDescriptorProto
+	11, // 6: gluon.v2.Metaparser.ReadBytes:input_type -> google.protobuf.BytesValue
+	12, // 7: gluon.v2.Metaparser.ReadString:input_type -> google.protobuf.StringValue
+	8,  // 8: gluon.v2.Metaparser.EBNF:input_type -> gluon.v2.DocumentDescriptor
+	0,  // 9: gluon.v2.Metaparser.ResolveDependencies:input_type -> gluon.v2.ResolveRequest
+	1,  // 10: gluon.v2.Metaparser.CST:input_type -> gluon.v2.CstRequest
+	2,  // 11: gluon.v2.Metaparser.Transform:input_type -> gluon.v2.TransformRequest
+	4,  // 12: gluon.v2.Metaparser.Compile:input_type -> gluon.v2.CompileRequest
+	13, // 13: gluon.v2.Metaparser.ReadBytes:output_type -> gluon.v2.TextDescriptor
+	8,  // 14: gluon.v2.Metaparser.ReadString:output_type -> gluon.v2.DocumentDescriptor
+	6,  // 15: gluon.v2.Metaparser.EBNF:output_type -> gluon.v2.GrammarDescriptor
+	8,  // 16: gluon.v2.Metaparser.ResolveDependencies:output_type -> gluon.v2.DocumentDescriptor
+	9,  // 17: gluon.v2.Metaparser.CST:output_type -> gluon.v2.ASTDescriptor
+	3,  // 18: gluon.v2.Metaparser.Transform:output_type -> gluon.v2.TransformResponse
+	5,  // 19: gluon.v2.Metaparser.Compile:output_type -> gluon.v2.CompileResponse
+	13, // [13:20] is the sub-list for method output_type
+	6,  // [6:13] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
@@ -438,7 +494,7 @@ func file_v2_metaparser_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v2_metaparser_proto_rawDesc), len(file_v2_metaparser_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

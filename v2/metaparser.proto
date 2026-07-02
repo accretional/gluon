@@ -39,10 +39,30 @@ service Metaparser {
   // already in memory as a Go string.
   rpc ReadString(google.protobuf.StringValue) returns (DocumentDescriptor);
 
-  // EBNF parses a DocumentDescriptor containing EBNF source into a
-  // GrammarDescriptor. Internally lexes according to a LexDescriptor
-  // configured for the input's EBNF dialect.
-  rpc EBNF(DocumentDescriptor) returns (GrammarDescriptor);
+  // EBNF parses a stream of DocumentDescriptors containing EBNF source into
+  // a single merged GrammarDescriptor. Each document is lexed according to a
+  // LexDescriptor for its EBNF dialect and its rules are unioned into one
+  // grammar: identical rule definitions are deduplicated, and a later
+  // document's definition of a rule overrides an earlier one (so a grammar
+  // dependency's real production overrides a local opaque placeholder of the
+  // same name). The first document names the merged grammar and its root
+  // production stays the conceptual root; send the local grammar first, then
+  // the documents produced by ResolveDependencies.
+  //
+  // A single-document stream is equivalent to the former unary EBNF: the
+  // pure-Go ParseEBNF entry point still parses one document.
+  rpc EBNF(stream DocumentDescriptor) returns (GrammarDescriptor);
+
+  // ResolveDependencies reads a Starlark build-dependency file (Bazel-style
+  // GRAMMAR_DEPS) and streams one DocumentDescriptor per declared dependency,
+  // each carrying that dependency grammar's concatenated EBNF sources. Feed
+  // these documents (after the local grammar's own documents) into EBNF to
+  // compose a merged grammar that can parse embedded content — e.g. the CSS
+  // inside an HTML <style> element.
+  //
+  // This RPC is intentionally non-hermetic: it reads the build file and the
+  // dependency grammar sources it points to from the local filesystem.
+  rpc ResolveDependencies(ResolveRequest) returns (stream DocumentDescriptor);
 
   // CST parses an already-lexed TokenSequence against a grammar,
   // producing an ASTDescriptor that carries the full concrete syntax
@@ -70,6 +90,15 @@ service Metaparser {
   // Callers that hold a GrammarDescriptor (rather than an AST) should
   // convert via compiler.GrammarToAST before calling this RPC.
   rpc Compile(CompileRequest) returns (CompileResponse);
+}
+
+// ResolveRequest points ResolveDependencies at a Starlark build-dependency
+// file. The path is resolved on the server's local filesystem (this RPC is
+// non-hermetic); relative dependency paths inside the file are resolved
+// against the file's own directory.
+message ResolveRequest {
+  // Path to the Starlark build-dependency file (e.g. "grammar_deps.bzl").
+  string build_file = 1;
 }
 
 // CstRequest bundles the grammar, the token stream, and the source
