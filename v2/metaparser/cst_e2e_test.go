@@ -89,7 +89,7 @@ func TestCSTE2E(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadString(grammar): %v", err)
 			}
-			gd, err := client.EBNF(ctx, grammarDoc)
+			gd, err := ebnfStream(ctx, client, grammarDoc)
 			if err != nil {
 				t.Fatalf("EBNF: %v", err)
 			}
@@ -159,7 +159,7 @@ func TestCSTE2E_MissingDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gd, err := client.EBNF(context.Background(), grammarDoc)
+	gd, err := ebnfStream(context.Background(), client, grammarDoc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestCSTE2E_ASTNodeShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gd, err := client.EBNF(ctx, grammarDoc)
+	gd, err := ebnfStream(ctx, client, grammarDoc)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -79,7 +79,7 @@ func TestEBNFE2E(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadString: %v", err)
 			}
-			gd, err := client.EBNF(ctx, doc)
+			gd, err := ebnfStream(ctx, client, doc)
 
 			if tc.wantErrCode != codes.OK && tc.wantErrCode != 0 {
 				if err == nil {
@@ -131,7 +131,7 @@ func TestEBNFE2E_LexIsPopulated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gd, err := client.EBNF(ctx, doc)
+	gd, err := ebnfStream(ctx, client, doc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestEBNFE2E_EmptyDocumentReturnsEmptyGrammar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gd, err := client.EBNF(context.Background(), doc)
+	gd, err := ebnfStream(context.Background(), client, doc)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestEBNFE2E_RawDocumentDescriptor(t *testing.T) {
 			{Content: &pb.TextDescriptor_UnicodeString{UnicodeString: `r1 = a ;`}},
 		},
 	}
-	gd, err := client.EBNF(context.Background(), doc)
+	gd, err := ebnfStream(context.Background(), client, doc)
 	if err != nil {
 		t.Fatal(err)
 	}

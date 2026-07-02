@@ -1,25 +1,86 @@
 package metaparser
 
 import (
-	"context"
+	"fmt"
+	"io"
+	"regexp"
 	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/accretional/gluon/lexkit"
 	v1pb "github.com/accretional/gluon/pb"
 	pb "github.com/accretional/gluon/v2/pb"
 )
 
-// EBNF parses a DocumentDescriptor containing EBNF source into a
-// GrammarDescriptor using ISO 14977 conventions.
-func (s *Server) EBNF(ctx context.Context, req *pb.DocumentDescriptor) (*pb.GrammarDescriptor, error) {
-	gd, err := ParseEBNF(req)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "EBNF: %v", err)
+// ebnfComment matches an EBNF (* ... *) comment (including multi-line). The v1
+// lexkit EBNF parser mishandles a comment inside a rule body (it silently
+// empties the rule), so comments are scrubbed before parsing — the same
+// workaround each downstream genproto applies. Replaced by a space so adjacent
+// tokens can't fuse.
+var ebnfComment = regexp.MustCompile(`(?s)\(\*.*?\*\)`)
+
+// EBNF collects a client stream of DocumentDescriptors and merges them into one
+// GrammarDescriptor via ParseEBNFStream. A single-document stream reproduces the
+// former unary behaviour.
+func (s *Server) EBNF(stream pb.Metaparser_EBNFServer) error {
+	var docs []*pb.DocumentDescriptor
+	for {
+		doc, err := stream.Recv()
+		if err == io.EOF {
+			gd, perr := ParseEBNFStream(docs)
+			if perr != nil {
+				return status.Errorf(codes.InvalidArgument, "EBNF: %v", perr)
+			}
+			return stream.SendAndClose(gd)
+		}
+		if err != nil {
+			return err
+		}
+		docs = append(docs, doc)
 	}
-	return gd, nil
+}
+
+// ParseEBNFStream merges a sequence of EBNF DocumentDescriptors into one
+// GrammarDescriptor. Each document is parsed independently (comments stripped)
+// and its rules are unioned:
+//
+//   - identical rule definitions are deduplicated;
+//   - a later document's definition of a rule overrides an earlier one of the
+//     same name — so a grammar dependency's real production (streamed after the
+//     local grammar) overrides a local opaque placeholder of the same name.
+//
+// The first document names the merged grammar and its rules keep their leading
+// position, so its root production stays the conceptual root. The merged Lex is
+// the ISO 14977 EBNF meta-notation shared by all documents.
+func ParseEBNFStream(docs []*pb.DocumentDescriptor) (*pb.GrammarDescriptor, error) {
+	merged := &pb.GrammarDescriptor{Lex: EBNFLexV2()}
+	index := map[string]int{}
+	for _, doc := range docs {
+		src := ebnfComment.ReplaceAllString(TextOf(doc), " ")
+		v1g, err := lexkit.Parse(src, lexkit.EBNFLex())
+		if err != nil {
+			return nil, fmt.Errorf("parse %q: %w", doc.GetName(), err)
+		}
+		gd := convertGrammar(doc.GetName(), v1g)
+		if merged.Name == "" {
+			merged.Name = gd.GetName()
+		}
+		for _, r := range gd.GetRules() {
+			if i, ok := index[r.GetName()]; ok {
+				if proto.Equal(merged.Rules[i], r) {
+					continue // identical definition — dedupe
+				}
+				merged.Rules[i] = r // later definition overrides earlier
+				continue
+			}
+			index[r.GetName()] = len(merged.Rules)
+			merged.Rules = append(merged.Rules, r)
+		}
+	}
+	return merged, nil
 }
 
 // ParseEBNF is the pure-Go entry point behind the EBNF RPC. It
