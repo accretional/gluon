@@ -68,6 +68,13 @@ type ParseOptions struct {
 	// Preprocessor transforms source text before parsing.
 	Preprocessor func(string) string
 
+	// StartRule selects the production to begin parsing from. Empty means
+	// the grammar's first rule — the historical ParseCST behavior. Setting
+	// it lets callers parse a fragment against any sub-rule of the same
+	// grammar (e.g. one line/statement during recovery parsing) without
+	// reordering the grammar's rules. The named rule must exist.
+	StartRule string
+
 	// DisableAutoComments turns off built-in //, /*, (* comment skipping
 	// between tokens. Set true for languages (e.g. XML) where those byte
 	// sequences are ordinary data.
@@ -105,6 +112,19 @@ func ParseCSTWithOptions(req *pb.CstRequest, opts *ParseOptions) (*pb.ASTDescrip
 
 	src := TextOf(doc)
 	startRule := gd.GetRules()[0].GetName()
+	if opts != nil && opts.StartRule != "" {
+		found := false
+		for _, r := range gd.GetRules() {
+			if r.GetName() == opts.StartRule {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("start rule %q not in grammar", opts.StartRule)
+		}
+		startRule = opts.StartRule
+	}
 
 	v1gd := convertGrammarToV1(gd)
 	v1ast, err := lexkit.ParseASTWithOptions(src, gd.GetName(), startRule, v1gd, opts.toLexkit())
