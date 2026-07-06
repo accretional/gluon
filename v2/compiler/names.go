@@ -8,6 +8,12 @@ import (
 	v1pb "github.com/accretional/gluon/pb"
 )
 
+// PascalCase is the exported form of pascalCase: it maps a grammar rule name to
+// the proto message name the compiler emits for it (e.g. "SVGSVGElement" ->
+// "Svgsvgelement", "css_stylesheet" -> "CssStylesheet"). Downstream genproto
+// externalize passes use it to match a rule name against its compiled message.
+func PascalCase(s string) string { return pascalCase(s) }
+
 // pascalCase joins splitIdent pieces with initial-uppercase on each.
 func pascalCase(s string) string {
 	parts := splitIdent(s)
