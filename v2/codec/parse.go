@@ -39,6 +39,25 @@ type parser struct {
 	reg   *Registry
 	depth int
 	steps int
+	// memo is a packrat cache: parseMsg for a given (position, message type, stop
+	// set) always yields the same result, so we cache it. Without this, longest-
+	// match over a deeply ambiguous grammar (CSS declaration values) re-parses the
+	// same sub-expression exponentially — an empty rule took ~8M steps. Each seam
+	// gets a fresh parser (and thus a fresh memo), so the cache never leaks across
+	// self-delimiting embedded grammars.
+	memo map[string]*memoEntry
+}
+
+// memoEntry is a cached parseMsg outcome. On success snap holds a clone of the
+// fully-parsed message, merged into the caller's fresh message on a cache hit.
+type memoEntry struct {
+	end  int
+	err  error
+	snap proto.Message
+}
+
+func memoKey(pos int, name protoreflect.FullName, stops []string) string {
+	return fmt.Sprintf("%d\x1f%s\x1f%s", pos, name, strings.Join(stops, "\x1e"))
 }
 
 const (
@@ -49,7 +68,7 @@ const (
 // parseMsg parses msg (of grammar g) from pos, returning the position reached.
 // It is a prefix parser: it consumes as much as the grammar matches and stops,
 // which is exactly how a seam self-delimits.
-func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Grammar, outerStops []string) (int, error) {
+func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Grammar, outerStops []string) (end int, err error) {
 	if p.depth > maxParseDepth {
 		return pos, fmt.Errorf("max parse depth exceeded")
 	}
@@ -60,6 +79,29 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 	defer func() { p.depth-- }()
 
 	md := msg.Descriptor()
+
+	// Packrat memo: return a cached outcome for this (pos, type, stops), or record
+	// this call's outcome for the next identical one. Collapses exponential longest-
+	// match re-exploration to polynomial.
+	if p.memo == nil {
+		p.memo = map[string]*memoEntry{}
+	}
+	key := memoKey(pos, md.FullName(), outerStops)
+	if e := p.memo[key]; e != nil {
+		if e.err != nil {
+			return pos, e.err
+		}
+		proto.Merge(msg.Interface(), e.snap)
+		return e.end, nil
+	}
+	defer func() {
+		var snap proto.Message
+		if err == nil {
+			snap = proto.Clone(msg.Interface())
+		}
+		p.memo[key] = &memoEntry{end: end, err: err, snap: snap}
+	}()
+
 	fqn := "." + string(md.FullName())
 
 	if pfx, ok := g.Prefix[fqn]; ok {
