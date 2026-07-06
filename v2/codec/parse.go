@@ -102,7 +102,7 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 func (p *parser) parseSingular(input string, pos int, msg protoreflect.Message, fd protoreflect.FieldDescriptor, g *Grammar, stops []string) (int, error) {
 	if fd.Kind() != protoreflect.MessageKind {
 		text, np := matchUntilAny(input, p.skipWS(input, pos, g), stops)
-		if text = strings.TrimSpace(text); text != "" {
+		if text = p.normText(text, g); text != "" {
 			msg.Set(fd, protoreflect.ValueOfString(text))
 		}
 		return np, nil
@@ -178,7 +178,7 @@ func (p *parser) parseSeam(input string, pos int, msg protoreflect.Message, fd p
 func (p *parser) parseSeamInto(input string, pos int, sub protoreflect.Message, subG *Grammar, stops []string) (int, bool) {
 	if isScalar(sub.Descriptor()) {
 		text, np := matchUntilAny(input, p.skipWS(input, pos, subG), stops)
-		if text = strings.TrimSpace(text); text == "" {
+		if text = p.normText(text, subG); text == "" {
 			return pos, false
 		}
 		if vfd := sub.Descriptor().Fields().ByName("value"); vfd != nil {
@@ -200,7 +200,7 @@ func (p *parser) parseSeamInto(input string, pos int, sub protoreflect.Message, 
 
 func (p *parser) parseScalar(input string, pos int, parent protoreflect.Message, fd protoreflect.FieldDescriptor, sub protoreflect.Message, g *Grammar, stops []string) (int, error) {
 	text, np := matchUntilAny(input, p.skipWS(input, pos, g), stops)
-	if text = strings.TrimSpace(text); text == "" {
+	if text = p.normText(text, g); text == "" {
 		return pos, fmt.Errorf("empty scalar for %s", fd.Name())
 	}
 	if vfd := sub.Descriptor().Fields().ByName("value"); vfd != nil {
@@ -293,7 +293,7 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 			}
 			sub := newSub(fd.Message())
 			text, np := matchUntilAny(input, p.skipWS(input, pos, g), stops)
-			if text = strings.TrimSpace(text); text == "" {
+			if text = p.normText(text, g); text == "" {
 				continue
 			}
 			if vfd := fd.Message().Fields().ByName("value"); vfd != nil {
@@ -469,6 +469,17 @@ func (p *parser) leadingTerminal(md protoreflect.MessageDescriptor, g *Grammar, 
 		}
 	}
 	return ""
+}
+
+// normText normalizes captured leaf/text: CSS-style grammars are
+// whitespace-insignificant so the value is trimmed; markup grammars bake
+// whitespace into the document (inter-element spaces, <pre> indentation) so it is
+// significant and kept verbatim.
+func (p *parser) normText(text string, g *Grammar) string {
+	if g.SmartSpacing {
+		return strings.TrimSpace(text)
+	}
+	return text
 }
 
 // skipWS skips whitespace only for whitespace-insignificant (SmartSpacing)
