@@ -186,9 +186,12 @@ func (p *parser) parseSeamInto(input string, pos int, sub protoreflect.Message, 
 		}
 		return np, true
 	}
-	// Fresh parser: a bounded sub-problem with its own step budget (see parseSeam).
+	// Fresh parser (own step budget) and NO outer stops: an element/value seam in
+	// a oneof self-delimits where its own grammar stops matching (an <svg> at
+	// </svg>, a color at the closing quote), so imposing the container's stops
+	// would truncate the sub-parse.
 	subP := &parser{reg: p.reg}
-	np, err := subP.parseMsg(input, pos, sub, subG, stops)
+	np, err := subP.parseMsg(input, pos, sub, subG, nil)
 	if err != nil || np <= pos {
 		return pos, false
 	}
@@ -208,6 +211,38 @@ func (p *parser) parseScalar(input string, pos int, parent protoreflect.Message,
 }
 
 func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od protoreflect.OneofDescriptor, g *Grammar, stops []string) int {
+	// Element seams first: an Any variant whose embedded grammar begins with a
+	// fixed leading terminal (e.g. an <svg> in flow content) is recognized by
+	// that terminal and parsed before the greedy local longest-match loop can
+	// swallow it as text. Value seams (a color with no fixed leading terminal)
+	// fall through to the longest-match loop below.
+	for i := 0; i < od.Fields().Len(); i++ {
+		fd := od.Fields().Get(i)
+		if fd.Kind() != protoreflect.MessageKind || !isAny(fd.Message()) {
+			continue
+		}
+		lead := p.fieldLeadingTerminal(msg.Descriptor(), fd, g)
+		if lead == "" {
+			continue
+		}
+		start := p.skipWS(input, pos, g)
+		if !strings.HasPrefix(input[start:], lead) {
+			continue
+		}
+		seamType := g.Seam["."+string(msg.Descriptor().FullName())+"."+string(fd.Name())]
+		subG := p.reg.forPackage(packageOf(seamType))
+		sub := newSubByName(seamType)
+		if subG == nil || sub == nil {
+			continue
+		}
+		if np, ok := p.parseSeamInto(input, start, sub, subG, nil); ok {
+			if a, err := anypb.New(sub.Interface()); err == nil {
+				msg.Set(fd, protoreflect.ValueOfMessage(a.ProtoReflect()))
+				return np
+			}
+		}
+	}
+
 	bestPos := pos
 	var bestFD protoreflect.FieldDescriptor
 	var bestMsg protoreflect.Message
@@ -320,6 +355,26 @@ func (p *parser) parseRepeated(input string, pos int, msg protoreflect.Message, 
 		sub := newSub(fd.Message())
 		if sub == nil {
 			break
+		}
+		// A repeated SCALAR element (e.g. DasharrayType's lengths, ListOfNumbersType's
+		// numbers, a keyTimes number list) is captured directly: parseMsg no-ops on a
+		// scalar (it has no prefix and no fields to consume), so each element's text
+		// runs up to the next separator or an outer stop.
+		if isScalar(fd.Message()) {
+			elemStops := outerStops
+			if sep != "" {
+				elemStops = append(append([]string(nil), outerStops...), sep)
+			}
+			text, np := matchUntilAny(input, p.skipWS(input, tryPos, g), elemStops)
+			if text = strings.TrimSpace(text); text == "" {
+				break
+			}
+			if vfd := sub.Descriptor().Fields().ByName("value"); vfd != nil {
+				sub.Set(vfd, protoreflect.ValueOfString(text))
+			}
+			list.Append(protoreflect.ValueOfMessage(sub))
+			pos = np
+			continue
 		}
 		np, err := p.parseMsg(input, tryPos, sub, g, outerStops)
 		if err != nil || np <= tryPos {
