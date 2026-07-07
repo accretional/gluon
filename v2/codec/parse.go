@@ -39,6 +39,13 @@ type parser struct {
 	reg   *Registry
 	depth int
 	steps int
+	// terms counts grammar terminals consumed so far (message prefixes,
+	// keyword tokens). It makes matches comparable by "anchoredness" in
+	// parseOneof: a variant that consumed at least one terminal (an element
+	// recognized by its tag) outranks one that merely swallowed text into an
+	// unconstrained scalar, however long the swallow. Failed sub-parses roll
+	// their counts back so the counter reflects only the surviving parse.
+	terms int
 	// memo is a packrat cache: parseMsg for a given (position, message type, stop
 	// set) always yields the same result, so we cache it. Without this, longest-
 	// match over a deeply ambiguous grammar (CSS declaration values) re-parses the
@@ -49,11 +56,13 @@ type parser struct {
 }
 
 // memoEntry is a cached parseMsg outcome. On success snap holds a clone of the
-// fully-parsed message, merged into the caller's fresh message on a cache hit.
+// fully-parsed message, merged into the caller's fresh message on a cache hit,
+// and terms holds the terminal count the parse consumed.
 type memoEntry struct {
-	end  int
-	err  error
-	snap proto.Message
+	end   int
+	err   error
+	snap  proto.Message
+	terms int
 }
 
 func memoKey(pos int, name protoreflect.FullName, stops []string) string {
@@ -92,14 +101,18 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 			return pos, e.err
 		}
 		proto.Merge(msg.Interface(), e.snap)
+		p.terms += e.terms
 		return e.end, nil
 	}
+	startTerms := p.terms
 	defer func() {
 		var snap proto.Message
 		if err == nil {
 			snap = proto.Clone(msg.Interface())
+		} else {
+			p.terms = startTerms // failed parse consumed nothing
 		}
-		p.memo[key] = &memoEntry{end: end, err: err, snap: snap}
+		p.memo[key] = &memoEntry{end: end, err: err, snap: snap, terms: p.terms - startTerms}
 	}()
 
 	fqn := "." + string(md.FullName())
@@ -111,6 +124,7 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 				return pos, fmt.Errorf("expected %q for %s at %d", tok, md.Name(), pos)
 			}
 			pos += len(tok)
+			p.terms++
 		}
 	}
 	if isScalar(md) {
@@ -134,8 +148,17 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 			pos = p.parseRepeated(input, pos, msg, fd, g, stops)
 			continue
 		}
-		if np, err := p.parseSingular(input, pos, msg, fd, g, stops); err == nil {
+		np, serr := p.parseSingular(input, pos, msg, fd, g, stops)
+		if serr == nil {
 			pos = np
+			continue
+		}
+		// A required field that fails to match fails the whole message: a
+		// NestedCssRule without its "{" is not a NestedCssRule. Without this,
+		// every mandatory terminal is skippable and garbage alternatives win
+		// longest-match. Fields the grammar marks optional stay best-effort.
+		if g.Required[fqn+"."+string(fd.Name())] {
+			return pos, fmt.Errorf("required %s.%s: %w", md.Name(), fd.Name(), serr)
 		}
 	}
 	return pos, nil
@@ -163,8 +186,24 @@ func (p *parser) parseSingular(input string, pos int, msg protoreflect.Message, 
 	if err != nil {
 		return pos, err
 	}
+	// A sub-message that consumed nothing and captured nothing carries no
+	// information; setting it would litter the AST with empty markers (an
+	// unmatched optional 2nd..4th padding value, an empty selector wrapper).
+	if np == pos && messageEmpty(sub) {
+		return pos, nil
+	}
 	msg.Set(fd, protoreflect.ValueOfMessage(sub))
 	return np, nil
+}
+
+// messageEmpty reports whether no fields are set on m.
+func messageEmpty(m protoreflect.Message) bool {
+	empty := true
+	m.Range(func(protoreflect.FieldDescriptor, protoreflect.Value) bool {
+		empty = false
+		return false
+	})
+	return empty
 }
 
 // parseSeam parses a cross-grammar Any seam: it looks up the embedded type from
@@ -228,28 +267,66 @@ func (p *parser) parseSeamInto(input string, pos int, sub protoreflect.Message, 
 		}
 		return np, true
 	}
-	// Fresh parser (own step budget) and NO outer stops: an element/value seam in
-	// a oneof self-delimits where its own grammar stops matching (an <svg> at
-	// </svg>, a color at the closing quote), so imposing the container's stops
-	// would truncate the sub-parse.
+	// Fresh parser (own step budget). The container's stops are passed through
+	// as the sub-parse's outer stops — a delimiter of last resort. An embedded
+	// grammar with its own closing structure (an <svg> at </svg>) self-delimits
+	// before ever reaching them (element seams pass nil anyway), but a value
+	// seam whose leaf is an unconstrained scalar (a css.ColorType in fill="…")
+	// cannot self-delimit and must stop at the container's delimiter (the
+	// closing quote) instead of swallowing the rest of the document.
 	subP := &parser{reg: p.reg}
-	np, err := subP.parseMsg(input, pos, sub, subG, nil)
+	np, err := subP.parseMsg(input, pos, sub, subG, stops)
 	if err != nil || np <= pos {
 		return pos, false
 	}
+	p.terms += subP.terms // the embedded parse's terminals anchor this match
 	return np, true
 }
 
 func (p *parser) parseScalar(input string, pos int, parent protoreflect.Message, fd protoreflect.FieldDescriptor, sub protoreflect.Message, g *Grammar, stops []string) (int, error) {
+	np, err := p.parseScalarMsg(input, pos, sub, g, stops)
+	if err != nil {
+		return pos, err
+	}
+	parent.Set(fd, protoreflect.ValueOfMessage(sub))
+	return np, nil
+}
+
+// parseScalarMsg parses a scalar-leaf message (`string value = 1`): its prefix
+// tokens first — a scalar type stripped to a leading terminal (a hex color's
+// "#", a dashed ident's "--") is recognized by that terminal, and fails here
+// when it's absent — then the value text up to the nearest stop.
+func (p *parser) parseScalarMsg(input string, pos int, sub protoreflect.Message, g *Grammar, stops []string) (int, error) {
+	fqn := "." + string(sub.Descriptor().FullName())
+	startTerms := p.terms
+	pos, ok := p.consumePrefix(input, pos, sub.Descriptor(), g)
+	if !ok {
+		p.terms = startTerms
+		return pos, fmt.Errorf("prefix mismatch for %s at %d", fqn, pos)
+	}
 	text, np := matchUntilAny(input, p.skipWS(input, pos, g), stops)
 	if text = p.normText(text, g); text == "" {
-		return pos, fmt.Errorf("empty scalar for %s", fd.Name())
+		p.terms = startTerms
+		return pos, fmt.Errorf("empty scalar for %s", fqn)
 	}
 	if vfd := sub.Descriptor().Fields().ByName("value"); vfd != nil {
 		sub.Set(vfd, protoreflect.ValueOfString(text))
 	}
-	parent.Set(fd, protoreflect.ValueOfMessage(sub))
 	return np, nil
+}
+
+// consumePrefix consumes md's prefix tokens at pos, reporting whether they all
+// matched. Matched tokens count toward p.terms; callers roll back on failure.
+func (p *parser) consumePrefix(input string, pos int, md protoreflect.MessageDescriptor, g *Grammar) (int, bool) {
+	for _, tok := range g.Prefix["."+string(md.FullName())] {
+		pos = p.skipWS(input, pos, g)
+		if !strings.HasPrefix(input[pos:], tok) {
+			return pos, false
+		}
+		pos += len(tok)
+		p.terms++
+	}
+	return pos, true
 }
 
 func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od protoreflect.OneofDescriptor, g *Grammar, stops []string) int {
@@ -277,7 +354,12 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 		if subG == nil || sub == nil {
 			continue
 		}
-		if np, ok := p.parseSeamInto(input, start, sub, subG, nil); ok {
+		// The container's stops bound the sub-parse (delimiter of last resort):
+		// an element seam (<svg>) self-delimits long before them, but a value
+		// seam recognized by a leading token (a "#" hex color) bottoms out in
+		// an unconstrained scalar that must stop at the container's delimiter
+		// (the attribute's closing quote).
+		if np, ok := p.parseSeamInto(input, start, sub, subG, stops); ok {
 			if a, err := anypb.New(sub.Interface()); err == nil {
 				msg.Set(fd, protoreflect.ValueOfMessage(a.ProtoReflect()))
 				return np
@@ -286,8 +368,29 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 	}
 
 	bestPos := pos
+	bestLead := -1
+	bestTerms := 0
+	bestAnchored := false
 	var bestFD protoreflect.FieldDescriptor
 	var bestMsg protoreflect.Message
+	// better ranks a candidate (ending at np, leading-terminal length lead,
+	// anchored = consumed ≥1 grammar terminal). Anchored matches outrank
+	// unanchored ones regardless of length — an element recognized by its tag
+	// beats a text scalar that swallowed the rest of the container. Then
+	// longest match, then the longer (more specific) leading terminal — an
+	// <h1> is an Htmlh1element ("<h1"), not a custom element ("<").
+	better := func(np, lead int, anchored bool) bool {
+		if bestFD == nil {
+			return true
+		}
+		if anchored != bestAnchored {
+			return anchored
+		}
+		if np != bestPos {
+			return np > bestPos
+		}
+		return lead > bestLead
+	}
 
 	for i := 0; i < od.Fields().Len(); i++ {
 		fd := od.Fields().Get(i)
@@ -308,11 +411,16 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 			if sub == nil {
 				continue
 			}
+			t0 := p.terms
 			if np, ok := p.parseSeamInto(input, pos, sub, subG, stops); ok && np >= bestPos {
 				if a, aerr := anypb.New(sub.Interface()); aerr == nil {
-					bestPos, bestFD, bestMsg = np, fd, a.ProtoReflect()
+					// A matched embedded value is maximally specific: a local
+					// variant needs a strictly longer match to displace it.
+					bestPos, bestLead, bestAnchored, bestFD, bestMsg = np, 1<<30, true, fd, a.ProtoReflect()
+					bestTerms = p.terms - t0
 				}
 			}
+			p.terms = t0
 			continue
 		}
 		sub := newSub(fd.Message())
@@ -322,11 +430,17 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 		if isScalar(fd.Message()) {
 			continue
 		}
-		if np, err := p.parseMsg(input, pos, sub, g, stops); err == nil && np > bestPos {
-			bestPos, bestFD, bestMsg = np, fd, sub
+		lead := p.variantLeadLen(input, pos, msg.Descriptor(), fd, g)
+		t0 := p.terms
+		if np, err := p.parseMsg(input, pos, sub, g, stops); err == nil && np > pos && better(np, lead, p.terms > t0) {
+			bestPos, bestLead, bestAnchored, bestFD, bestMsg = np, lead, p.terms > t0, fd, sub
+			bestTerms = p.terms - t0
 		}
+		p.terms = t0
 	}
-	// Fallback: first scalar variant captures the text.
+	// Fallback: the first scalar variant whose prefix matches captures the
+	// text. A prefix-carrying scalar (hex color "#…") is recognized by its
+	// prefix; prefixless scalars (ident, number) accept anything up to a stop.
 	if bestFD == nil {
 		for i := 0; i < od.Fields().Len(); i++ {
 			fd := od.Fields().Get(i)
@@ -334,12 +448,12 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 				continue
 			}
 			sub := newSub(fd.Message())
-			text, np := matchUntilAny(input, p.skipWS(input, pos, g), stops)
-			if text = p.normText(text, g); text == "" {
+			if sub == nil {
 				continue
 			}
-			if vfd := fd.Message().Fields().ByName("value"); vfd != nil {
-				sub.Set(vfd, protoreflect.ValueOfString(text))
+			np, err := p.parseScalarMsg(input, pos, sub, g, stops)
+			if err != nil {
+				continue
 			}
 			bestPos, bestFD, bestMsg = np, fd, sub
 			break
@@ -347,6 +461,7 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 	}
 	if bestFD != nil {
 		msg.Set(bestFD, protoreflect.ValueOfMessage(bestMsg))
+		p.terms += bestTerms // only the winner's terminals survive
 	}
 	return bestPos
 }
@@ -374,6 +489,13 @@ func (p *parser) parseRepeated(input string, pos int, msg protoreflect.Message, 
 			}
 			tryPos += len(sep)
 		}
+		// Stop-set pruning: an outer stop marks where the enclosing message
+		// resumes (its next terminal — "</body>", "}"). A repetition must not
+		// swallow it as a degenerate element (a "custom element" named /body,
+		// an empty-selector nested rule), so the list ends here.
+		if startsWithAny(input, p.skipWS(input, tryPos, g), outerStops) {
+			break
+		}
 		if seamType != "" {
 			if subG == nil {
 				break
@@ -399,16 +521,22 @@ func (p *parser) parseRepeated(input string, pos int, msg protoreflect.Message, 
 			break
 		}
 		// A repeated SCALAR element (e.g. DasharrayType's lengths, ListOfNumbersType's
-		// numbers, a keyTimes number list) is captured directly: parseMsg no-ops on a
-		// scalar (it has no prefix and no fields to consume), so each element's text
-		// runs up to the next separator or an outer stop.
+		// numbers, a keyTimes number list) is captured directly: each element's
+		// prefix (if any) then its text up to the next separator or an outer stop.
 		if isScalar(fd.Message()) {
 			elemStops := outerStops
 			if sep != "" {
 				elemStops = append(append([]string(nil), outerStops...), sep)
 			}
-			text, np := matchUntilAny(input, p.skipWS(input, tryPos, g), elemStops)
+			t0 := p.terms
+			elemPos, ok := p.consumePrefix(input, tryPos, sub.Descriptor(), g)
+			if !ok {
+				p.terms = t0
+				break
+			}
+			text, np := matchUntilAny(input, p.skipWS(input, elemPos, g), elemStops)
 			if text = strings.TrimSpace(text); text == "" {
+				p.terms = t0
 				break
 			}
 			if vfd := sub.Descriptor().Fields().ByName("value"); vfd != nil {
@@ -539,6 +667,31 @@ func (p *parser) skipWS(input string, pos int, g *Grammar) int {
 		}
 	}
 	return pos
+}
+
+// variantLeadLen is the length of a oneof variant's leading terminal when that
+// terminal matches the input here, else 0 — the variant's token specificity.
+// Wrapper variants whose first terminal doesn't match (they matched through a
+// different inner alternative) score 0.
+func (p *parser) variantLeadLen(input string, pos int, md protoreflect.MessageDescriptor, fd protoreflect.FieldDescriptor, g *Grammar) int {
+	t := p.fieldLeadingTerminal(md, fd, g)
+	if t == "" {
+		return 0
+	}
+	if strings.HasPrefix(input[p.skipWS(input, pos, g):], t) {
+		return len(t)
+	}
+	return 0
+}
+
+// startsWithAny reports whether input at pos begins with any stop string.
+func startsWithAny(input string, pos int, stops []string) bool {
+	for _, s := range stops {
+		if s != "" && strings.HasPrefix(input[pos:], s) {
+			return true
+		}
+	}
+	return false
 }
 
 func matchUntilAny(input string, pos int, stops []string) (string, int) {

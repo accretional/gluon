@@ -39,6 +39,13 @@ type Grammar struct {
 	// Seam maps ".pkg.Msg.field" -> the fully-qualified type name an Any seam
 	// field embeds (e.g. "css.CssStyleSheet"), for the parse direction.
 	Seam map[string]string
+	// Required maps ".pkg.Msg.field" -> true when the grammar makes that field
+	// mandatory: not wrapped in [ ] or { }, and not a oneof alternative. The
+	// parser fails the containing message when a required field fails to match
+	// (a NestedCssRule without its "{" is not a NestedCssRule), which is what
+	// lets longest-match reject degenerate alternatives. Grammars that don't
+	// provide the table keep the older skip-on-failure best-effort behavior.
+	Required map[string]bool
 	// SmartSpacing selects the join/whitespace discipline. true = CSS-style
 	// (tokens joined with convention-aware spacing; whitespace insignificant on
 	// parse). false = markup (tokens concatenated; whitespace significant, as
