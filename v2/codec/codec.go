@@ -46,6 +46,13 @@ type Grammar struct {
 	// lets longest-match reject degenerate alternatives. Grammars that don't
 	// provide the table keep the older skip-on-failure best-effort behavior.
 	Required map[string]bool
+	// ScalarStops maps a scalarized leaf's ".pkg.Msg" to the printable ASCII
+	// characters its grammar rule can never contain (derived from the range/
+	// terminal definitions scalarization collapsed). A scalar capture is cut
+	// before the first such character, restoring the lexical boundary the
+	// collapse erased — a custom_element_name stops at a space or quote, a CSS
+	// ident at ":" or "{" — instead of swallowing text up to a stop token.
+	ScalarStops map[string]string
 	// SmartSpacing selects the join/whitespace discipline. true = CSS-style
 	// (tokens joined with convention-aware spacing; whitespace insignificant on
 	// parse). false = markup (tokens concatenated; whitespace significant, as

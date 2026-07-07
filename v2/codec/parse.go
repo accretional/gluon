@@ -258,7 +258,9 @@ func (p *parser) parseSeam(input string, pos int, msg protoreflect.Message, fd p
 // anything was consumed.
 func (p *parser) parseSeamInto(input string, pos int, sub protoreflect.Message, subG *Grammar, stops []string) (int, bool) {
 	if isScalar(sub.Descriptor()) {
-		text, np := matchUntilAny(input, p.skipWS(input, pos, subG), stops)
+		start := p.skipWS(input, pos, subG)
+		text, np := matchUntilAny(input, start, stops)
+		text, np = cutAtStopChars(text, np, start, subG.ScalarStops["."+string(sub.Descriptor().FullName())])
 		if text = p.normText(text, subG); text == "" {
 			return pos, false
 		}
@@ -304,7 +306,9 @@ func (p *parser) parseScalarMsg(input string, pos int, sub protoreflect.Message,
 		p.terms = startTerms
 		return pos, fmt.Errorf("prefix mismatch for %s at %d", fqn, pos)
 	}
-	text, np := matchUntilAny(input, p.skipWS(input, pos, g), stops)
+	start := p.skipWS(input, pos, g)
+	text, np := matchUntilAny(input, start, stops)
+	text, np = cutAtStopChars(text, np, start, g.ScalarStops[fqn])
 	if text = p.normText(text, g); text == "" {
 		p.terms = startTerms
 		return pos, fmt.Errorf("empty scalar for %s", fqn)
@@ -313,6 +317,19 @@ func (p *parser) parseScalarMsg(input string, pos int, sub protoreflect.Message,
 		sub.Set(vfd, protoreflect.ValueOfString(text))
 	}
 	return np, nil
+}
+
+// cutAtStopChars truncates a scalar capture at the first character the leaf's
+// grammar rule can never contain (see Grammar.ScalarStops). start is the
+// capture's starting offset in the input.
+func cutAtStopChars(text string, np, start int, chars string) (string, int) {
+	if chars == "" || text == "" {
+		return text, np
+	}
+	if idx := strings.IndexAny(text, chars); idx >= 0 {
+		return text[:idx], start + idx
+	}
+	return text, np
 }
 
 // consumePrefix consumes md's prefix tokens at pos, reporting whether they all
@@ -534,7 +551,9 @@ func (p *parser) parseRepeated(input string, pos int, msg protoreflect.Message, 
 				p.terms = t0
 				break
 			}
-			text, np := matchUntilAny(input, p.skipWS(input, elemPos, g), elemStops)
+			start := p.skipWS(input, elemPos, g)
+			text, np := matchUntilAny(input, start, elemStops)
+			text, np = cutAtStopChars(text, np, start, g.ScalarStops["."+string(sub.Descriptor().FullName())])
 			if text = strings.TrimSpace(text); text == "" {
 				p.terms = t0
 				break
