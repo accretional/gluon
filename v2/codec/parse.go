@@ -2,6 +2,7 @@ package codec
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
@@ -39,6 +40,16 @@ type parser struct {
 	reg   *Registry
 	depth int
 	steps int
+	// noLeadWS suppresses the TokenWS whitespace-retry for the NEXT
+	// parseMsg's own prefix only (reset on entry): a oneof variant must not
+	// self-skip the whitespace in front of it — a whitespace text node is the
+	// rightful claimant between phrasing elements ("<a>x</a> <a>y</a>"), and
+	// only where NOTHING claims it (element-only content models) does the
+	// repetition-level retry skip it.
+	noLeadWS bool
+	// deepErr records the furthest-reaching variant failure of the most
+	// recent unmatched oneof (diagnostic detail for its error message).
+	deepErr error
 	// terms counts grammar terminals consumed so far (message prefixes,
 	// keyword tokens). It makes matches comparable by "anchoredness" in
 	// parseOneof: a variant that consumed at least one terminal (an element
@@ -65,14 +76,23 @@ type memoEntry struct {
 	terms int
 }
 
-func memoKey(pos int, name protoreflect.FullName, stops []string) string {
-	return fmt.Sprintf("%d\x1f%s\x1f%s", pos, name, strings.Join(stops, "\x1e"))
+func memoKey(pos int, name protoreflect.FullName, stops []string, noLeadWS bool) string {
+	ws := byte('w')
+	if noLeadWS {
+		ws = 'W'
+	}
+	return fmt.Sprintf("%d%c\x1f%s\x1f%s", pos, ws, name, strings.Join(stops, "\x1e"))
 }
 
 const (
 	maxParseDepth = 400
-	maxParseSteps = 8_000_000
+	maxParseSteps = 64_000_000
 )
+
+// traceEnabled turns on per-message parse tracing (GLUON_TRACE=1): one line
+// per parseMsg with the span reached and the error. Debug aid; off by
+// default.
+var traceEnabled = os.Getenv("GLUON_TRACE") != ""
 
 // parseMsg parses msg (of grammar g) from pos, returning the position reached.
 // It is a prefix parser: it consumes as much as the grammar matches and stops,
@@ -88,6 +108,12 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 	defer func() { p.depth-- }()
 
 	md := msg.Descriptor()
+	if traceEnabled {
+		name := string(md.Name())
+		defer func(start int) {
+			fmt.Printf("TRACE %s pos=%d -> %d err=%v stops=%v\n", name, start, end, err, outerStops)
+		}(pos)
+	}
 
 	// Packrat memo: return a cached outcome for this (pos, type, stops), or record
 	// this call's outcome for the next identical one. Collapses exponential longest-
@@ -95,7 +121,7 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 	if p.memo == nil {
 		p.memo = map[string]*memoEntry{}
 	}
-	key := memoKey(pos, md.FullName(), outerStops)
+	key := memoKey(pos, md.FullName(), outerStops, p.noLeadWS)
 	if e := p.memo[key]; e != nil {
 		if e.err != nil {
 			return pos, e.err
@@ -117,14 +143,21 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 
 	fqn := "." + string(md.FullName())
 
+	leadWSOK := !p.noLeadWS
+	p.noLeadWS = false // applies to THIS message's prefix only, never children
 	if pfx, ok := g.Prefix[fqn]; ok {
 		for _, tok := range pfx {
 			pos = p.skipWS(input, pos, g)
 			if !strings.HasPrefix(input[pos:], tok) {
-				return pos, fmt.Errorf("expected %q for %s at %d", tok, md.Name(), pos)
+				if ws := skipTokenWS(input, pos, g); leadWSOK && ws > pos && strings.HasPrefix(input[ws:], tok) {
+					pos = ws
+				} else {
+					return pos, fmt.Errorf("expected %q for %s at %d", tok, md.Name(), pos)
+				}
 			}
 			pos += len(tok)
 			p.terms++
+			leadWSOK = true // later tokens of the same prefix may span ws
 		}
 	}
 	if isScalar(md) {
@@ -135,20 +168,40 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 	handledOneofs := map[int]bool{}
 	for i := 0; i < fields.Len(); i++ {
 		fd := fields.Get(i)
-		stops := p.fieldStops(md, i, g, outerStops)
+		stops, local := p.fieldStops(md, i, g, outerStops)
 		if od := fd.ContainingOneof(); od != nil {
 			if handledOneofs[od.Index()] {
 				continue
 			}
 			handledOneofs[od.Index()] = true
-			pos = p.parseOneof(input, pos, msg, od, g, stops)
+			np, matched := p.parseOneof(input, pos, msg, od, g, stops, local)
+			if !matched {
+				// TokenWS: no alternative claimed the whitespace (a text arm
+				// would have) — skip the ignorable run and retry the whole
+				// alternation once.
+				if ws := skipTokenWS(input, pos, g); ws > pos {
+					np, matched = p.parseOneof(input, ws, msg, od, g, stops, local)
+				}
+			}
+			if !matched {
+				// An alternation must choose an arm: a grammar-optional
+				// alternation compiles to an optional FIELD wrapping the
+				// oneof, so tolerance lives at the field level, not here.
+				// Without this, a truncated match slips through as success
+				// (font:14px/1.5 with its family silently dropped).
+				if p.deepErr != nil {
+					return pos, fmt.Errorf("no alternative of %s.%s matched at %d (deepest: %w)", md.Name(), od.Name(), pos, p.deepErr)
+				}
+				return pos, fmt.Errorf("no alternative of %s.%s matched at %d", md.Name(), od.Name(), pos)
+			}
+			pos = np
 			continue
 		}
 		if fd.IsList() {
 			pos = p.parseRepeated(input, pos, msg, fd, g, stops)
 			continue
 		}
-		np, serr := p.parseSingular(input, pos, msg, fd, g, stops)
+		np, serr := p.parseSingular(input, pos, msg, fd, g, stops, local)
 		if serr == nil {
 			pos = np
 			continue
@@ -164,7 +217,7 @@ func (p *parser) parseMsg(input string, pos int, msg protoreflect.Message, g *Gr
 	return pos, nil
 }
 
-func (p *parser) parseSingular(input string, pos int, msg protoreflect.Message, fd protoreflect.FieldDescriptor, g *Grammar, stops []string) (int, error) {
+func (p *parser) parseSingular(input string, pos int, msg protoreflect.Message, fd protoreflect.FieldDescriptor, g *Grammar, stops, local []string) (int, error) {
 	if fd.Kind() != protoreflect.MessageKind {
 		text, np := matchUntilAny(input, p.skipWS(input, pos, g), stops)
 		if text = p.normText(text, g); text != "" {
@@ -180,7 +233,7 @@ func (p *parser) parseSingular(input string, pos int, msg protoreflect.Message, 
 		return pos, fmt.Errorf("cannot create %s", fd.Message().FullName())
 	}
 	if isScalar(fd.Message()) {
-		return p.parseScalar(input, pos, msg, fd, sub, g, stops)
+		return p.parseScalar(input, pos, msg, fd, sub, g, stops, local)
 	}
 	np, err := p.parseMsg(input, pos, sub, g, stops)
 	if err != nil {
@@ -223,10 +276,23 @@ func (p *parser) parseSeam(input string, pos int, msg protoreflect.Message, fd p
 	if sub == nil {
 		return pos, nil
 	}
-	// A singular seam is delimited by this field's stop (e.g. </style>, a closing
-	// quote): the embedded content runs up to it. Capture that span, then parse
-	// it fully with the embedded grammar — the sub-grammar must not see the
-	// delimiter (a stylesheet would greedily try to keep consuming past it).
+	// Prefix-parse the embedded grammar in place, with this field's stops as
+	// the outer bound: the sub-grammar self-delimits where it stops matching
+	// (a stylesheet at </style>) and its charset-bounded scalars ignore the
+	// inherited stops, so a color argument list may contain the spaces that a
+	// span pre-capture would have cut at.
+	if np, ok := p.parseSeamInto(input, pos, sub, subG, stops); ok {
+		if a, err := anypb.New(sub.Interface()); err == nil {
+			msg.Set(fd, protoreflect.ValueOfMessage(a.ProtoReflect()))
+			return np, nil
+		}
+	}
+	// Fallback: capture the span up to this field's stop (e.g. </style>, a
+	// closing quote) and parse it in isolation.
+	sub = newSubByName(seamType)
+	if sub == nil {
+		return pos, nil
+	}
 	text, np := matchUntilAny(input, p.skipWS(input, pos, subG), stops)
 	if strings.TrimSpace(text) == "" {
 		return pos, nil
@@ -259,8 +325,7 @@ func (p *parser) parseSeam(input string, pos int, msg protoreflect.Message, fd p
 func (p *parser) parseSeamInto(input string, pos int, sub protoreflect.Message, subG *Grammar, stops []string) (int, bool) {
 	if isScalar(sub.Descriptor()) {
 		start := p.skipWS(input, pos, subG)
-		text, np := matchUntilAny(input, start, stops)
-		text, np = cutAtStopChars(text, np, start, subG.ScalarStops["."+string(sub.Descriptor().FullName())])
+		text, np := captureScalar(input, start, stops, stops, subG.ScalarStops["."+string(sub.Descriptor().FullName())])
 		if text = p.normText(text, subG); text == "" {
 			return pos, false
 		}
@@ -285,8 +350,8 @@ func (p *parser) parseSeamInto(input string, pos int, sub protoreflect.Message, 
 	return np, true
 }
 
-func (p *parser) parseScalar(input string, pos int, parent protoreflect.Message, fd protoreflect.FieldDescriptor, sub protoreflect.Message, g *Grammar, stops []string) (int, error) {
-	np, err := p.parseScalarMsg(input, pos, sub, g, stops)
+func (p *parser) parseScalar(input string, pos int, parent protoreflect.Message, fd protoreflect.FieldDescriptor, sub protoreflect.Message, g *Grammar, stops, local []string) (int, error) {
+	np, err := p.parseScalarMsg(input, pos, sub, g, stops, local)
 	if err != nil {
 		return pos, err
 	}
@@ -298,20 +363,55 @@ func (p *parser) parseScalar(input string, pos int, parent protoreflect.Message,
 // tokens first — a scalar type stripped to a leading terminal (a hex color's
 // "#", a dashed ident's "--") is recognized by that terminal, and fails here
 // when it's absent — then the value text up to the nearest stop.
-func (p *parser) parseScalarMsg(input string, pos int, sub protoreflect.Message, g *Grammar, stops []string) (int, error) {
+func (p *parser) parseScalarMsg(input string, pos int, sub protoreflect.Message, g *Grammar, stops, local []string) (int, error) {
 	fqn := "." + string(sub.Descriptor().FullName())
 	startTerms := p.terms
+	// A quote-delimited leaf is captured inclusive of its quotes, as one
+	// token: the pairing (not stop tokens) bounds it, so string content may
+	// contain anything except its own quote.
+	if quotes := g.ScalarQuotes[fqn]; quotes != "" {
+		qpos := p.skipWS(input, pos, g)
+		if qpos >= len(input) || !strings.ContainsRune(quotes, rune(input[qpos])) {
+			return pos, fmt.Errorf("expected quoted literal for %s at %d", fqn, qpos)
+		}
+		q := input[qpos]
+		end := strings.IndexByte(input[qpos+1:], q)
+		if end < 0 {
+			return pos, fmt.Errorf("unterminated %q literal for %s at %d", q, fqn, qpos)
+		}
+		np := qpos + 1 + end + 1
+		if vfd := sub.Descriptor().Fields().ByName("value"); vfd != nil {
+			sub.Set(vfd, protoreflect.ValueOfString(input[qpos:np]))
+		}
+		p.terms += 2 // both delimiters are real terminal matches
+		return np, nil
+	}
 	pos, ok := p.consumePrefix(input, pos, sub.Descriptor(), g)
 	if !ok {
 		p.terms = startTerms
 		return pos, fmt.Errorf("prefix mismatch for %s at %d", fqn, pos)
 	}
 	start := p.skipWS(input, pos, g)
-	text, np := matchUntilAny(input, start, stops)
-	text, np = cutAtStopChars(text, np, start, g.ScalarStops[fqn])
+	// The first-set covers the rule INCLUDING its stripped leading terminals;
+	// once a prefix matched, the leaf is already anchored and the remaining
+	// text is the rule's interior, so the check applies only to prefixless
+	// leaves.
+	if starts := g.ScalarStarts[fqn]; starts != "" && len(g.Prefix[fqn]) == 0 {
+		if start >= len(input) || !strings.ContainsRune(starts, rune(input[start])) {
+			p.terms = startTerms
+			return pos, fmt.Errorf("first-set mismatch for %s at %d", fqn, start)
+		}
+	}
+	text, np := captureScalar(input, start, stops, local, g.ScalarStops[fqn])
 	if text = p.normText(text, g); text == "" {
 		p.terms = startTerms
 		return pos, fmt.Errorf("empty scalar for %s", fqn)
+	}
+	for _, must := range g.ScalarMust[fqn] {
+		if !strings.ContainsRune(text, must) {
+			p.terms = startTerms
+			return pos, fmt.Errorf("%s requires %q in its token", fqn, must)
+		}
 	}
 	if vfd := sub.Descriptor().Fields().ByName("value"); vfd != nil {
 		sub.Set(vfd, protoreflect.ValueOfString(text))
@@ -319,13 +419,26 @@ func (p *parser) parseScalarMsg(input string, pos int, sub protoreflect.Message,
 	return np, nil
 }
 
-// cutAtStopChars truncates a scalar capture at the first character the leaf's
-// grammar rule can never contain (see Grammar.ScalarStops). start is the
-// capture's starting offset in the input.
-func cutAtStopChars(text string, np, start int, chars string) (string, int) {
-	if chars == "" || text == "" {
-		return text, np
+// captureScalar captures a scalar leaf's text starting at start. A leaf with
+// a derived charset (Grammar.ScalarStops) is bounded by that charset ALONE —
+// it is the rule's own lexical boundary, and outer stop tokens must not cut
+// inside it (a "/" delimiter two fields later must not split
+// url(assets/photo.jpg)). Only an unbounded leaf falls back to the stop
+// tokens. A charset that excludes the space also excludes the other
+// whitespace characters (the emitter only covers printable ASCII).
+func captureScalar(input string, start int, stops, local []string, chars string) (string, int) {
+	_ = stops
+	if chars == "" {
+		// An unbounded raw-text leaf (script/style bodies) is delimited by its
+		// OWN closing structure — the local stops. Inherited stops must not
+		// reach inside it: a </body> inside an html-snippet <script> belongs
+		// to the script text, not to the enclosing body.
+		return matchUntilAny(input, start, local)
 	}
+	if strings.ContainsRune(chars, ' ') {
+		chars += "\t\n\r\f\v"
+	}
+	text, np := matchUntilAny(input, start, local)
 	if idx := strings.IndexAny(text, chars); idx >= 0 {
 		return text[:idx], start + idx
 	}
@@ -346,7 +459,24 @@ func (p *parser) consumePrefix(input string, pos int, md protoreflect.MessageDes
 	return pos, true
 }
 
-func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od protoreflect.OneofDescriptor, g *Grammar, stops []string) int {
+// skipTokenWS skips a whitespace run for TokenWS grammars (terminal retry
+// after ignorable inter-element whitespace); otherwise returns pos unchanged.
+func skipTokenWS(input string, pos int, g *Grammar) int {
+	if !g.TokenWS {
+		return pos
+	}
+	for pos < len(input) {
+		switch input[pos] {
+		case ' ', '\t', '\n', '\r', '\f':
+			pos++
+		default:
+			return pos
+		}
+	}
+	return pos
+}
+
+func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od protoreflect.OneofDescriptor, g *Grammar, stops, local []string) (int, bool) {
 	// Element seams first: an Any variant whose embedded grammar begins with a
 	// fixed leading terminal (e.g. an <svg> in flow content) is recognized by
 	// that terminal and parsed before the greedy local longest-match loop can
@@ -379,7 +509,7 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 		if np, ok := p.parseSeamInto(input, start, sub, subG, stops); ok {
 			if a, err := anypb.New(sub.Interface()); err == nil {
 				msg.Set(fd, protoreflect.ValueOfMessage(a.ProtoReflect()))
-				return np
+				return np, true
 			}
 		}
 	}
@@ -387,21 +517,32 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 	bestPos := pos
 	bestLead := -1
 	bestTerms := 0
-	bestAnchored := false
+	bestTier := 0
 	var bestFD protoreflect.FieldDescriptor
 	var bestMsg protoreflect.Message
+	// An alternative that legitimately matches EMPTY (an "" arm in
+	// popover=""|"auto"|…) is remembered as the last resort: it is chosen only
+	// when nothing consumes input, so the alternation still "chose an arm".
+	var emptyFD protoreflect.FieldDescriptor
+	var emptyMsg protoreflect.Message
+	// deepErr is the error of the variant that got FURTHEST before failing —
+	// surfaced when no alternative matches, so the caller sees the real
+	// blocker instead of an opaque "no alternative matched".
+	deepErrPos := -1
 	// better ranks a candidate (ending at np, leading-terminal length lead,
-	// anchored = consumed ≥1 grammar terminal). Anchored matches outrank
-	// unanchored ones regardless of length — an element recognized by its tag
-	// beats a text scalar that swallowed the rest of the container. Then
-	// longest match, then the longer (more specific) leading terminal — an
-	// <h1> is an Htmlh1element ("<h1"), not a custom element ("<").
-	better := func(np, lead int, anchored bool) bool {
+	// tier). Tier 2 = RECOGNIZED: a structured/anchored match, or a scalar
+	// bounded by its own charset — its length is a true token length. Tier 1 =
+	// a charset-less scalar swallow, whose length means nothing (it ran to an
+	// arbitrary stop): it never outranks a recognized match, however long the
+	// swallow. Within a tier: longest match, then the longer (more specific)
+	// leading terminal — an <h1> is an Htmlh1element ("<h1"), not a custom
+	// element ("<").
+	better := func(np, lead, tier int) bool {
 		if bestFD == nil {
 			return true
 		}
-		if anchored != bestAnchored {
-			return anchored
+		if tier != bestTier {
+			return tier > bestTier
 		}
 		if np != bestPos {
 			return np > bestPos
@@ -433,7 +574,7 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 				if a, aerr := anypb.New(sub.Interface()); aerr == nil {
 					// A matched embedded value is maximally specific: a local
 					// variant needs a strictly longer match to displace it.
-					bestPos, bestLead, bestAnchored, bestFD, bestMsg = np, 1<<30, true, fd, a.ProtoReflect()
+					bestPos, bestLead, bestTier, bestFD, bestMsg = np, 1<<30, 2, fd, a.ProtoReflect()
 					bestTerms = p.terms - t0
 				}
 			}
@@ -449,38 +590,74 @@ func (p *parser) parseOneof(input string, pos int, msg protoreflect.Message, od 
 		}
 		lead := p.variantLeadLen(input, pos, msg.Descriptor(), fd, g)
 		t0 := p.terms
-		if np, err := p.parseMsg(input, pos, sub, g, stops); err == nil && np > pos && better(np, lead, p.terms > t0) {
-			bestPos, bestLead, bestAnchored, bestFD, bestMsg = np, lead, p.terms > t0, fd, sub
-			bestTerms = p.terms - t0
+		p.noLeadWS = true // ws in front of a variant belongs to a text sibling
+		if np, err := p.parseMsg(input, pos, sub, g, stops); err == nil {
+			if np > pos && better(np, lead, 2) {
+				bestPos, bestLead, bestTier, bestFD, bestMsg = np, lead, 2, fd, sub
+				bestTerms = p.terms - t0
+			} else if np == pos && emptyFD == nil {
+				emptyFD, emptyMsg = fd, sub
+			}
+		} else if ep := errPos(err); ep > deepErrPos {
+			deepErrPos, p.deepErr = ep, err
 		}
 		p.terms = t0
 	}
-	// Fallback: the first scalar variant whose prefix matches captures the
-	// text. A prefix-carrying scalar (hex color "#…") is recognized by its
-	// prefix; prefixless scalars (ident, number) accept anything up to a stop.
-	if bestFD == nil {
-		for i := 0; i < od.Fields().Len(); i++ {
-			fd := od.Fields().Get(i)
-			if fd.Kind() != protoreflect.MessageKind || !isScalar(fd.Message()) {
-				continue
-			}
-			sub := newSub(fd.Message())
-			if sub == nil {
-				continue
-			}
-			np, err := p.parseScalarMsg(input, pos, sub, g, stops)
-			if err != nil {
-				continue
-			}
-			bestPos, bestFD, bestMsg = np, fd, sub
-			break
+	// Scalar variants compete in the same ranking (anchored beats unanchored,
+	// then longest, ties keep the earlier/message match): a direct flex scalar
+	// capturing "1fr" must beat a length wrapper that stopped at "1", while an
+	// element recognized by its tag still beats any text swallow. A scalar's
+	// prefix/quote matches count as anchoring terminals.
+	for i := 0; i < od.Fields().Len(); i++ {
+		fd := od.Fields().Get(i)
+		if fd.Kind() != protoreflect.MessageKind || !isScalar(fd.Message()) {
+			continue
 		}
+		sub := newSub(fd.Message())
+		if sub == nil {
+			continue
+		}
+		t0 := p.terms
+		np, err := p.parseScalarMsg(input, pos, sub, g, stops, local)
+		delta := p.terms - t0
+		p.terms = t0 // winner's delta re-applied at the end
+		tier := 1
+		if delta > 0 || g.ScalarStops["."+string(fd.Message().FullName())] != "" {
+			tier = 2 // anchored (prefix/quote) or charset-bounded: a true token
+		}
+		if err != nil || np <= pos || !better(np, 0, tier) {
+			continue
+		}
+		bestPos, bestLead, bestTier, bestFD, bestMsg, bestTerms = np, 0, tier, fd, sub, delta
 	}
 	if bestFD != nil {
 		msg.Set(bestFD, protoreflect.ValueOfMessage(bestMsg))
 		p.terms += bestTerms // only the winner's terminals survive
+		return bestPos, true
 	}
-	return bestPos
+	if emptyFD != nil {
+		msg.Set(emptyFD, protoreflect.ValueOfMessage(emptyMsg))
+		return pos, true
+	}
+	return bestPos, false
+}
+
+// errPos extracts the trailing "at N" position from a parse error message,
+// used to rank which alternative got furthest.
+func errPos(err error) int {
+	s := err.Error()
+	i := strings.LastIndex(s, "at ")
+	if i < 0 {
+		return 0
+	}
+	n := 0
+	for _, c := range s[i+3:] {
+		if c < '0' || c > '9' {
+			break
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n
 }
 
 func (p *parser) parseRepeated(input string, pos int, msg protoreflect.Message, fd protoreflect.FieldDescriptor, g *Grammar, outerStops []string) int {
@@ -497,6 +674,78 @@ func (p *parser) parseRepeated(input string, pos int, msg protoreflect.Message, 
 		seamType = g.Seam["."+string(msg.Descriptor().FullName())+"."+string(fd.Name())]
 		subG = p.reg.forPackage(packageOf(seamType))
 	}
+
+	// parseElem parses ONE element at `at`, appending it on success and
+	// returning the new position, or -1 on failure.
+	parseElem := func(at int) int {
+		if seamType != "" {
+			if subG == nil {
+				return -1
+			}
+			sub := newSubByName(seamType)
+			if sub == nil {
+				return -1
+			}
+			np, ok := p.parseSeamInto(input, at, sub, subG, outerStops)
+			if !ok {
+				return -1
+			}
+			a, aerr := anypb.New(sub.Interface())
+			if aerr != nil {
+				return -1
+			}
+			list.Append(protoreflect.ValueOfMessage(a.ProtoReflect()))
+			return np
+		}
+		sub := newSub(fd.Message())
+		if sub == nil {
+			return -1
+		}
+		// A repeated SCALAR element (e.g. DasharrayType's lengths, a keyTimes
+		// number list) is captured directly: each element's prefix (if any)
+		// then its text up to the next separator or an outer stop.
+		if isScalar(fd.Message()) {
+			elemStops := outerStops
+			if sep != "" {
+				elemStops = append(append([]string(nil), outerStops...), sep)
+			}
+			t0 := p.terms
+			elemPos, ok := p.consumePrefix(input, at, sub.Descriptor(), g)
+			if !ok {
+				p.terms = t0
+				return -1
+			}
+			start := p.skipWS(input, elemPos, g)
+			localSep := []string(nil)
+			if sep != "" {
+				localSep = []string{sep}
+			}
+			text, np := captureScalar(input, start, elemStops, localSep, g.ScalarStops["."+string(sub.Descriptor().FullName())])
+			if text = strings.TrimSpace(text); text == "" {
+				p.terms = t0
+				return -1
+			}
+			if vfd := sub.Descriptor().Fields().ByName("value"); vfd != nil {
+				sub.Set(vfd, protoreflect.ValueOfString(text))
+			}
+			list.Append(protoreflect.ValueOfMessage(sub))
+			return np
+		}
+		// A message element of a SEPARATED list must treat the separator as a
+		// stop: without it, ping="u1 u2"'s first UrlListToken would swallow
+		// the " " (via the TokenWS retry) and capture u2 as more of itself.
+		elemStops := outerStops
+		if sep != "" {
+			elemStops = append(append([]string(nil), outerStops...), sep)
+		}
+		np, err := p.parseMsg(input, at, sub, g, elemStops)
+		if err != nil || np <= at {
+			return -1
+		}
+		list.Append(protoreflect.ValueOfMessage(sub))
+		return np
+	}
+
 	for {
 		tryPos := pos
 		if list.Len() > 0 && sep != "" {
@@ -506,79 +755,41 @@ func (p *parser) parseRepeated(input string, pos int, msg protoreflect.Message, 
 			}
 			tryPos += len(sep)
 		}
-		// Stop-set pruning: an outer stop marks where the enclosing message
-		// resumes (its next terminal — "</body>", "}"). A repetition must not
-		// swallow it as a degenerate element (a "custom element" named /body,
-		// an empty-selector nested rule), so the list ends here.
-		if startsWithAny(input, p.skipWS(input, tryPos, g), outerStops) {
-			break
+		// The element attempt comes FIRST: an outer stop's token can also
+		// legitimately START content here (a "<!--" comment in flow content is
+		// content even though "<!--" is the lead of a later sibling). Only
+		// when nothing parses does the stop-set gate the whitespace retry —
+		// required-field strictness already prevents a closer like "</body>"
+		// from being swallowed as a degenerate element.
+		np := parseElem(tryPos)
+		if np <= tryPos {
+			// TokenWS: nothing claimed the whitespace run (a text slot would
+			// have, keeping it verbatim), so it is ignorable inter-element
+			// whitespace — skip it and retry once, but never past an outer
+			// stop ("\n</head>" ends the list, it doesn't hide it).
+			ws := skipTokenWS(input, tryPos, g)
+			// Never skip whitespace that is itself an outer token (e.g. a " "
+			// list separator owned by an ancestor): it is significant there.
+			if ws == tryPos || startsWithAny(input, tryPos, outerStops) || startsWithAny(input, ws, outerStops) {
+				break
+			}
+			np = parseElem(ws)
+			if np <= ws {
+				break
+			}
 		}
-		if seamType != "" {
-			if subG == nil {
-				break
-			}
-			sub := newSubByName(seamType)
-			if sub == nil {
-				break
-			}
-			np, ok := p.parseSeamInto(input, tryPos, sub, subG, outerStops)
-			if !ok {
-				break
-			}
-			a, aerr := anypb.New(sub.Interface())
-			if aerr != nil {
-				break
-			}
-			list.Append(protoreflect.ValueOfMessage(a.ProtoReflect()))
-			pos = np
-			continue
-		}
-		sub := newSub(fd.Message())
-		if sub == nil {
-			break
-		}
-		// A repeated SCALAR element (e.g. DasharrayType's lengths, ListOfNumbersType's
-		// numbers, a keyTimes number list) is captured directly: each element's
-		// prefix (if any) then its text up to the next separator or an outer stop.
-		if isScalar(fd.Message()) {
-			elemStops := outerStops
-			if sep != "" {
-				elemStops = append(append([]string(nil), outerStops...), sep)
-			}
-			t0 := p.terms
-			elemPos, ok := p.consumePrefix(input, tryPos, sub.Descriptor(), g)
-			if !ok {
-				p.terms = t0
-				break
-			}
-			start := p.skipWS(input, elemPos, g)
-			text, np := matchUntilAny(input, start, elemStops)
-			text, np = cutAtStopChars(text, np, start, g.ScalarStops["."+string(sub.Descriptor().FullName())])
-			if text = strings.TrimSpace(text); text == "" {
-				p.terms = t0
-				break
-			}
-			if vfd := sub.Descriptor().Fields().ByName("value"); vfd != nil {
-				sub.Set(vfd, protoreflect.ValueOfString(text))
-			}
-			list.Append(protoreflect.ValueOfMessage(sub))
-			pos = np
-			continue
-		}
-		np, err := p.parseMsg(input, tryPos, sub, g, outerStops)
-		if err != nil || np <= tryPos {
-			break
-		}
-		list.Append(protoreflect.ValueOfMessage(sub))
 		pos = np
 	}
 	return pos
 }
 
-// fieldStops returns the stop strings for field[i]: the leading terminals of all
-// later siblings (so a scalar/seam knows where to stop), plus inherited stops.
-func (p *parser) fieldStops(md protoreflect.MessageDescriptor, fieldIdx int, g *Grammar, outerStops []string) []string {
-	stops := append([]string(nil), outerStops...)
+// fieldStops returns the stop strings for field[i]: local — the leading
+// terminals of the later siblings in THIS message — and all, which adds the
+// inherited outer stops. Charset-bounded scalar captures honor only the local
+// stops (their charset is the true boundary; an ancestor's "/" delimiter must
+// not cut inside url(assets/photo.jpg)), while unbounded captures use all.
+func (p *parser) fieldStops(md protoreflect.MessageDescriptor, fieldIdx int, g *Grammar, outerStops []string) (all, local []string) {
+	stops := []string{}
 	fields := md.Fields()
 	var skipOneof protoreflect.OneofDescriptor
 	if fieldIdx < fields.Len() {
@@ -604,7 +815,7 @@ func (p *parser) fieldStops(md protoreflect.MessageDescriptor, fieldIdx int, g *
 			stops = append(stops, t)
 		}
 	}
-	return stops
+	return append(append([]string(nil), stops...), outerStops...), stops
 }
 
 // fieldLeadingTerminal returns the terminal a field necessarily begins with. For
@@ -640,15 +851,24 @@ func (p *parser) leadingTerminal(md protoreflect.MessageDescriptor, g *Grammar, 
 	if md.Fields().Len() > 0 {
 		fd := md.Fields().Get(0)
 		if od := fd.ContainingOneof(); od != nil {
+			// A oneof-fronted message has a usable leading terminal only when
+			// EVERY variant leads with the same one. Returning an arbitrary
+			// variant's lead would poison stop sets: a calc value oneof whose
+			// keyword arm starts with "e" would otherwise cut the scalar
+			// capture of "1em" in front of its own unit.
+			lead := ""
 			for i := 0; i < od.Fields().Len(); i++ {
 				vfd := od.Fields().Get(i)
-				if vfd.Kind() == protoreflect.MessageKind && !isAny(vfd.Message()) {
-					if t := p.leadingTerminal(vfd.Message(), g, seen); t != "" {
-						return t
-					}
+				if vfd.Kind() != protoreflect.MessageKind || isAny(vfd.Message()) {
+					return ""
 				}
+				t := p.leadingTerminal(vfd.Message(), g, seen)
+				if t == "" || (lead != "" && t != lead) {
+					return ""
+				}
+				lead = t
 			}
-			return ""
+			return lead
 		}
 		if fd.Kind() == protoreflect.MessageKind {
 			if isAny(fd.Message()) {

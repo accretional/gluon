@@ -28,7 +28,7 @@ func renderSubtree(reg *Registry, m protoreflect.Message, g *Grammar) (string, e
 	if err := collect(reg, m, g, &toks); err != nil {
 		return "", err
 	}
-	return join(toks, g.SmartSpacing), nil
+	return join(toks, g), nil
 }
 
 func collect(reg *Registry, m protoreflect.Message, g *Grammar, toks *[]string) error {
@@ -121,9 +121,11 @@ func renderAny(reg *Registry, m protoreflect.Message) (string, error) {
 }
 
 // join stitches tokens. Markup grammars concatenate (spacing is baked into the
-// terminals). CSS-style grammars join with convention-aware spacing.
-func join(toks []string, smart bool) string {
-	if !smart {
+// terminals). Smart-spacing grammars join with single spaces, suppressed at
+// boundaries the grammar's NoSpaceBefore/NoSpaceAfter token sets mark tight —
+// the policy comes from the registered Grammar, never from gluon.
+func join(toks []string, g *Grammar) string {
+	if !g.SmartSpacing {
 		return strings.Join(toks, "")
 	}
 	var b strings.Builder
@@ -135,26 +137,10 @@ func join(toks []string, smart bool) string {
 			b.WriteString(t)
 			continue
 		}
-		if !noSpaceBefore(t) && !noSpaceAfter(toks[i-1]) {
+		if !g.NoSpaceBefore[t] && !g.NoSpaceAfter[toks[i-1]] {
 			b.WriteByte(' ')
 		}
 		b.WriteString(t)
 	}
 	return b.String()
-}
-
-func noSpaceBefore(tok string) bool {
-	switch tok {
-	case ",", "(", ")", ";", ":", "/", ".", "]":
-		return true
-	}
-	return false
-}
-
-func noSpaceAfter(prev string) bool {
-	switch prev {
-	case "(", ":", "/", ".", "[", "!", "#", "@":
-		return true
-	}
-	return false
 }

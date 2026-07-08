@@ -119,11 +119,23 @@ func identifierize(s string) string {
 }
 
 func keywordMessageName(literal string) string {
-	return pascalCase(identifierize(literal)) + "Keyword"
+	return pascalCase(caseMarked(literal)) + "Keyword"
 }
 
 func fieldNameForKeyword(literal string) string {
-	return snakeCase(identifierize(literal)) + "_keyword"
+	return snakeCase(caseMarked(literal)) + "_keyword"
+}
+
+// caseMarked disambiguates literals whose identity lives in letter case:
+// pascalCase folds "h" and "H" into the same message name, so a grammar with
+// both (SVG path commands: M/m, H/h, …) had one keyword shadow the other and
+// the shadowed case could never parse. A single uppercase ASCII letter is
+// spelled out ("H" → capital_h → CapitalHKeyword) to keep the pair distinct.
+func caseMarked(s string) string {
+	if len(s) == 1 && s[0] >= 'A' && s[0] <= 'Z' {
+		return "capital_" + string(s[0]+'a'-'A')
+	}
+	return identifierize(s)
 }
 
 func sanitizePackage(s string) string {

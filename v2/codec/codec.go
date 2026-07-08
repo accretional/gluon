@@ -53,11 +53,43 @@ type Grammar struct {
 	// collapse erased — a custom_element_name stops at a space or quote, a CSS
 	// ident at ":" or "{" — instead of swallowing text up to a stop token.
 	ScalarStops map[string]string
-	// SmartSpacing selects the join/whitespace discipline. true = CSS-style
-	// (tokens joined with convention-aware spacing; whitespace insignificant on
-	// parse). false = markup (tokens concatenated; whitespace significant, as
-	// HTML/SVG bake spacing into terminals).
+	// ScalarStarts maps a scalarized leaf's ".pkg.Msg" to the printable ASCII
+	// characters its grammar rule can START with (the rule's first-set). A
+	// capture whose first character is outside the set fails: an angle may
+	// contain "," deep inside a folded var() arm, but can never begin with
+	// one, so an optional angle slot won't swallow a stray separator.
+	ScalarStarts map[string]string
+	// ScalarMust maps a scalarized leaf's ".pkg.Msg" to characters the rule
+	// REQUIRES somewhere inside the token (a mandatory mid-sequence terminal
+	// that scalarization folded away — a custom element name's "-"). A capture
+	// missing one of them fails.
+	ScalarMust map[string]string
+	// ScalarQuotes maps a scalarized leaf's ".pkg.Msg" to the characters that
+	// may open (and must close) it — a quote-DELIMITED leaf (a CSS string is
+	// `"…"` or `'…'`). The capture takes the whole literal inclusive of its
+	// quotes as one token; symmetric delimiters can't be modelled by stop
+	// tokens or spacing policy, but pairing them is plain lexing. Derived per
+	// grammar by its genproto from the rule's shape.
+	ScalarQuotes map[string]string
+	// SmartSpacing selects the join/whitespace discipline. true = token-style
+	// (tokens joined with single spaces; whitespace insignificant on parse).
+	// false = markup (tokens concatenated; whitespace significant, spacing
+	// baked into terminals).
 	SmartSpacing bool
+	// TokenWS (markup grammars): a terminal that fails to match retries once
+	// after skipping a whitespace run. Whitespace a grammar slot CAN hold (a
+	// text node between inline elements) is still captured verbatim — the
+	// retry only fires where nothing else claimed it (between <!DOCTYPE> and
+	// <html>, head metadata, element-only content models), which is exactly
+	// HTML's ignorable inter-element whitespace. Lost on re-render.
+	TokenWS bool
+	// NoSpaceBefore / NoSpaceAfter suppress the smart-spacing join space on
+	// one side of a token ("," hugs its left, "(" its right). This is
+	// per-grammar rendering convention SUPPLIED BY the grammar's service —
+	// gluon itself is grammar-agnostic and ships no token policy. Nil maps
+	// mean every token boundary gets a space.
+	NoSpaceBefore map[string]bool
+	NoSpaceAfter  map[string]bool
 }
 
 // Registry is the set of linked grammars. It is the "runtime linking" surface:
